@@ -3,6 +3,7 @@
  * These extend the API schemas with additional UI-specific fields and validations
  */
 import { z } from "zod";
+import { MAX_NAME_LENGTH, NAME_PATTERN, NAME_RULE_BROKEN, NAME_TOO_LONG } from "@/pages/stacks/lib/name-rule";
 import { join as shlexJoin, split as shlexSplit } from "shlex";
 import {
   ApiStackResourceSchema,
@@ -124,6 +125,19 @@ const _envRowsMatch: _AssertEnvRowsMatch = true;
 void _envRowsMatch;
 
 const FormStackResourceSchema = ApiStackResourceSchema.extend({
+  /**
+   * The name rule, checked HERE rather than only on the server.
+   *
+   * It was `min(1, "Required")` and nothing else, so `Web API` was accepted by
+   * the browser and rejected by the API — the round trip was what told you, and
+   * what it told you was a regular expression. Same charset and same cap as
+   * `pkg/validator`; see `lib/name-rule.ts` for how the two are held together.
+   */
+  name: z
+    .string()
+    .min(1, "Required")
+    .max(MAX_NAME_LENGTH, NAME_TOO_LONG)
+    .regex(NAME_PATTERN, NAME_RULE_BROKEN),
   // UI helper, not part of API spec for StackResource
   sourceType: z.enum(["image", "git"]).optional().default("image"),
   // UI helper fields for git revision, not part of API spec StackResource.

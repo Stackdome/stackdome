@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect } from 'storybook/test'
+import { expect, waitFor } from 'storybook/test'
 import { LayoutGrid, List, Rows3 } from 'lucide-react'
 import { SegmentedControl, type SegmentedControlOption } from './segmented-control'
 
@@ -172,53 +172,47 @@ export const SelectionIsInkNotOpacity: Story = {
   },
 }
 
-/** The one thing that makes a bordered segment inside a bordered track legible:
- *  the track has NO padding, so the two edges land on the same pixel instead of
- *  2px apart. At 2px the eye reads a doubled line rather than a raised surface. */
-export const EdgesCoincideRatherThanDoubling: Story = {
+/** **The gap IS the divider.** The track is a well with 2px of padding and no
+ *  line of its own, so the selected card floats inside it and there is nothing
+ *  left to double. This replaced a bordered strip whose segments ran flush to
+ *  the track's edge — that story asserted zero padding, which is now the fault
+ *  rather than the fix. */
+export const InsetCardInAWell: Story = {
   render: () => <Harness options={DENSITY} initial="compact" aria-label="Density" />,
   play: async ({ canvas }) => {
     const track = canvas.getByRole('radiogroup', { name: 'Density' })
     const first = canvas.getByRole('radio', { name: 'Compact' })
     const last = canvas.getByRole('radio', { name: 'Roomy' })
+    const ts = getComputedStyle(track)
 
+    // 2px on every side, and NO line — the fill change is the whole boundary.
     for (const side of ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'] as const) {
-      await expect(parseFloat(getComputedStyle(track)[side])).toBe(0)
+      await expect(parseFloat(ts[side])).toBe(2)
     }
+    await expect(parseFloat(ts.borderLeftWidth)).toBe(0)
 
-    // The selected segment at the left end sits flush inside the track's own
-    // border — one hairline between them, not two.
+    // The selected card is inset by that padding on all four sides — asserted
+    // as GAPS, not positions, because a position can be right while the space
+    // around it is wrong.
     const t = track.getBoundingClientRect()
     const f = first.getBoundingClientRect()
-    const border = parseFloat(getComputedStyle(track).borderLeftWidth)
-    await expect(Math.round(f.left - t.left)).toBe(Math.round(border))
-    await expect(Math.round(f.top - t.top)).toBe(Math.round(border))
+    await expect(Math.round(f.left - t.left)).toBe(2)
+    await expect(Math.round(f.top - t.top)).toBe(2)
+    await expect(Math.round(t.bottom - f.bottom)).toBe(2)
+    await expect(Math.round(t.right - last.getBoundingClientRect().right)).toBe(2)
 
-    // And the segments span the track edge to edge, leaving no track fill
-    // showing past the last one.
-    await expect(Math.round(t.right - last.getBoundingClientRect().right)).toBe(Math.round(border))
+    // No segment draws a rule any more; the selection is a fill and a lift.
+    for (const seg of [first, last]) {
+      await expect(parseFloat(getComputedStyle(seg).borderLeftWidth)).toBe(0)
+      await expect(parseFloat(getComputedStyle(seg).borderRightWidth)).toBe(0)
+    }
   },
 }
 
-/** A selected segment in the middle draws the divider with its own edge, so a
- *  separate rule can never end up doubled beside it. */
-export const SelectedSegmentDrawsTheDivider: Story = {
-  render: () => <Harness options={DENSITY} initial="cosy" aria-label="Density" />,
-  play: async ({ canvas }) => {
-    const middle = canvas.getByRole('radio', { name: 'Cosy' })
-    const edge = canvas.getByRole('radio', { name: 'Compact' })
-    const style = getComputedStyle(middle)
-
-    await expect(parseFloat(style.borderLeftWidth)).toBe(1)
-    await expect(parseFloat(style.borderRightWidth)).toBe(1)
-    // An unselected segment carries none — the divider belongs to the selection.
-    await expect(parseFloat(getComputedStyle(edge).borderLeftWidth)).toBe(0)
-  },
-}
-
-/** §8 — the track takes its own height's radius, and the SELECTED segment
- *  repeats it on the outer corners it owns. */
-export const RadiusTracksHeight: Story = {
+/** §8 — the track takes its own height's radius and the segment takes one rung
+ *  BELOW it. Concentric, not coincident: an inset face repeating its
+ *  container's corner reads as a fatter corner rather than a nested one. */
+export const RadiusIsConcentric: Story = {
   render: () => (
     <div className="flex items-center gap-4">
       <Harness options={DENSITY} initial="compact" size="sm" aria-label="Small" />
@@ -226,78 +220,120 @@ export const RadiusTracksHeight: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    const expected = { Small: [28, 6], Default: [32, 8] } as const
-    for (const [name, [height, radius]] of Object.entries(expected)) {
+    const expected = { Small: [28, 6, 4], Default: [32, 8, 6] } as const
+    for (const [name, [height, trackRadius, segRadius]] of Object.entries(expected)) {
       const track = canvas.getByRole('radiogroup', { name })
       const style = getComputedStyle(track)
       await expect(parseFloat(style.height)).toBe(height)
-      await expect(parseFloat(style.borderRadius)).toBe(radius)
-      await expect(style.overflow).toBe('hidden')
+      await expect(parseFloat(style.borderRadius)).toBe(trackRadius)
 
-      // `compact` is selected and it is the FIRST segment, so it owns the two
-      // left corners and neither right one. The track would clip them square
-      // either way — the segment carries its own so that its shadow follows
-      // the curve instead of cutting a corner across it.
+      // Every corner of the card is its own now — it touches no track edge.
       const segment = canvas.getAllByRole('radio').find((r) => track.contains(r))!
       const seg = getComputedStyle(segment)
-      await expect(parseFloat(seg.borderTopLeftRadius)).toBe(radius)
-      await expect(parseFloat(seg.borderBottomLeftRadius)).toBe(radius)
-      await expect(parseFloat(seg.borderTopRightRadius)).toBe(0)
-      await expect(parseFloat(seg.borderBottomRightRadius)).toBe(0)
+      for (const corner of ['borderTopLeftRadius','borderTopRightRadius','borderBottomLeftRadius','borderBottomRightRadius'] as const) {
+        await expect(parseFloat(seg[corner])).toBe(segRadius)
+      }
+      await expect(segRadius).toBeLessThan(trackRadius)
     }
+  },
+}
+
+/** Hover moves the INK and nothing else — the same rule the tabs follow. */
+export const HoverMovesTheInkOnly: Story = {
+  render: () => <Harness options={DENSITY} initial="compact" aria-label="Density" />,
+  play: async ({ canvas }) => {
+    const unselected = canvas.getByRole('radio', { name: 'Roomy' })
+    await expect(unselected.className).toContain('hover:text-foreground')
+    // No fill on approach, in any form.
+    await expect(unselected.className).not.toContain('hover:bg-')
+    await expect(getComputedStyle(unselected).backgroundColor).toBe('rgba(0, 0, 0, 0)')
   },
 }
 
 /**
- * **The selected segment is raised** — the one piece of content in the product
- * allowed an elevation (§5). It is a key sitting proud of a keyboard, not a
- * dialog floating over a page, and the track clips the shadow on three sides so
- * what you see is a lift along the divider and nothing else.
+ * **The raised face is a travelling INDICATOR, not the button.** The lift used
+ * to live on the selected segment, so switching turned one shadow off and
+ * another on in the same frame. One card behind the row, moved to the selected
+ * segment's box, is what carries you across (§5 — the one piece of content
+ * allowed an elevation).
  */
-export const SelectedSegmentIsRaised: Story = {
+export const SelectedFaceIsRaised: Story = {
   render: () => <Harness options={DENSITY} initial="cosy" aria-label="Density" />,
-  play: async ({ canvas }) => {
+  play: async ({ canvas, canvasElement }) => {
+    const track = canvas.getByRole('radiogroup', { name: 'Density' })
+    const face = canvasElement.querySelector<HTMLElement>('[data-slot="segment-indicator"]')!
     const selected = canvas.getByRole('radio', { name: 'Cosy' })
-    const unselected = canvas.getByRole('radio', { name: 'Compact' })
 
     // The lift is `shadow-sm` and nothing heavier — a raised face, not a float.
-    const shadow = getComputedStyle(selected).boxShadow
-    await expect(shadow).not.toBe('none')
-    await expect(getComputedStyle(unselected).boxShadow).toBe('none')
+    await expect(getComputedStyle(face).boxShadow).not.toBe('none')
+    // The buttons carry NO face of their own now; they own their ink only.
+    for (const name of ['Compact', 'Cosy', 'Roomy']) {
+      const seg = canvas.getByRole('radio', { name })
+      await expect(getComputedStyle(seg).boxShadow).toBe('none')
+      await expect(getComputedStyle(seg).backgroundColor).toBe('rgba(0, 0, 0, 0)')
+    }
 
-    // And the track clips it, so it can never spill onto the page.
-    const track = canvas.getByRole('radiogroup', { name: 'Density' })
-    await expect(getComputedStyle(track).overflow).toBe('hidden')
+    // The face is exactly the selected segment's box — asserted as agreement
+    // between two rects, not as a position either one happens to hold.
+    const f = face.getBoundingClientRect()
+    const sel = selected.getBoundingClientRect()
+    await expect(Math.round(f.left)).toBe(Math.round(sel.left))
+    await expect(Math.round(f.width)).toBe(Math.round(sel.width))
+
+    // And it is inset by the well's own 2px, top and bottom.
+    const t = track.getBoundingClientRect()
+    await expect(Math.round(f.top - t.top)).toBe(2)
+    await expect(Math.round(t.bottom - f.bottom)).toBe(2)
   },
 }
 
-/** The selected segment is the sheet's own white, and the track sits just
- *  behind it — a step, not a well. A darker track under a white segment would
- *  make the unselected side look switched off. */
-export const SelectedSegmentComesForward: Story = {
+/** **It travels; it does not blink.** `transform` and `width` only — never
+ *  `all`, which would sweep up the colour change and cost a paint per frame —
+ *  and nothing animates on first paint. */
+export const SelectionTravels: Story = {
   render: () => <Harness options={DENSITY} initial="compact" aria-label="Density" />,
-  play: async ({ canvas }) => {
-    const luminance = (rgb: string) => {
-      const [r, g, b] = rgb.match(/\d+/g)!.map(Number)
-      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+  play: async ({ canvas, canvasElement }) => {
+    const face = canvasElement.querySelector<HTMLElement>('[data-slot="segment-indicator"]')!
+    const x = () => new DOMMatrix(getComputedStyle(face).transform).m41
+
+    // The transition is withheld until after the first paint — that is the
+    // point of `armed`, so opening a screen does not slide the face in from the
+    // left. So wait for it to arm rather than reading it on frame one.
+    await waitFor(async () => {
+      const props = getComputedStyle(face).transitionProperty
+      await expect(props).toContain('transform')
+      await expect(props).toContain('width')
+      await expect(props).not.toContain('all')
+    })
+
+    const start = x()
+    canvas.getByRole('radio', { name: 'Roomy' }).click()
+
+    // It must pass THROUGH the gap, not jump it. A jump would satisfy any
+    // start/end assertion, which is why the midpoint is the one that matters.
+    let interpolated = false
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 40))
+      const v = x()
+      if (v > Math.min(start, x()) && Math.abs(v - start) > 1) interpolated = true
     }
-    // Resolve --card through a real element so the value comes back as rgb()
-    // in whichever theme is live, rather than as the raw hex in the token.
-    const probe = document.createElement('div')
-    probe.className = 'bg-card'
-    document.body.appendChild(probe)
-    const sheet = luminance(getComputedStyle(probe).backgroundColor)
-    probe.remove()
+    await new Promise((r) => setTimeout(r, 260))
+    await expect(Math.abs(x() - start)).toBeGreaterThan(1)
+    await expect(interpolated).toBe(true)
+  },
+}
 
-    const track = luminance(
-      getComputedStyle(canvas.getByRole('radiogroup', { name: 'Density' })).backgroundColor,
-    )
-    const thumb = luminance(
-      getComputedStyle(canvas.getByRole('radio', { name: 'Compact' })).backgroundColor,
-    )
-
-    // The selected segment is nearer the sheet than the track is, in both
-    // themes — the step must not invert when the palette does.
-    await expect(Math.abs(thumb - sheet)).toBeLessThan(Math.abs(track - sheet))
+/** Icon-only segments are SQUARE — 28 inside the 32px control's 2px well. A
+ *  lone glyph with horizontal padding makes a squat rectangle instead. */
+export const IconOnlySegmentsAreSquare: Story = {
+  render: () => <Harness options={VIEWS} initial="list" aria-label="View" />,
+  play: async ({ canvas }) => {
+    const track = canvas.getByRole('radiogroup', { name: 'View' })
+    await expect(Math.round(track.getBoundingClientRect().height)).toBe(32)
+    for (const seg of canvas.getAllByRole('radio')) {
+      const r = seg.getBoundingClientRect()
+      await expect(Math.round(r.width)).toBe(28)
+      await expect(Math.round(r.height)).toBe(28)
+    }
   },
 }

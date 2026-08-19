@@ -2,10 +2,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { HeaderCollapseContext } from "@/pages/stacks/lib/canvas/header-collapse";
 import { CanvasControls } from "../canvas-controls";
 
 afterEach(cleanup);
@@ -24,56 +22,67 @@ window.matchMedia ??= ((query: string) => ({
 
 function Harness({
   onAutoLayout = () => {},
-  initialCollapsed = false,
+  showConnections = true,
 }: {
   onAutoLayout?: () => void;
-  initialCollapsed?: boolean;
+  showConnections?: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState(initialCollapsed);
   return (
     <SidebarProvider>
-      <HeaderCollapseContext.Provider value={{ collapsed, setCollapsed }}>
-        <ReactFlowProvider>
-          <CanvasControls showConnections onToggleConnections={() => {}} onAutoLayout={onAutoLayout} />
-        </ReactFlowProvider>
-      </HeaderCollapseContext.Provider>
+      <ReactFlowProvider>
+        <CanvasControls
+          showConnections={showConnections}
+          onToggleConnections={() => {}}
+          onAutoLayout={onAutoLayout}
+        >
+          <button type="button">Add resource</button>
+        </CanvasControls>
+      </ReactFlowProvider>
     </SidebarProvider>
   );
 }
 
 describe("CanvasControls", () => {
-  it("groups auto layout with zen mode and keeps connections as the last control", () => {
+  // **The grouping is the design, so it is the test.** Three islands sorted by
+  // what each acts on — the viewport, the drawing, the stack's contents. The
+  // previous assertion ("connections is the panel's last control") described a
+  // single bar that no longer exists, and it would still pass against any
+  // arrangement that happened to put the toggle last.
+  it("sorts the controls into three islands by what each acts on", () => {
     render(<Harness />);
-    const zen = screen.getByRole("button", { name: "Zen mode" });
-    const layout = screen.getByRole("button", { name: "Auto layout" });
-    // Same pill: shared bordered parent.
-    expect(layout.parentElement).toBe(zen.parentElement);
-    // Connections toggle is the panel's last control.
-    const panel = screen.getByRole("button", { name: "Hide connections" }).parentElement!;
-    expect(panel.lastElementChild).toBe(screen.getByRole("button", { name: "Hide connections" }));
+    const row = screen.getByRole("button", { name: "Zoom out" }).closest("div")!.parentElement!;
+    const islands = [...row.children];
+    expect(islands).toHaveLength(3);
+
+    const labels = islands.map((i) =>
+      [...i.querySelectorAll("button")].map((b) => b.getAttribute("aria-label") ?? b.textContent),
+    );
+    expect(labels[0]).toEqual(["Zoom out", "Reset zoom to 100%", "Zoom in"]);
+    expect(labels[1]).toEqual(["Auto layout", "Hide connections"]);
+    expect(labels[2]).toEqual(["Add resource"]);
   });
 
-  it("toggles zen mode via Cmd+.", () => {
+  // The readout is the only route back to 1:1 now that `Fit to view` is gone —
+  // so it has to be a button with a name, not a number.
+  it("reports the zoom level as the reset control", () => {
     render(<Harness />);
-    fireEvent.keyDown(window, { key: ".", metaKey: true });
-    expect(screen.getByRole("button", { name: "Exit zen mode" })).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: ".", metaKey: true });
-    expect(screen.getByRole("button", { name: "Zen mode" })).toBeInTheDocument();
+    const readout = screen.getByRole("button", { name: "Reset zoom to 100%" });
+    expect(readout).toHaveTextContent("100%");
   });
 
-  it("zen button click collapses header and closes sidebar together", () => {
-    render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Zen mode" }));
-    expect(screen.getByRole("button", { name: "Exit zen mode" })).toHaveAttribute("aria-pressed", "true");
-  });
+  // Hover is 4% and selected is 6% (§4). They were both 6%, which made a button
+  // under the pointer indistinguishable from the toggle that was on — so the
+  // pressed state has to come from a class, not from `:hover`.
+  it("gives the connections toggle a resting face only when it is on", () => {
+    const { rerender } = render(<Harness />);
+    expect(screen.getByRole("button", { name: "Hide connections" }).className).toContain(
+      "wash-selected",
+    );
 
-  it("exits zen in one click from a mixed state (header collapsed, sidebar open)", () => {
-    // Collapsed header persisted across a reload while the sidebar came back
-    // open (its own cookie): the button must offer exit, not re-entry.
-    render(<Harness initialCollapsed />);
-    const exit = screen.getByRole("button", { name: "Exit zen mode" });
-    fireEvent.click(exit);
-    expect(screen.getByRole("button", { name: "Zen mode" })).toBeInTheDocument();
+    rerender(<Harness showConnections={false} />);
+    const off = screen.getByRole("button", { name: "Show connections" });
+    expect(off.className).not.toContain("wash-selected");
+    expect(off.className).toContain("wash-hover");
   });
 
   it("auto layout button fires the callback", () => {

@@ -84,7 +84,7 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
     <Dialog open={env != null} onOpenChange={onOpenChange}>
       <DialogContent size="ask">
         <DialogHeader>
-          <DialogTitle>Sync preview environment</DialogTitle>
+          <DialogTitle>Sync this preview</DialogTitle>
           <DialogDescription>
             Re-resolves {env?.branch} and redeploys PR #{env?.pr_number} at its
             latest commit.
@@ -92,7 +92,7 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
         </DialogHeader>
         <div className="space-y-4">
           <FieldShell
-            label="Pin to a specific commit (optional)"
+            label="Pin to a specific commit"
             htmlFor="sync-commit"
             hint="Leave empty to use the branch's latest commit."
             error={fieldErrors.commit}
@@ -110,10 +110,15 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
             />
           </FieldShell>
           {/*
-            "Force sync" uses a Switch rather than a Checkbox: @/components/ui/checkbox
-            does not exist in this codebase and no @radix-ui/react-checkbox dependency is
-            installed. Switch is the codebase's existing sanctioned primitive for a
-            single boolean toggle (see add-cluster-dialog.tsx).
+            "Force sync" uses a Switch rather than a Checkbox: Switch is the product's
+            primitive for a single boolean setting.
+
+            **This row is a hand-rolled `FieldShell inline`** — the `mt-0.5` nudge and
+            all, which is the exact shape `Add cluster` was converted off on
+            16 Aug 2026 (see `add-cluster-drawer.tsx`). It is deliberately left here:
+            this screen is `Repository settings`, one of the three edit-dialogs still
+            awaiting a surface call in `docs/tasks.md`, and it should move once rather
+            than twice.
           */}
           <div className="flex items-start gap-3">
             <Switch id="sync-force" checked={force} onCheckedChange={setForce} className="mt-0.5" />
@@ -133,7 +138,7 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
 
           {advanced && (
             <div className="space-y-4">
-              <FieldShell label="Stackfile content (optional)" htmlFor="sync-stackfile">
+              <FieldShell label="Stackfile content" htmlFor="sync-stackfile">
                 <Textarea
                   id="sync-stackfile"
                   rows={6}
@@ -144,7 +149,7 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
                 />
               </FieldShell>
               <FieldShell
-                label="Image overrides (optional)"
+                label="Image overrides"
                 htmlFor="sync-overrides"
                 error={fieldErrors.overridesText}
               >

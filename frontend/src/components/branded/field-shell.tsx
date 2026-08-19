@@ -83,7 +83,23 @@ export function FieldShell({
     </Label>
   );
 
-  const hintNode = hint && (
+  // `text-wrap: pretty` was tried here when the addon drawer came down to 480
+  // and a hint broke to leave `number.` alone. **Measured: it changed nothing**
+  // — Chromium's orphan avoidance is a hint, not a guarantee, and on a two-line
+  // paragraph it declines to reflow. Removed rather than shipped as a no-op.
+  // §8's answer stands: shorten the copy.
+  //
+  // **The error REPLACES the hint; the two are never on screen together.**
+  //
+  // Where a field has a rule, the error is that same rule in the imperative —
+  // "Lowercase letters, numbers and hyphens." becomes "Use lowercase letters,
+  // numbers and hyphens." Rendered together they are the sentence twice, in two
+  // moods, and the form grows a line at the moment you are trying to fix it.
+  //
+  // Where the two say different things the error is still the one that matters:
+  // it is about what you just did, and the hint will be back the moment the
+  // field is valid again. Nothing is lost, only deferred.
+  const hintNode = hint && !error && (
     <p className="text-meta text-muted-foreground leading-relaxed">{hint}</p>
   );
 

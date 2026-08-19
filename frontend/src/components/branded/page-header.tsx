@@ -5,6 +5,16 @@ interface PageHeaderProps {
   eyebrow?: React.ReactNode;
   title?: React.ReactNode;
   status?: React.ReactNode;
+  /**
+   * A fact that belongs to the **title**, not to the row — portals in 12px
+   * after the breadcrumb instead of into the far right.
+   *
+   * `status` is the right slot and stays that way: `20 stacks` describes what
+   * the page is showing and belongs with the tools that change it. A DETAIL
+   * page's status describes the object the title names, and 1200px away from
+   * that name it has nothing to attach to.
+   */
+  identity?: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
   /**
@@ -43,14 +53,20 @@ interface PageHeaderProps {
  * them in the page body is what left the Stacks filters 20px further in than
  * the title above them.
  */
-export function PageHeader({ status, actions, toolbar }: PageHeaderProps) {
-  const [slots, setSlots] = useState<{ actions: HTMLElement | null; toolbar: HTMLElement | null }>({
+export function PageHeader({ status, identity, actions, toolbar }: PageHeaderProps) {
+  const [slots, setSlots] = useState<{
+    identity: HTMLElement | null;
+    actions: HTMLElement | null;
+    toolbar: HTMLElement | null;
+  }>({
+    identity: null,
     actions: null,
     toolbar: null,
   });
 
   useEffect(() => {
     setSlots({
+      identity: document.getElementById("sheet-identity"),
       actions: document.getElementById("topnav-actions"),
       toolbar: document.getElementById("sheet-toolbar"),
     });
@@ -58,6 +74,7 @@ export function PageHeader({ status, actions, toolbar }: PageHeaderProps) {
 
   return (
     <>
+      {slots.identity && identity && createPortal(identity, slots.identity)}
       {slots.actions &&
         (status || actions) &&
         createPortal(

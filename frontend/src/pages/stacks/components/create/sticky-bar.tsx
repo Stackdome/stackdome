@@ -36,17 +36,27 @@ import { cn } from "@/lib/utils"
 export function StickyBar({
   children,
   className,
+  /**
+   * The dissolve is for a bar with a LIST sliding under it. A bar that pins
+   * over a short form has nothing to slice, and the 8px fade there reads as a
+   * smudge under the control rather than an edge. Off, the bar still pins —
+   * it just stops drawing a boundary that nothing crosses.
+   */
+  dissolve = true,
 }: {
   children: ReactNode
   className?: string
+  dissolve?: boolean
 }) {
   return (
     <div className={cn("bg-card sticky -top-5 z-10 -mt-5 pt-5", className)}>
       {children}
-      <div
-        aria-hidden
-        className="from-card pointer-events-none -mb-2 h-2 bg-gradient-to-b to-transparent"
-      />
+      {dissolve && (
+        <div
+          aria-hidden
+          className="from-card pointer-events-none -mb-2 h-2 bg-gradient-to-b to-transparent"
+        />
+      )}
     </div>
   )
 }

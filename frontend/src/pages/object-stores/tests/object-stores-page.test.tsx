@@ -38,8 +38,8 @@ vi.mock("@/hooks/use-current-user", () => ({
   useCurrentUser: () => ({ canWrite: () => true, canWriteAnyProject: true }),
 }));
 
-vi.mock("../components/object-store-form-dialog", () => ({
-  ObjectStoreFormDialog: () => null,
+vi.mock("../components/object-store-form-drawer", () => ({
+  ObjectStoreFormDrawer: () => null,
 }));
 
 vi.mock("@/hooks/use-object-stores", () => ({

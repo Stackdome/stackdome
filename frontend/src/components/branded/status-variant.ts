@@ -100,7 +100,18 @@ export function statusVariant(domain: StatusDomain, state?: string | null): Stat
           return "pending";
         case "healthy":
           return "ready";
+        // **Degraded is amber, not red** — settled on the Shape + Hierarchy
+        // board, frame 740:20191. It is the one word in this vocabulary that
+        // means *serving, but not fully*: the stack is answering requests and
+        // some replicas are not. Red is for `Unavailable` and `Failed`, which
+        // both mean nothing is being served — and flattening the three into one
+        // hue threw away the distinction that decides whether you page someone.
+        //
+        // The `health` domain below has always mapped it this way. Two maps for
+        // one word disagreed, and the stacks list and the editor header showed
+        // the same stack in two colours.
         case "degraded":
+          return "pending";
         case "unavailable":
         case "failed":
           return "error";

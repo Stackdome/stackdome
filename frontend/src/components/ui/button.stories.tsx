@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect } from 'storybook/test'
+import { expect, fn } from 'storybook/test'
 import { Plus } from 'lucide-react'
 import { Button } from './button'
 
@@ -230,7 +230,10 @@ export const DisabledContract: Story = {
       // loses its corner reads as a rendering fault rather than a refusal.
       await expect(parseFloat(style.borderRadius)).toBe(8)
       // No press travel — depth exists only while you are touching it (§6).
-      await expect(style.boxShadow).toBe('none')
+      // `outline` rests as a CARD now, so it legitimately carries
+      // `elevation/sm`. What a disabled button must never show is the press
+      // recess, which is an INSET shadow.
+      await expect(style.boxShadow).not.toContain('inset')
     }
   },
 }
@@ -352,5 +355,74 @@ export const CssCheck: Story = {
     const expected = getComputedStyle(probe).color
     probe.remove()
     await expect(getComputedStyle(button).backgroundColor).toBe(expected)
+  },
+}
+
+/**
+ * **The shortcut is one string, and it does three jobs** — it draws the cap,
+ * fills `aria-keyshortcuts`, and binds the listener. Before this, a call site
+ * wrote a `<kbd>` by hand next to its own `window.addEventListener`: the same
+ * fact twice, with nothing to keep the two in step.
+ */
+export const WithShortcut: Story = {
+  args: { children: 'Deploy', shortcut: 'mod+enter' },
+  play: async ({ canvas }) => {
+    const btn = canvas.getByRole('button')
+    // The cap is decorative — the accessible name must stay the verb alone.
+    await expect(btn).toHaveAccessibleName('Deploy')
+    await expect(btn.getAttribute('aria-keyshortcuts')).toMatch(/\+Enter$/)
+  },
+}
+
+/** Pressing the keys does exactly what clicking does — one path into the
+ *  action, so a shortcut can never do something the click cannot. */
+export const ShortcutFires: Story = {
+  args: { children: 'Deploy', shortcut: 'mod+enter', onClick: fn() },
+  play: async ({ canvas, args }) => {
+    canvas.getByRole('button')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true }))
+    await expect(args.onClick).toHaveBeenCalled()
+  },
+}
+
+/** **Ctrl works too, on every platform.** `mod` draws ⌘ on a Mac, but a Mac
+ *  user on an external PC keyboard reaches for Ctrl and refusing it is a bug
+ *  they cannot report. */
+export const ShortcutAcceptsEitherModifier: Story = {
+  args: { children: 'Deploy', shortcut: 'mod+enter', onClick: fn() },
+  play: async ({ canvas, args }) => {
+    canvas.getByRole('button')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }))
+    await expect(args.onClick).toHaveBeenCalled()
+  },
+}
+
+/** A bare Enter is NOT the shortcut — it belongs to whatever has focus. */
+export const ShortcutNeedsItsModifier: Story = {
+  args: { children: 'Deploy', shortcut: 'mod+enter', onClick: fn() },
+  play: async ({ canvas, args }) => {
+    canvas.getByRole('button')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await expect(args.onClick).not.toHaveBeenCalled()
+  },
+}
+
+/** **A disabled button's keystroke does nothing either.** The binding is
+ *  skipped while disabled or loading, so the key can never outrun the click. */
+export const ShortcutIsInertWhenDisabled: Story = {
+  args: { children: 'Deploy', shortcut: 'mod+enter', disabled: true, onClick: fn() },
+  play: async ({ canvas, args }) => {
+    canvas.getByRole('button')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true }))
+    await expect(args.onClick).not.toHaveBeenCalled()
+  },
+}
+
+/** The cap goes while it works: a button already running has nothing to invite. */
+export const ShortcutHiddenWhileLoading: Story = {
+  args: { children: 'Deploy', shortcut: 'mod+enter', loading: true, loadingText: 'Deploying' },
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByText('Deploy')).toBeNull()
+    await expect(document.querySelector('[data-slot="kbd"]')).toBeNull()
   },
 }

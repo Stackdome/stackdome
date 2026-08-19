@@ -1,12 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { DrawerActions, DrawerBody, DrawerFooter, DrawerHeader, DrawerRegion } from "@/components/ui/drawer";
 import { X, ScrollText, Trash2 } from "lucide-react";
 import { useSecrets } from "@/pages/stacks/hooks/use-secrets";
 import { usePostgresAddons } from "@/hooks/use-postgres-addons";
 import type { PostgresAddon } from "@/api/addons";
 import type { ReleaseLiveStatus } from "@/api/releases";
-import type { UseStackEditSession, EditSessionTab } from "@/pages/stacks/hooks/use-stack-edit-session";
+import type { UseStackEditSession } from "@/pages/stacks/hooks/use-stack-edit-session";
 import type { FormStackResourceData, FormVolumeExtendedData } from "@/pages/stacks/schemas/form-schema";
 import { StackResourceConfigurationTab } from "@/pages/stacks/components/editor/tabs/architecture/drawer-tabs/configuration-tab";
 import { StackResourceDeploymentTab } from "@/pages/stacks/components/editor/tabs/architecture/drawer-tabs/deployment-tab";
@@ -17,14 +17,6 @@ import { EndpointInlineList, type EndpointUrl } from "@/pages/stacks/components/
 import { deriveResourceOutputNames } from "@/pages/stacks/lib/derive-resource-outputs";
 import { renameResourceReferences } from "@/pages/stacks/lib/rename-references";
 import { NodeGlyph } from "./nodes/node-glyph";
-
-/** Radix tab values used by the sub-tab components (they render their own TabsContent). */
-const TAB_VALUE = { configuration: "general", deployment: "deployment", environment: "environment" } as const;
-const TAB_FROM_VALUE: Record<string, EditSessionTab> = {
-  general: "configuration",
-  deployment: "deployment",
-  environment: "environment",
-};
 
 interface ResourceDrawerProps {
   /** Index into `session.draft.resources` of the resource being configured. */
@@ -161,18 +153,6 @@ export function ResourceDrawer({
       },
     });
 
-  // Controlled tab: driven by session.openTab so a banner "jump to error" can
-  // switch to the tab holding the offending field even while the drawer is open.
-  // The read-only view keeps its own tab state — session.setOpenTab no-ops when
-  // no session is active (read-only viewers), and the live drawer must not
-  // steer the draft drawer's tab anyway.
-  const [localTab, setLocalTab] = useState<string>(TAB_VALUE.configuration);
-  const activeTab = readOnly
-    ? localTab
-    : session.openTab
-      ? TAB_VALUE[session.openTab]
-      : TAB_VALUE.configuration;
-
   // Kind glyph + summary sub-line, derived the same way the node card is.
   const pres = useMemo(
     () =>
@@ -192,117 +172,100 @@ export function ResourceDrawer({
   // "N changes" counts the dirty sub-tabs (config / deployment / environment).
   const changeCount = [dirtyTabs.configuration, dirtyTabs.deployment, dirtyTabs.environment].filter(Boolean).length;
 
-  const tabTriggerClass =
-    "flex-none rounded-none border-0 border-b-[1.5px] border-transparent bg-transparent px-[13px] py-3 text-body font-medium text-fg-muted hover:text-fg-2 data-[state=active]:border-b-brand data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none";
+  const name = resource.name || `Resource ${resourceIndex + 1}`;
 
   return (
-    <div
-      className="flex h-full w-full flex-col bg-background"
-      data-testid="resource-drawer"
-    >
-      {/* Header */}
-      <div className="flex flex-none items-center gap-3 border-b border-border px-4 py-[15px]">
-        <span className={`size-[9px] shrink-0 rounded-full ${statusDotColor}`} aria-hidden />
-        <NodeGlyph glyph={pres.glyph} className="size-[19px] shrink-0 text-brand" />
-        <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate text-base font-medium text-foreground">
-            {resource.name || `Resource ${resourceIndex + 1}`}
-          </div>
-          <div className="truncate font-mono text-label text-fg-muted">{pres.summary}</div>
-          {publicUrls && publicUrls.length > 0 && (
-            <EndpointInlineList service={resource.name || "resource"} urls={publicUrls} />
-          )}
-        </div>
-        {readOnly && (
-          <span className="shrink-0 rounded-md border border-border px-2 py-0.5 font-mono text-[9px] font-medium text-fg-muted">
-            Live · read-only
+    <DrawerRegion aria-label={`Resource ${name}`} data-testid="resource-drawer">
+      <DrawerHeader
+        leading={<NodeGlyph glyph={pres.glyph} className="size-4 flex-none text-fg-muted" />}
+        title={
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate">{name}</span>
+            {/* Legal alone only because the summary line under it says the word
+                (§7). The dot is the fast read, never the only one. */}
+            <span className={`size-1.5 flex-none rounded-full ${statusDotColor}`} aria-hidden />
           </span>
-        )}
-        {isDirty ? (
-          <span className="flex shrink-0 items-center gap-1 rounded-md border border-brand pl-2 pr-1 py-0.5 text-label font-medium text-brand">
-            {changeCount === 1 ? "1 change" : `${changeCount} changes`}
-            <button
-              type="button"
-              onClick={() => session.discardResource(resourceIndex)}
-              aria-label="Discard changes to this resource"
-              title="Discard changes"
-              className="flex size-4 items-center justify-center rounded-sm hover:bg-brand hover:text-background"
-            >
-              <X className="size-3" />
-            </button>
+        }
+        trailing={
+          readOnly ? (
+            <span className="flex-none text-meta text-fg-muted">Live · read-only</span>
+          ) : isDirty ? (
+            <span className="flex flex-none items-center gap-1 rounded-md border border-brand py-0.5 pl-2 pr-1 text-meta font-medium text-brand">
+              {changeCount === 1 ? "1 change" : `${changeCount} changes`}
+              <button
+                type="button"
+                onClick={() => session.discardResource(resourceIndex)}
+                aria-label="Discard changes to this resource"
+                title="Discard changes"
+                className="flex size-4 items-center justify-center rounded-sm hover:bg-brand hover:text-background"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ) : (
+            <span className="flex-none text-meta text-fg-muted">{pres.kindLabel}</span>
+          )
+        }
+        description={
+          <span className="block truncate">
+            {pres.summary}
+            {publicUrls && publicUrls.length > 0 && (
+              <EndpointInlineList service={resource.name || "resource"} urls={publicUrls} />
+            )}
           </span>
-        ) : (
-          <span className="shrink-0 font-mono text-[9px] text-fg-muted">
-            {pres.kindLabel}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="shrink-0 rounded p-1 text-fg-muted hover:bg-muted hover:text-foreground"
-        >
-          <X className="size-[18px]" />
-        </button>
-      </div>
+        }
+        onClose={onClose}
+      />
 
-      {/* Tabs */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => (readOnly ? setLocalTab(v) : session.setOpenTab(TAB_FROM_VALUE[v] ?? "configuration"))}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        <TabsList className="h-auto w-full flex-none justify-start gap-1 rounded-none border-b border-border bg-transparent p-0 px-1">
-          <TabsTrigger value={TAB_VALUE.configuration} className={tabTriggerClass}>
-            Configuration
-            {dirtyTabs.configuration && <span aria-hidden className="ml-1.5 inline-block size-1.5 rounded-full bg-brand" />}
-          </TabsTrigger>
-          <TabsTrigger value={TAB_VALUE.deployment} className={tabTriggerClass}>
-            Deployment
-            {dirtyTabs.deployment && <span aria-hidden className="ml-1.5 inline-block size-1.5 rounded-full bg-brand" />}
-          </TabsTrigger>
-          <TabsTrigger value={TAB_VALUE.environment} className={tabTriggerClass}>
-            Environment
-            {dirtyTabs.environment && <span aria-hidden className="ml-1.5 inline-block size-1.5 rounded-full bg-brand" />}
-          </TabsTrigger>
-        </TabsList>
-
-        {/* One disabled fieldset covers every native input and Radix
-            button-based control across all three tabs — read-only without
-            threading a flag through each field. */}
-        <fieldset disabled={readOnly} className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4">
+      {/**
+        * **Eight sections in one scroll, not three tabs.**
+        *
+        * `Configuration ǀ Deployment ǀ Environment` put a four-field group at
+        * the same rung as a fourteen-field one, and made you click to find out
+        * which. Label-above halves the height of a row, which is what paid for
+        * the tabs in the first place — so the whole object fits one column and
+        * the sections do the ranking that the tab bar was pretending to do.
+        *
+        * One disabled fieldset covers every native input and Radix
+        * button-based control at once — read-only without threading a flag
+        * through each field. `min-w-0` because a fieldset defaults to
+        * `min-content` width, which at 480 lets one long value push the
+        * sections past the seam.
+        */}
+      <DrawerBody className="gap-0">
+        <fieldset disabled={readOnly} className="min-w-0">
           <StackResourceConfigurationTab {...configurationProps} />
           <StackResourceDeploymentTab {...deploymentProps} />
           <StackResourceEnvironmentTab {...environmentProps} />
         </fieldset>
-      </Tabs>
-
-      {/* Footer */}
-      <div className="flex flex-none items-center justify-between border-t border-border px-4 py-[11px]">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1.5 px-2 text-meta text-fg-muted hover:bg-foreground/5 hover:text-foreground"
-          disabled={!onViewLogs}
-          onClick={() => onViewLogs?.(resource.name)}
+      </DrawerBody>
+      <DrawerFooter>
+        <DrawerActions
+          leading={
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={!onViewLogs}
+              onClick={() => onViewLogs?.(resource.name)}
+            >
+              <ScrollText aria-hidden />
+              View logs
+            </Button>
+          }
         >
-          <ScrollText className="size-3.5" />
-          View logs
-        </Button>
-        {!readOnly && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 px-2 text-meta text-danger hover:bg-danger-bg hover:text-danger"
-            onClick={() => onRemove(resourceIndex)}
-          >
-            <Trash2 className="size-3.5" />
-            Remove resource
-          </Button>
-        )}
-      </div>
-    </div>
+          {!readOnly && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-danger hover:bg-danger-bg"
+              onClick={() => onRemove(resourceIndex)}
+            >
+              <Trash2 aria-hidden />
+              Remove resource
+            </Button>
+          )}
+        </DrawerActions>
+      </DrawerFooter>
+    </DrawerRegion>
   );
 }

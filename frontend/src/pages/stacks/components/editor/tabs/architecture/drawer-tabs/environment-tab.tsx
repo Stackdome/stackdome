@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import { TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,7 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { AlertBanner, FieldShell } from "@/components/branded";
+import { AlertBanner, FieldShell, FormSection } from "@/components/branded";
 import { Plus, Plug, X, Upload, FileText, Copy } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { envRowsDiff } from "@/pages/stacks/lib/stack-diff";
@@ -212,22 +211,23 @@ function StackResourceEnvironmentTabImpl({
 
   // Design ghost chip: mono 11px bordered pill, hover swings to brand.
   const ghostChip =
-    "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 font-mono text-label text-muted-foreground transition-colors hover:border-brand hover:text-brand disabled:pointer-events-none disabled:opacity-50";
+    "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-label text-muted-foreground transition-colors hover:border-brand hover:text-brand disabled:pointer-events-none disabled:opacity-50";
+
+  // What the closed section reports — a section that hides a list and does not
+  // say how long it is forces you to open it to find out.
+  const count = (envVars || []).length;
+  const envState = count === 0 ? "none" : `${count} ${count === 1 ? "variable" : "variables"}`;
 
   return (
-    <TabsContent value="environment" className="pt-4">
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-meta text-muted-foreground">
-          Environment{" "}
-            <span className="font-mono text-muted-foreground/70">
-            · {(envVars || []).length} variables
-            </span>
-          </span>
+    <FormSection label="Environment" state={envState}>
+      {/* 8, not 16: the header row, the list, its note and its add button are
+          one subject, not four things in a column. */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-end">
           <div className="flex gap-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 font-mono text-label text-muted-foreground transition-colors hover:border-danger hover:text-danger disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-label text-muted-foreground transition-colors hover:border-danger hover:text-danger disabled:pointer-events-none disabled:opacity-50"
               onClick={() => {
                 if (envVars?.length) {
                   onChangeEnvVars([]);
@@ -538,7 +538,7 @@ function StackResourceEnvironmentTabImpl({
                     data-testid="env-addon-group"
                   >
                     <div className="absolute -top-3.5 left-3 inline-flex items-center gap-2 rounded-md bg-background px-1.5 py-0.5">
-                      <span className="inline-flex items-center gap-1.5 font-mono text-[9.5px] font-semibold text-foreground/80">
+                      <span className="inline-flex items-center gap-1.5 text-[9.5px] font-semibold text-foreground/80">
                         <Plug className="size-3" />
                         Addon
                       </span>
@@ -613,7 +613,7 @@ function StackResourceEnvironmentTabImpl({
                               </SelectContent>
                             </Select>
                           ) : (
-                            <span className="font-mono text-label text-muted-foreground">
+                            <span className="text-label text-muted-foreground">
                           db: {db || databases[0]?.name || "—"}
                             </span>
                           )}
@@ -631,7 +631,7 @@ function StackResourceEnvironmentTabImpl({
           );
         })()}
       </div>
-    </TabsContent>
+    </FormSection>
   );
 }
 

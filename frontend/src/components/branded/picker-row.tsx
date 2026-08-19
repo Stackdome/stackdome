@@ -121,11 +121,14 @@ export function PickerRow({
         // ours are the scale's 16, so 4 is what lands the rung on exactly 40.
         dense ? "min-h-10 gap-[9px] px-2 py-1" : "min-h-14 gap-3 px-3 py-2",
         // Branched, never stacked as `hover:` variants — a selected row being
-        // hovered matches both and which wins is not predictable (§4).
+        // hovered matches both and which wins is not predictable (§4). And a
+        // selected row no longer answers the pointer at all: selection says
+        // where you are, hover offers where you could go, and a row that is
+        // already the answer has nothing to offer.
         blocked
           ? ""
           : selected
-            ? "bg-[var(--wash-selected)] hover:bg-[var(--wash-selected-hover)]"
+            ? "bg-[var(--wash-selected)]"
             : "hover:bg-[var(--wash-hover)]",
         className,
       )}

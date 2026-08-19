@@ -62,7 +62,6 @@ describe("ClustersPage", () => {
   it("stays on the list page and disables Add Cluster when one cluster exists", () => {
     useClustersMock.mockReturnValue({ clusters: [cluster], loading: false, error: null, refetch: vi.fn() });
     renderPage();
-    expect(screen.getByText("1 cluster")).toBeInTheDocument();
     expect(screen.getByText("kind-local")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add cluster/ })).toBeDisabled();
   });

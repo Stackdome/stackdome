@@ -5,6 +5,10 @@ import { baselineHandlers } from '../../../../.storybook/msw-handlers'
 import { makeAddon } from '../../../../.storybook/fixtures'
 import { withConfirm, withCurrentUser } from '../../../../.storybook/decorators'
 import { AddonDrawer } from './addon-drawer'
+// Imported, not retyped. The sentence was spelt out in two stories, so a copy
+// edit failed them both instead of being carried — the same second-copy problem
+// the option lists had.
+import { NOT_MANAGED_YET } from '../lib/addon-catalog'
 
 const ADDONS = '/api/v1/organizations/:orgId/projects/:projectName/addons/postgres'
 const STORES = '/api/v1/organizations/:orgId/projects/:projectName/object-stores'
@@ -45,7 +49,7 @@ export const Catalogue: Story = {
     // the scroll is not what this story is about.
     await expect(dialog.getByText('MySQL')).toBeInTheDocument()
     // The region's one sentence, once.
-    const reason = dialog.getAllByText(/Stackdome runs Postgres for you today/)
+    const reason = dialog.getAllByText(NOT_MANAGED_YET)
     await expect(reason).toHaveLength(1)
     // **No primary.** Step one commits nothing — a row answers its question, so
     // a Continue beside it would only repeat the click you just made.
@@ -76,7 +80,7 @@ export const UnavailableIsARegion: Story = {
     await expect(region).toHaveAttribute('aria-describedby')
 
     const sentence = document.getElementById(region.getAttribute('aria-describedby') as string)
-    await expect(sentence).toHaveTextContent(/Stackdome runs Postgres for you today/)
+    await expect(sentence).toHaveTextContent(NOT_MANAGED_YET)
 
     // All nine, off together, and none of them carrying its own copy of the
     // reason — that wall is what the region replaced.

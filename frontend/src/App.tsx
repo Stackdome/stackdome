@@ -12,7 +12,6 @@ import AddonsPage from "@/pages/addons"
 import PostgresDetailPage from "@/pages/addons/postgres-detail-page"
 import ObjectStoresPage from "@/pages/object-stores"
 import PreviewsPage from "@/pages/previews"
-import PreviewConfigDetailPage from "@/pages/previews/config-detail"
 import GitIntegrationsPage from "@/pages/git-integrations"
 import ImageRegistriesPage from "@/pages/image-registries"
 import NotFoundPage from "@/pages/not-found"
@@ -71,8 +70,11 @@ const router = createBrowserRouter(
           <Route path="/clusters/:id" element={<ClusterDetailPage />} />
           <Route path="/domains" element={<DomainsPage />} />
         </Route>
+        {/* One screen, two addresses. `/previews/:configId` resolves to the
+            same page with that repository selected in the rail — the route is
+            absorbed, not deleted, because people have it bookmarked. */}
         <Route path="/previews" element={<PreviewsPage />} />
-        <Route path="/previews/:configId" element={<PreviewConfigDetailPage />} />
+        <Route path="/previews/:configId" element={<PreviewsPage />} />
         <Route path="/git-integrations" element={<GitIntegrationsPage />} />
         <Route path="/image-registries" element={<ImageRegistriesPage />} />
         {/* Workspace collaboration (Users + Projects) shelved — redirect home. */}

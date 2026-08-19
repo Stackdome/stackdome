@@ -3,6 +3,7 @@ export { PageHeader } from "./page-header";
 export { Panel } from "./panel";
 export { StatusPill, variantFromState, type StatusVariant } from "./status-pill";
 export { StatusText } from "./status-text";
+export { StatusChip } from "./status-chip";
 export { DeploySparkline } from "./deploy-sparkline";
 export {
   EmptyState,
@@ -14,6 +15,8 @@ export {
 } from "./empty-state";
 export { FieldError } from "./field-error";
 export { FieldShell, FieldGrid } from "./field-shell";
+export { FormSection } from "./form-section";
+export { RecordRow, RecordList } from "./record-row";
 export { StackdomeMark, StackdomeWordmark } from "./stackdome-mark";
 export { StageBadge, type FailureStage } from "./stage-badge";
 export { FailureCard, type FailureCardProps } from "./failure-card";

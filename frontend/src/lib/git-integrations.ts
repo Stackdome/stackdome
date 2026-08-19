@@ -25,14 +25,94 @@ export function providerIdFor(integration: GitIntegration): ProviderId {
   return providerIdForHost(integration.host);
 }
 
-/** Row-title display name per provider (wizard tiles use their own copy). */
-export const PROVIDER_DISPLAY_NAMES: Record<ProviderId, string> = {
-  github: "GitHub",
-  gitlab: "GitLab",
-  bitbucket: "Bitbucket",
-  gitea: "Gitea",
-  other: "Git host",
-};
+/**
+ * Everything the product knows about a git host, in one place.
+ *
+ * **The catalogue is a registry, not a screen** (§13). This list used to exist
+ * twice — once here as display names, once inside the connect wizard as tiles
+ * with their own copy, and the comment on this constant admitted it. The two had
+ * already drifted: `other` was `Git host` in the list and `Other` on the tile.
+ * That is the `Postgres`/`PostgreSQL` failure and the secret `Type` select's
+ * three-of-six failure for a third time, so there is one list now and the
+ * display names are derived from it.
+ */
+export interface GitProvider {
+  id: ProviderId;
+  /** The one name. It titles a row in the list AND a row in the catalogue. */
+  name: string;
+  /** Prefilled into `Host` where the provider has a single well-known one. */
+  hostPrefill: string;
+  hostPlaceholder: string;
+  /** The catalogue row's second line — how you connect to this one. */
+  summary: string;
+  /** The `Access token` field's hint: which token, with which scope. */
+  tokenHint: string;
+  /**
+   * This host authenticates with **username + app password**, not a bare
+   * token — so `Username` is genuinely required on it and optional everywhere
+   * else. It shipped marked optional while its hint said "Required for
+   * providers using basic auth", which is both answers at once (§6).
+   */
+  basicAuth?: boolean;
+  /** GitHub alone offers an App install as well as a token — see §13. */
+  hasApp?: boolean;
+}
+
+export const GIT_PROVIDERS: GitProvider[] = [
+  {
+    id: "github",
+    name: "GitHub",
+    hostPrefill: "github.com",
+    hostPlaceholder: "github.com",
+    summary: "App install or access token",
+    tokenHint: "Use a fine-grained personal access token with repository read access.",
+    hasApp: true,
+  },
+  {
+    id: "gitlab",
+    name: "GitLab",
+    hostPrefill: "gitlab.com",
+    hostPlaceholder: "gitlab.com or gitlab.example.com",
+    summary: "Access token",
+    tokenHint: "Use a project or personal access token with read_repository scope.",
+  },
+  {
+    id: "bitbucket",
+    name: "Bitbucket",
+    hostPrefill: "bitbucket.org",
+    hostPlaceholder: "bitbucket.org",
+    summary: "Username and app password",
+    tokenHint: "Use an app password with repository read permission.",
+    basicAuth: true,
+  },
+  {
+    id: "gitea",
+    name: "Gitea",
+    hostPrefill: "",
+    hostPlaceholder: "gitea.example.com",
+    summary: "Access token",
+    tokenHint: "Use an access token with read:repository scope.",
+  },
+  {
+    id: "other",
+    name: "Git host",
+    hostPrefill: "",
+    hostPlaceholder: "git.example.com",
+    summary: "Any host reachable over HTTPS",
+    tokenHint: "Any git host reachable over HTTPS with token or basic auth.",
+  },
+];
+
+export function gitProvider(id: ProviderId): GitProvider {
+  // Non-null: `ProviderId` is the registry's own key type, so a miss is a
+  // registry that lost an entry — a wiring bug, not a case to handle.
+  return GIT_PROVIDERS.find((p) => p.id === id)!;
+}
+
+/** Row-title display name per provider. Derived, so it cannot drift. */
+export const PROVIDER_DISPLAY_NAMES = Object.fromEntries(
+  GIT_PROVIDERS.map((p) => [p.id, p.name]),
+) as Record<ProviderId, string>;
 
 export type RowTone = "ok" | "attention";
 

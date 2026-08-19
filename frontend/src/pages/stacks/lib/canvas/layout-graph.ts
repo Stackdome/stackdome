@@ -3,7 +3,7 @@ import type { CanvasGraph, CanvasNode, ResourceNodeData } from "./graph-from-con
 
 /** Card dimensions dagre reserves per node (matches ResourceNode's box —
  *  header + summary + optional port detail line). */
-export const NODE_WIDTH = 216;
+export const NODE_WIDTH = 240;
 export const NODE_HEIGHT = 104;
 
 /** Attachment (volume/secret/object-store) card box — w-[180px], two compact

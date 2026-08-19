@@ -33,6 +33,32 @@ function Drawer({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>)
   return <DialogPrimitive.Root data-slot="drawer" {...props} />
 }
 
+/**
+ * **How the bands are mounted — and it is the only thing that varies.**
+ *
+ * The three bands are one design: 95 header, scrolling body, 81 footer, 480
+ * wide, square, one hairline on the inner edge. Two surfaces want exactly that
+ * and disagree about nothing else:
+ *
+ * | Mount | Is | Gets |
+ * |---|---|---|
+ * | `modal` (default) | A drawer over a page | Portal, scrim, focus trap, `role="dialog"` |
+ * | `region` | A slice of the sheet it lives in | An `<aside>` landmark, in the tab order, no scrim |
+ *
+ * The canvas inspector is the second: it does not cover the canvas, it takes
+ * space from it, and the graph beside it stays live the whole time. A scrim
+ * would be lying about that, and a focus trap would make the canvas
+ * unreachable by keyboard while a node is open.
+ *
+ * Only `Title`, `Description` and the close need to know: in `modal` they are
+ * Radix's, which need a Dialog root above them; in `region` there is no root,
+ * so they are plain elements. Every other band is the same markup either way —
+ * which is the whole point of the context. Nothing else may branch on it.
+ */
+type DrawerMount = "modal" | "region"
+
+const DrawerMountContext = React.createContext<DrawerMount>("modal")
+
 function DrawerTrigger({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Trigger>) {
@@ -60,10 +86,10 @@ function DrawerOverlay({
   return (
     <DialogPrimitive.Overlay
       data-slot="drawer-overlay"
-      className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-scrim",
-        className
-      )}
+      // The fade is in `index.css` under "Drawer choreography", with the
+      // panel's travel — the two are one movement and were drifting apart as
+      // two sets of utility classes with different durations.
+      className={cn("fixed inset-0 z-50 bg-scrim", className)}
       {...props}
     />
   )
@@ -79,6 +105,22 @@ const drawerSizes = {
 } as const
 
 type DrawerSize = keyof typeof drawerSizes
+
+/**
+ * The same two rungs, in pixels — a region's width is arithmetic its neighbour
+ * has to do. The canvas pans by half of it so the graph glides sideways rather
+ * than sitting still while the viewport shrinks around it, and a number that
+ * lived only in a Tailwind class would have to be guessed there.
+ */
+const drawerRegionWidthPx = { form: 480, work: 640 } as const satisfies Record<DrawerSize, number>
+
+// Unconditional, unlike the modal's `sm:` rungs. A modal drawer goes full-bleed
+// on a phone because it is the whole screen there; a region cannot — it is a
+// slice of a sheet, and a slice that eats its own container is not a slice.
+const regionSizes = {
+  form: "w-[480px]",
+  work: "w-[640px]",
+} as const satisfies Record<DrawerSize, string>
 
 function DrawerContent({
   className,
@@ -128,7 +170,12 @@ function DrawerContent({
           // 640px panel is focused", which nobody needed telling.
           "outline-none",
           "grid grid-rows-[auto_minmax(0,1fr)_auto]",
-          "duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+          // **The travel lives in `index.css`, under "Drawer choreography".**
+          // It was `animate-in … slide-in-from-right … fade-in-0` here, which
+          // faded an opaque panel while it moved and could not be interrupted:
+          // Esc 112ms into the open jumped it 208px back to fully-open before
+          // it started leaving. Both are fixed there, in CSS, because the fix
+          // needs `@starting-style` and a keyframe that utilities cannot express.
           drawerSizes[size],
           className
         )}
@@ -143,6 +190,47 @@ function DrawerContent({
         {children}
       </DialogPrimitive.Content>
     </DrawerPortal>
+  )
+}
+
+/**
+ * The same three bands, mounted **in flow** instead of over the page.
+ *
+ * A region does not float, so it gets none of what makes a floating panel
+ * legible against what is under it: no scrim, no shadow, no radius. It is
+ * separated by one hairline on its inner edge and nothing else — and that
+ * hairline is a `border-left`, *inside* the 480, because a one-sided rule is a
+ * divider between two things rather than an outline around one of them.
+ *
+ * **It is a landmark, not a dialog.** `<aside>` with a label naming what it is
+ * showing, so it is reachable by keyboard in document order and announced as a
+ * complementary region. Closing it is `Esc`, which the owner binds — there is
+ * no Radix here to do it.
+ *
+ * The width is `form`'s 480. The sibling it sits beside must be allowed to
+ * shrink (`min-w-0`), or the region gets pushed off the edge instead.
+ */
+function DrawerRegion({
+  className,
+  size = "form",
+  children,
+  ...props
+}: React.ComponentProps<"aside"> & { size?: DrawerSize }) {
+  return (
+    <DrawerMountContext.Provider value="region">
+      <aside
+        data-slot="drawer-region"
+        className={cn(
+          "grid h-full flex-none grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]",
+          "border-l border-border bg-background",
+          regionSizes[size],
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </aside>
+    </DrawerMountContext.Provider>
   )
 }
 
@@ -200,7 +288,10 @@ function DrawerHeader({
   title,
   steps,
   description,
+  leading,
+  trailing,
   closeLabel = "Close",
+  onClose,
   children,
   className,
   ...props
@@ -217,37 +308,76 @@ function DrawerHeader({
   steps?: DrawerStep[]
   /** One line under the heading. §13 says step two of a journey gets none. */
   description?: React.ReactNode
+  /**
+   * A 16px glyph before the heading, `8` off it — for a header naming a thing
+   * that has a kind (a canvas node, an addon), where the glyph makes a
+   * distinction the word alone doesn't (§7). The description indents to sit
+   * under the heading rather than under the glyph, so the two text lines share
+   * one left edge.
+   */
+  leading?: React.ReactNode
+  /** A fact about the object, right-aligned on the heading row, before the ✕. */
+  trailing?: React.ReactNode
   closeLabel?: string
+  /**
+   * Required in a `region` mount, ignored in a `modal` one. A modal drawer's
+   * close is Radix's — it already knows how to dismiss the dialog it is inside.
+   * A region has no dialog to dismiss, so the owner says what closing means.
+   */
+  onClose?: () => void
 }) {
+  const mount = React.useContext(DrawerMountContext)
+  const close = (
+    <Button variant="ghost" size="icon" className="flex-none" onClick={mount === "region" ? onClose : undefined}>
+      <XIcon aria-hidden />
+      <span className="sr-only">{closeLabel}</span>
+    </Button>
+  )
   return (
     <div
       data-slot="drawer-header"
-      // 20 pad, and 2 between heading and description. At `title/500` the line
-      // box is 24 rather than 28, so the pair no longer carries enough of its
-      // own leading to separate on nothing — 2 is the smallest nudge that reads.
-      className={cn("flex flex-col gap-0.5 border-b border-border p-5 text-left", className)}
+      // **20 all round, and the pair sits on NOTHING.** Measured glyph-to-glyph
+      // rather than box-to-box: at `name/500` + `meta/400` the two line boxes
+      // carry 3px and 2px of half-leading, so a declared 0 already reads as a
+      // 5px gap — which is what a heading and its subtitle want. The old 2 was
+      // tuned for 16/24 + 13/20 and, once the row fault below was in play, read
+      // as **13**.
+      className={cn("flex flex-col gap-0 border-b border-border p-5 text-left", className)}
       {...props}
     >
+      {/* A CONTROL row, 32 tall: it carries `leading`, `trailing` and the close
+          button, all of which are 32px. The floor is not what sets the height —
+          the close button does — so this stays at 8 and says so. */}
       <div className="flex min-h-8 items-center gap-1.5">
         {/* Guarded, so a header given neither prop does not emit an EMPTY
             `DrawerTitle` beside whatever its children supply — two titles in
             one dialog, one of them blank, which Radix warns about and screen
             readers read. The slot still holds its width either way. */}
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {leading}
           {steps ? (
             <DrawerPathSteps steps={steps} />
           ) : title !== undefined ? (
-            <DrawerTitle>{title}</DrawerTitle>
+            <DrawerTitle className="truncate">{title}</DrawerTitle>
           ) : null}
         </div>
-        <DialogPrimitive.Close asChild>
-          <Button variant="ghost" size="icon" className="flex-none">
-            <XIcon aria-hidden />
-            <span className="sr-only">{closeLabel}</span>
-          </Button>
-        </DialogPrimitive.Close>
+        {trailing}
+        {mount === "region" ? close : <DialogPrimitive.Close asChild>{close}</DialogPrimitive.Close>}
       </div>
-      {description && <DrawerDescription>{description}</DrawerDescription>}
+      {/* Indented past the glyph so the two text lines share a left edge — 16
+          for the glyph plus the 8 beside it. Without one, no indent.
+
+          **`-mt-0.5` puts the pair 4px apart.** The title is a 20px line box
+          centred in a 32px control row, so 6px of that row hangs below the
+          title. The description is a sibling of the ROW, not of the title, so
+          it inherits that 6 before any gap is applied at all. −6 would close it
+          to zero; −2 leaves the 4 the pair is specified at, without moving the
+          close button, which is what actually needs the 32. */}
+      {description && (
+        <DrawerDescription className={cn("-mt-0.5", leading && "pl-6")}>
+          {description}
+        </DrawerDescription>
+      )}
       {children}
     </div>
   )
@@ -325,11 +455,18 @@ function DrawerTitle({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+  // Radix's Title registers itself as the dialog's accessible name, which needs
+  // a Dialog root above it. A region has none — the `<aside>` carries its own
+  // label — so the same line renders as a plain heading.
+  const Comp = React.useContext(DrawerMountContext) === "region" ? "h2" : DialogPrimitive.Title
   return (
-    <DialogPrimitive.Title
+    <Comp
       data-slot="drawer-title"
-      // 500, not 600. Semibold is off the scale — see §6.
-      className={cn("text-title font-medium", className)}
+      // **14/20 at 500 — `name/500`.** 500 not 600: semibold is off the
+      // scale (§6). And `name`, not `title`: the drawer names itself one
+      // rung above the 13px body it holds, matching `SheetHeader`. The
+      // drawer keeps its OWN trail, so this does not come through there.
+      className={cn("text-name font-medium", className)}
       {...props}
     />
   )
@@ -339,10 +476,14 @@ function DrawerDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
+  const Comp = React.useContext(DrawerMountContext) === "region" ? "p" : DialogPrimitive.Description
   return (
-    <DialogPrimitive.Description
+    <Comp
       data-slot="drawer-description"
-      className={cn("text-fg-2 text-body", className)}
+      // **12/16 at 400 — `meta/400`.** It ran at body size, the same rung as
+      // the form it introduces, so the description competed with the fields
+      // instead of setting them up. One rung down, and the weight stays regular.
+      className={cn("text-fg-2 text-meta font-normal", className)}
       {...props}
     />
   )
@@ -402,7 +543,7 @@ function DrawerPathSteps({ steps }: { steps: DrawerStep[] }) {
         return (
           <React.Fragment key={label}>
             {i > 0 && (
-              <span aria-hidden className="text-title font-normal text-fg-muted">
+              <span aria-hidden className="text-name font-normal text-fg-muted">
                 ›
               </span>
             )}
@@ -413,14 +554,14 @@ function DrawerPathSteps({ steps }: { steps: DrawerStep[] }) {
                 type="button"
                 onClick={onClick}
                 className={cn(
-                  "focus-ring-edge text-title font-medium whitespace-nowrap text-fg-muted rounded-sm",
+                  "focus-ring-edge text-name font-medium whitespace-nowrap text-fg-muted rounded-sm",
                   "transition-colors hover:text-foreground hover:underline underline-offset-4",
                 )}
               >
                 {label}
               </button>
             ) : (
-              <span className="text-title font-medium whitespace-nowrap text-fg-muted">{label}</span>
+              <span className="text-name font-medium whitespace-nowrap text-fg-muted">{label}</span>
             )}
           </React.Fragment>
         )
@@ -440,7 +581,9 @@ export {
   DrawerHeader,
   DrawerOverlay,
   DrawerPortal,
+  DrawerRegion,
   DrawerTitle,
   DrawerTrigger,
+  drawerRegionWidthPx,
 }
-export type { DrawerSize, DrawerStep }
+export type { DrawerMount, DrawerSize, DrawerStep }

@@ -62,18 +62,25 @@ interface EnableRepoWizardProps {
 export function EnableRepoWizard({ open, onOpenChange, onCreated }: EnableRepoWizardProps) {
   const [phase, setPhase] = useState<Phase>("pick");
   const [repo, setRepo] = useState<PickedRepo | null>(null);
+  // The picker's source and typed URL live here, with the repository they
+  // produce — step one unmounts while you are on step two, so anything the
+  // picker owned itself would be gone when the crumb brings you back.
+  const [source, setSource] = useState<"provider" | "url">("provider");
+  const [publicUrl, setPublicUrl] = useState("");
 
   const close = () => {
     onOpenChange(false);
     setPhase("pick");
     setRepo(null);
+    setSource("provider");
+    setPublicUrl("");
   };
 
   const picking = phase === "pick" || !repo;
 
   return (
     <Drawer open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
-      <DrawerContent size="work">
+      <DrawerContent size="form">
         {/* This is a journey with two steps, so it gets the PATH (§12a). It
             used to hand-roll its own back `<button>` here and pay a `pr-12` on
             the header to stop the title sliding under the absolutely-positioned
@@ -115,6 +122,10 @@ export function EnableRepoWizard({ open, onOpenChange, onCreated }: EnableRepoWi
               <GitSourcePicker
                 value={repo}
                 onChange={setRepo}
+                mode={source}
+                onModeChange={setSource}
+                url={publicUrl}
+                onUrlChange={setPublicUrl}
                 publicUrlHint={PR_AUTOMATION_HINT}
               />
             </DrawerBody>

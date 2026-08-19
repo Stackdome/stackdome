@@ -11,7 +11,7 @@ import { updateRegistryCredential, type RegistryCredential } from "@/api/registr
 import { getErrorMessage } from "@/api/client";
 import { getCurrentOrganizationId } from "@/lib/common";
 import { rotateRegistrySchema } from "../lib/form-schemas";
-import { providerIdForHost, REGISTRY_PROVIDERS } from "../lib/providers";
+import { providerIdForHost, registryProvider } from "../lib/providers";
 import { ProviderLogo } from "./provider-logo";
 
 interface UpdateCredentialsDialogProps {
@@ -79,7 +79,7 @@ export function UpdateCredentialsDialog({ credential, onOpenChange, onUpdated }:
   };
 
   const providerId = providerIdForHost(credential?.host);
-  const providerLabel = REGISTRY_PROVIDERS.find((p) => p.id === providerId)?.label ?? "Registry";
+  const providerLabel = registryProvider(providerId).label;
 
   return (
     <Dialog open={credential != null} onOpenChange={onOpenChange}>

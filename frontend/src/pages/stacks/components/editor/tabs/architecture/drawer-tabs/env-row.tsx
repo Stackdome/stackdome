@@ -116,16 +116,18 @@ export function EnvRow({
       />
       {/* items-start keeps every control top-aligned so a per-cell error (which
           grows that cell downward) never knocks the other columns out of line. */}
-      <div className="flex items-start gap-2">
+      {/* 4 inside a record, not 8 — the members of one variable are one thing.
+          Name and value both FLEX because neither has a bounded length; only
+          `From` is a closed set, so only `From` is fixed. */}
+      <div className="flex items-start gap-1">
         {/* Key */}
-        <div className="w-[180px] flex-none">
+        <div className="min-w-0 flex-1">
           <Input
             id={`env-name-${resourceIndex}-${index}`}
             value={row.name || ""}
             onChange={(e) => onChangeName(e.target.value)}
-            className={`h-8 w-full font-mono text-meta md:text-meta ${isOrphanAddon ? "opacity-60" : ""} ${
-              rowErrors?.duplicate || rowErrors?.name ? "border-danger" : ""
-            }`}
+            className={`h-8 w-full text-meta md:text-meta ${isOrphanAddon ? "opacity-60" : ""}`}
+            aria-invalid={!!(rowErrors?.duplicate || rowErrors?.name)}
             placeholder="KEY"
             readOnly={isOrphanAddon}
           />
@@ -142,9 +144,8 @@ export function EnvRow({
             <Input
               value={row.value || ""}
               onChange={(e) => onChangeValue(e.target.value)}
-              className={`h-8 w-full font-mono text-meta md:text-meta ${
-                rowErrors?.value ? "border-danger" : ""
-              }`}
+              className="h-8 w-full text-meta md:text-meta"
+              aria-invalid={!!rowErrors?.value}
               placeholder="value"
             />
           )}
@@ -200,8 +201,9 @@ export function EnvRow({
           )}
         </div>
 
-        {/* From select (Stack | Secret | Addon) */}
-        <div className="w-[106px] flex-none">
+        {/* From select (Stack | Secret | Addon) — a closed set, so it is fixed
+            at the width of its widest option rather than sharing the flex. */}
+        <div className="w-[116px] flex-none">
           <Select
             value={row.from}
             onValueChange={(v) => onChangeFrom(v as EnvFrom)}
@@ -226,12 +228,15 @@ export function EnvRow({
         </div>
 
         {/* Reset (modified existing row — restore baseline) or Remove (added/clean rows) */}
-        <div className="flex h-8 w-6 flex-none items-center justify-center">
+        {/* Packed straight after the last member at the icon-button rung, not
+            pushed to the far edge — the hole in the middle is what stopped a
+            row reading as one variable. */}
+        <div className="flex h-8 w-8 flex-none items-center justify-center">
           {isModified && onReset ? (
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6"
+              className="size-7"
               onClick={onReset}
               aria-label="Reset env var to original value"
               title="Reset to original value"
@@ -242,9 +247,9 @@ export function EnvRow({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 hover:bg-danger-bg hover:text-danger"
+              className="size-7 hover:bg-danger-bg hover:text-danger"
               onClick={onRemove}
-              aria-label="Remove env var"
+              aria-label={row.name ? `Remove ${row.name}` : "Remove env var"}
             >
               <X className="size-3.5" />
             </Button>
@@ -345,7 +350,7 @@ function OutputOptions({ outputs }: { outputs: string[] }) {
         </span>
         <span className="ml-2 flex items-center gap-2">
           <span className="text-label italic text-muted-foreground">resolved at deploy</span>
-          <span className="rounded bg-muted px-1 font-mono text-label text-muted-foreground">{o.key}</span>
+          <span className="rounded bg-muted px-1 text-label text-muted-foreground">{o.key}</span>
         </span>
       </span>
     </SelectItem>
@@ -467,7 +472,8 @@ function AddonCredFieldPicker({
       >
         <SelectTrigger
           size="sm"
-          className={`w-full text-meta ${error ? "border-danger" : ""}`}
+          className="w-full text-meta"
+          aria-invalid={!!error}
           data-testid="field-picker-trigger"
         >
           <SelectValue placeholder={disabled ? "Pick an addon first" : "Select field"} />

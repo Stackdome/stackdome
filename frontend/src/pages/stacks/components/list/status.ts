@@ -36,8 +36,22 @@ const HEALTH_STATE: Record<ReleaseHealth, StackRollupState> = {
  * "NotDeployed", which is a fact rather than a failure and colours neutral.
  */
 export function stackRollupState(stack: Stack): StackRollupState {
-  if (stack.lifecycle === "deleting") return "Deleting";
-  const health = deriveHeaderHealth(stack);
+  return rollupWord(stack.lifecycle, deriveHeaderHealth(stack));
+}
+
+/**
+ * The same rollup, from the two facts it is actually made of.
+ *
+ * The editor's header shows one status for the stack it is editing, and it must
+ * be the word the list showed on the row you clicked to get here — same word,
+ * same glyph, same hue. It holds `lifecycle` and `health` rather than a whole
+ * `Stack`, so the rule lives here and both callers read it.
+ */
+export function rollupWord(
+  lifecycle: Stack["lifecycle"],
+  health: ReleaseHealth | undefined,
+): StackRollupState {
+  if (lifecycle === "deleting") return "Deleting";
   if (!health) return "NotDeployed";
   return HEALTH_STATE[health];
 }

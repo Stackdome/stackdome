@@ -5,7 +5,10 @@ import type { StackPreviewConfig } from '@/api/preview-configs'
 import { baselineHandlers } from '../../../../.storybook/msw-handlers'
 import { NewPreviewEnvDrawer } from './new-preview-env-drawer'
 
-const config: StackPreviewConfig = { id: 'c1', name: 'webapp' }
+const configs: StackPreviewConfig[] = [
+  { id: 'c1', name: 'webapp', max_active_previews: 5 },
+  { id: 'c2', name: 'docs-site', max_active_previews: 2 },
+]
 
 /** The drawer is portalled to the body, so `canvas` cannot see it. */
 const drawer = () => within(document.body)
@@ -14,7 +17,14 @@ const meta = {
   title: 'Features/Previews/NewPreviewEnvDrawer',
   component: NewPreviewEnvDrawer,
   tags: ['ai-generated'],
-  args: { open: true, onOpenChange: fn(), config, onCreated: fn() },
+  args: {
+    open: true,
+    onOpenChange: fn(),
+    configs,
+    initialConfigId: 'c1',
+    activeCountFor: () => 1,
+    onCreated: fn(),
+  },
 } satisfies Meta<typeof NewPreviewEnvDrawer>
 
 export default meta
@@ -26,7 +36,7 @@ type Story = StoryObj<typeof meta>
  */
 export const Empty: Story = {
   play: async () => {
-    const create = await drawer().findByRole('button', { name: /create environment/i })
+    const create = await drawer().findByRole('button', { name: /create preview/i })
     await expect(create).toBeDisabled()
 
     // The block names both missing things at once. One at a time turns a
@@ -45,7 +55,7 @@ export const Ready: Story = {
   play: async () => {
     await userEvent.type(await drawer().findByLabelText(/pr number/i), '128')
     await userEvent.type(drawer().getByLabelText(/branch/i), 'feat/login')
-    await expect(drawer().getByRole('button', { name: /create environment/i })).toBeEnabled()
+    await expect(drawer().getByRole('button', { name: /create preview/i })).toBeEnabled()
   },
 }
 
@@ -79,7 +89,7 @@ export const BadOverrideOpensAdvanced: Story = {
     await userEvent.type(drawer().getByLabelText(/image overrides/i), 'not-a-pair')
     await userEvent.click(drawer().getByRole('button', { name: /advanced/i }))
 
-    await userEvent.click(drawer().getByRole('button', { name: /create environment/i }))
+    await userEvent.click(drawer().getByRole('button', { name: /create preview/i }))
     await expect(await drawer().findByText(/resource=image/i)).toBeVisible()
   },
 }
@@ -117,13 +127,43 @@ export const ConflictOnCreate: Story = {
      */
     await waitFor(
       async () => {
-        await userEvent.click(drawer().getByRole('button', { name: /create environment/i }))
-        await expect(drawer().getAllByText(/pr #42 already has an environment/i)).not.toHaveLength(0)
+        await userEvent.click(drawer().getByRole('button', { name: /create preview/i }))
+        await expect(drawer().getAllByText(/pr #42 already has a preview/i)).not.toHaveLength(0)
       },
       { timeout: 5000 },
     )
 
-    const banner = drawer().getAllByText(/pr #42 already has an environment/i)[0]
+    const banner = drawer().getAllByText(/pr #42 already has a preview/i)[0]
     await expect(banner.closest('[data-slot="drawer-footer"]')).not.toBeNull()
+  },
+}
+
+/**
+ * **It names its own repository.** The page offers this action from *All
+ * previews* too, where there is no rail selection to imply one — so the field is
+ * here, spanned, and it opens on whatever the rail had picked.
+ */
+export const TheRepositoryIsAField: Story = {
+  play: async () => {
+    const field = await drawer().findByLabelText(/repository/i)
+    await expect(field).toHaveTextContent('webapp')
+    await expect(drawer().getByText('1 of 5 previews active.')).toBeInTheDocument()
+  },
+}
+
+/**
+ * **At the cap the create is blocked before the click, with the count.** The
+ * API refuses at this point; discovering that as a server error after filling
+ * two fields is a rejection you have already paid for.
+ */
+export const BlockedAtTheCap: Story = {
+  args: { initialConfigId: 'c2', activeCountFor: () => 2 },
+  play: async () => {
+    await userEvent.type(await drawer().findByLabelText(/pr number/i), '128')
+    await userEvent.type(drawer().getByLabelText(/branch/i), 'feat/login')
+    const create = drawer().getByRole('button', { name: /create preview/i })
+    await expect(create).toBeDisabled()
+    await userEvent.hover(create.parentElement!)
+    await expect(await drawer().findAllByText(/raise its limit in settings/i)).not.toHaveLength(0)
   },
 }

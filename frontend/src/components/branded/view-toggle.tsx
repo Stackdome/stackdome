@@ -66,7 +66,6 @@ export function ViewToggle({
       options={OPTIONS}
       value={value}
       onValueChange={onValueChange}
-      size="sm"
       aria-label="View"
     />
   );

@@ -20,9 +20,13 @@ export function NavItem({ item }: { item: NavItemData }) {
       <SidebarMenuButton asChild tooltip={item.label} isActive={isNavItemActive(pathname, item)}>
         <Link to={item.path}>
           <Icon />
-          {/* `rail-x` vacates the width and fades with the rail rather than
-              being guillotined by the button's overflow mid-collapse. */}
-          <span className="rail-x">{item.label}</span>
+          {/* `rail-x` closes a grid track from `1fr` to `0fr`, so the label
+              travels at the rail's own speed instead of being guillotined by
+              the button's overflow. The track clips exactly ONE child, hence
+              the inner span. */}
+          <span className="rail-x">
+            <span>{item.label}</span>
+          </span>
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>

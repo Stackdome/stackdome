@@ -1,6 +1,6 @@
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
+import { CheckIcon, ChevronRightIcon, ChevronsUpDownIcon, CircleIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -267,10 +267,39 @@ function DropdownMenuSubContent({
   )
 }
 
+/**
+ * The glyph on a trigger that **picks a value** — a filter, a sort, a switcher.
+ *
+ * **Chevrons up-down, not a single chevron down.** A single chevron pointing
+ * down says *this reveals what is underneath it*: a disclosure, an accordion, a
+ * section that unfolds in place. A pair says *this cycles between values*, which
+ * is what these triggers do. Two controls that behave differently must not wear
+ * the same mark. Same glyph the `Select` and the account switcher carry, so a
+ * value-picker looks like a value-picker whichever primitive it is built on.
+ * (Settled by Jaseem, August 2026.)
+ *
+ * **It lives here rather than at the call site.** Six list pages had written
+ * `<ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />` by hand next to
+ * their Status and Sort triggers, which is six chances for the next one to
+ * differ — and it is why changing the glyph was a six-file edit instead of one.
+ *
+ * A trigger that OPENS A MENU OF ACTIONS rather than choosing a value takes no
+ * chevron at all: that is a kebab.
+ */
+function DropdownMenuChevron({ className }: { className?: string }) {
+  return (
+    <ChevronsUpDownIcon
+      aria-hidden
+      className={cn("size-3.5 flex-none text-fg-2", className)}
+    />
+  )
+}
+
 export {
   DropdownMenu,
   DropdownMenuPortal,
   DropdownMenuTrigger,
+  DropdownMenuChevron,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuLabel,

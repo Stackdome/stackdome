@@ -540,7 +540,7 @@ func TestValidateShellRejectsRetentionLimitAboveMax(t *testing.T) {
 		Settings: &models.StackSettings{ReleaseRetentionLimit: models.MaxReleaseRetentionLimit + 1},
 	}
 
-	err := v.ValidateShell(context.Background(), spec)
+	err := v.ValidateShell(context.Background(), &models.Stack{Name: spec.Name}, spec)
 	fe := requireSingleFieldError(t, err)
 	if fe.Code != errors.VErrStackSettingsInvalid {
 		t.Fatalf("unexpected code: got %q want %q", fe.Code, errors.VErrStackSettingsInvalid)
@@ -554,7 +554,7 @@ func TestValidateShellRejectsDeployTimeoutAboveMax(t *testing.T) {
 		Settings: &models.StackSettings{DeployTimeoutMinutes: models.MaxDeployTimeoutMinutes + 1},
 	}
 
-	err := v.ValidateShell(context.Background(), spec)
+	err := v.ValidateShell(context.Background(), &models.Stack{Name: spec.Name}, spec)
 	fe := requireSingleFieldError(t, err)
 	if fe.Code != errors.VErrStackSettingsInvalid {
 		t.Fatalf("unexpected code: got %q want %q", fe.Code, errors.VErrStackSettingsInvalid)
@@ -571,7 +571,7 @@ func TestValidateShellRejectsMinSuccessfulExceedingRetention(t *testing.T) {
 		},
 	}
 
-	err := v.ValidateShell(context.Background(), spec)
+	err := v.ValidateShell(context.Background(), &models.Stack{Name: spec.Name}, spec)
 	fe := requireSingleFieldError(t, err)
 	if got, want := fe.Message, "min_successful_releases (10) must not exceed release_retention_limit (5)"; got != want {
 		t.Fatalf("unexpected message: got %q want %q", got, want)
@@ -589,7 +589,7 @@ func TestValidateShellAcceptsValidSettings(t *testing.T) {
 		},
 	}
 
-	if err := v.ValidateShell(context.Background(), spec); err != nil {
+	if err := v.ValidateShell(context.Background(), &models.Stack{Name: spec.Name}, spec); err != nil {
 		t.Fatalf("expected valid settings to pass, got %v", err)
 	}
 }
@@ -598,7 +598,7 @@ func TestValidateShellAcceptsNilSettings(t *testing.T) {
 	v := newTestValidator(t)
 	spec := &models.Stack{Name: "demo"}
 
-	if err := v.ValidateShell(context.Background(), spec); err != nil {
+	if err := v.ValidateShell(context.Background(), &models.Stack{Name: spec.Name}, spec); err != nil {
 		t.Fatalf("expected nil settings to pass, got %v", err)
 	}
 }

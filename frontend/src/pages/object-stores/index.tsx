@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { useObjectStores } from "@/hooks/use-object-stores";
 import { ObjectStoreList, ObjectStoreListSkeleton } from "./components/object-store-list";
-import { ObjectStoreFormDialog } from "./components/object-store-form-dialog";
+import { ObjectStoreFormDrawer } from "./components/object-store-form-drawer";
 import type { ObjectStore } from "./types";
 import { Button } from "@/components/ui/button";
 import { PageHeader, EmptyState } from "@/components/branded";
@@ -25,7 +25,7 @@ export default function ObjectStoresPage() {
   const { projectNameById } = useResourceProjects();
   const { toast } = useToast();
   const confirm = useConfirm();
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editingStore, setEditingStore] = useState<ObjectStore | null>(null);
 
   async function requestDelete(store: ObjectStore) {
@@ -78,7 +78,7 @@ export default function ObjectStoresPage() {
 
   const openNew = () => {
     setEditingStore(null);
-    setShowAddDialog(true);
+    setShowForm(true);
   };
 
   return (
@@ -90,13 +90,6 @@ export default function ObjectStoresPage() {
           and no sort, so it passes no `toolbar` and the header's second row
           collapses itself. */}
       <PageHeader
-        status={
-          !loading && !error && objectStores.length > 0 ? (
-            <span className="text-name tabular-nums text-fg-muted">
-              {objectStores.length} object {objectStores.length === 1 ? "store" : "stores"}
-            </span>
-          ) : undefined
-        }
         actions={
           canWriteAnyProject ? (
             <Button onClick={openNew}>
@@ -149,17 +142,17 @@ export default function ObjectStoresPage() {
           objectStores={objectStores}
           onEdit={(store) => {
             setEditingStore(store);
-            setShowAddDialog(true);
+            setShowForm(true);
           }}
           onDelete={(store) => void requestDelete(store)}
           canWrite={(projectId?: string) => canWrite(projectId ?? "")}
         />
       )}
 
-      <ObjectStoreFormDialog
-        open={showAddDialog}
+      <ObjectStoreFormDrawer
+        open={showForm}
         onOpenChange={(open) => {
-          setShowAddDialog(open);
+          setShowForm(open);
           if (!open) setEditingStore(null);
         }}
         editing={editingStore}

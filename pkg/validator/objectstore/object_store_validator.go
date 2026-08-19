@@ -46,7 +46,7 @@ func (v *objectStoreValidator) validateBasicFields(spec *models.ObjectStore) *er
 	// Validate name format (DNS-1123 subdomain)
 	nameRegex := regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
 	if !nameRegex.MatchString(spec.Name) {
-		return errors.BadRequest("Object store name must be a valid DNS subdomain (lowercase letters, numbers, and hyphens)")
+		return errors.BadRequest("Object store name is invalid. " + validator.NameRuleBroken)
 	}
 
 	if len(spec.Name) > 63 {

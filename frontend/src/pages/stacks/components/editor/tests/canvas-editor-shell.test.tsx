@@ -1,18 +1,37 @@
 // @vitest-environment jsdom
+import type { ReactElement } from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import { render, screen, within, fireEvent, cleanup, waitFor } from "@testing-library/react";
+import { render as rtlRender, screen, within, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import { SheetHost } from "@/test-support/sheet-host";
 import { CanvasEditorShell } from "../canvas-editor-shell";
 import { SYNC_STATUS } from "@/pages/stacks/lib/draft-sync/constants";
 import { EDITOR_TABS } from "../editor-tabs";
+import { useCanvasOverlay } from "@/pages/stacks/lib/canvas/canvas-overlay";
 
 afterEach(cleanup);
+
+/**
+ * The shell draws no header of its own: the status, the version chip, Deploy,
+ * the kebab and the four tabs all portal into the SHEET header (§12a). Mounted
+ * bare it is a canvas with no chrome, so every assertion about the header would
+ * report a failure the product does not have. `SheetHost` supplies the real
+ * one, and the router under it is what the header reads the trail from.
+ */
+function render(ui: ReactElement) {
+  return rtlRender(
+    <MemoryRouter initialEntries={["/stacks/api"]}>
+      <SheetHost>{ui}</SheetHost>
+    </MemoryRouter>,
+  );
+}
 
 const base = {
   subtitle: "0 services · 0 volumes",
   activeTab: EDITOR_TABS.architecture, onTabChange: () => {},
-  isActive: true, dirtyResourceCount: 0, dirtyTotal: 0, isStaged: false,
+  isActive: true, dirtyTotal: 0, isStaged: false,
   hasResources: true,
   onViewChanges: () => {},
   syncStatus: SYNC_STATUS.idle,
@@ -20,8 +39,15 @@ const base = {
   onDraftDeploy: () => {}, draftDeploying: false,
   onDeploy: () => {}, onDelete: () => {},
   canDiscardDraft: false, canDeleteStack: true,
-  architecture: <div />, deployments: <div />, logs: <div />, metrics: <div />,
+  // The shell hands its canvas chrome (tally, deploy pill) DOWN rather than
+  // rendering it, so it lands inside the graph column instead of on top of the
+  // inspector region. A stand-in for the architecture tab has to render it.
+  architecture: <CanvasOverlayStub />, deployments: <div />, logs: <div />, metrics: <div />,
 };
+
+function CanvasOverlayStub() {
+  return <div>{useCanvasOverlay()}</div>;
+}
 
 describe("CanvasEditorShell resource tally", () => {
   it("shows the canvas tally on the architecture tab", () => {
@@ -44,15 +70,21 @@ describe("CanvasEditorShell header", () => {
     expect(onNameChange).toHaveBeenCalledWith("web");
   });
 
-  it("renders the name as static text when not editable", () => {
+  // The editor stops printing its own title: the sheet header above it already
+  // says which stack this is, and saying it twice made the name the biggest
+  // thing on a screen about the graph. A draft is the exception — it has no
+  // name yet, so the field IS the title.
+  it("prints no title of its own once the stack has a name", () => {
     render(<CanvasEditorShell {...base} stackName="tooljet" nameEditable={false} />);
-    expect(screen.getByRole("heading", { name: "tooljet" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "tooljet" })).toBeNull();
     expect(screen.queryByPlaceholderText("name-your-stack")).toBeNull();
   });
 
-  it("renders a single status pill and never a DRAFT pill", () => {
+  // The word is the stacks LIST's rollup, humanised — not the wire's. A stack
+  // that reads "Healthy" on the list must not read "ok" in its own header.
+  it("renders a single status chip and never a DRAFT pill", () => {
     render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" headerHealth="ok" isStaged />);
-    expect(screen.getByText("ok")).toBeInTheDocument();
+    expect(screen.getByText("Healthy")).toBeInTheDocument();
     expect(screen.queryByText("DRAFT")).toBeNull();
   });
 
@@ -61,16 +93,16 @@ describe("CanvasEditorShell header", () => {
     expect(screen.getByText("Not deployed")).toBeInTheDocument();
   });
 
-  it("failed first deploy shows an error pill (health 'failed'), not an empty header", () => {
+  it("failed first deploy shows an error chip (health 'failed'), not an empty header", () => {
     render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" headerHealth="failed" />);
-    expect(screen.getByText("failed")).toBeInTheDocument();
+    expect(screen.getByText("Failed")).toBeInTheDocument();
     expect(screen.queryByText("Not deployed")).toBeNull();
   });
 
   it("shows a pending 'Deleting' pill when the stack lifecycle is deleting, overriding health", () => {
     render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" headerHealth="ok" lifecycle="deleting" />);
     expect(screen.getByText("Deleting")).toBeInTheDocument();
-    expect(screen.queryByText("ok")).toBeNull();
+    expect(screen.queryByText("Healthy")).toBeNull();
   });
 });
 
@@ -105,14 +137,12 @@ describe("CanvasEditorShell deploy pill", () => {
     expect(screen.queryByRole("button", { name: "Deploy" })).toBeNull();
   });
 
-  it("existing dirty stack shows count + Details wired to onViewChanges", () => {
+  it("existing dirty stack offers Deploy", () => {
     const onViewChanges = vi.fn();
     render(
       <CanvasEditorShell {...base} nameEditable={false} stackName="api" isActive dirtyTotal={3} onViewChanges={onViewChanges} />,
     );
-    expect(screen.getByText("Apply 3 changes")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Details" }));
-    expect(onViewChanges).toHaveBeenCalled();
+    expect(within(screen.getByTestId("deploy-pill")).getByRole("button", { name: /Deploy/ })).toBeInTheDocument();
   });
 
   it("pill persists with 'Deploying' while deployBusy even at zero dirt", () => {
@@ -120,9 +150,11 @@ describe("CanvasEditorShell deploy pill", () => {
     expect(screen.getByRole("button", { name: /deploying/i })).toBeInTheDocument();
   });
 
-  it("pill hidden when an ops tab is active", () => {
+  // Deploy sits in the shared header now, so it does not belong to a tab —
+  // it acts on the stack, and the stack is the same on every one of them.
+  it("Deploy stays available on an ops tab", () => {
     render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" isActive dirtyTotal={2} activeTab={EDITOR_TABS.logs} />);
-    expect(screen.queryByTestId("deploy-pill")).toBeNull();
+    expect(screen.getByTestId("deploy-pill")).toBeInTheDocument();
   });
 
   it("staged-but-zero-count nets out — no pill", () => {
@@ -137,7 +169,9 @@ describe("CanvasEditorShell deploy-failed chip", () => {
     render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" latestDeployFailed onTabChange={onTabChange} />);
     const chip = screen.getByRole("button", { name: "Latest deploy failed — view deployments" });
     expect(chip).toBeInTheDocument();
-    expect(screen.getByText("Deploy failed")).toBeVisible();
+    // The chip states the RELEASE's word; the button's name states what it is
+    // about. "Failed" beside the stack's own rollup is one deploy, not the stack.
+    expect(within(chip).getByText("Failed")).toBeVisible();
     fireEvent.click(chip);
     expect(onTabChange).toHaveBeenCalledWith(EDITOR_TABS.deployments);
   });
@@ -180,42 +214,25 @@ describe("CanvasEditorShell actions menu", () => {
   });
 });
 
-describe("CanvasEditorShell collapse", () => {
+// The header no longer folds — one header, and the sidebar toggle is the only
+// collapse left. What these still guard is that the chrome they name stays
+// reachable now that there is only one copy of it.
+describe("CanvasEditorShell header", () => {
   afterEach(() => localStorage.clear());
 
-  it("chevron collapses to a compact bar and back", () => {
-    render(<CanvasEditorShell {...base} stackName="acme" nameEditable={false} stackId="s1" />);
-    fireEvent.click(screen.getByRole("button", { name: "Collapse header" }));
-    // The expanded header stays mounted for the height animation but is
-    // inert + aria-hidden; the compact bar becomes the visible surface.
-    expect(screen.getByRole("heading", { name: "acme", hidden: true }).closest("[inert]")).not.toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Expand header" }));
-    expect(screen.getByRole("heading", { name: "acme" }).closest("[inert]")).toBeNull();
-  });
-
-  it("restores the persisted collapsed state as a compact bar", () => {
-    localStorage.setItem("stackdome.editor-header-collapsed.s1", "1");
-    render(<CanvasEditorShell {...base} stackName="acme" nameEditable={false} stackId="s1" />);
-    expect(screen.getByRole("heading", { name: "acme", hidden: true }).closest("[inert]")).not.toBeNull();
-    expect(screen.getAllByText("acme").length).toBeGreaterThan(0); // compact bar name
-  });
-
-  it("keeps tabs clickable while collapsed", () => {
+  it("keeps tabs clickable", () => {
     const onTabChange = vi.fn();
-    localStorage.setItem("stackdome.editor-header-collapsed.s1", "1");
     render(<CanvasEditorShell {...base} stackName="acme" nameEditable={false} stackId="s1" onTabChange={onTabChange} />);
     fireEvent.click(screen.getByRole("button", { name: /Logs/ }));
     expect(onTabChange).toHaveBeenCalledWith(EDITOR_TABS.logs);
   });
 
-  it("collapsed mini-row still serves deploys via the pill", () => {
-    localStorage.setItem("stackdome.editor-header-collapsed.s1", "1");
+  it("serves deploys via the pill", () => {
     render(<CanvasEditorShell {...base} stackName="acme" nameEditable={false} stackId="s1" isActive dirtyTotal={2} />);
     expect(screen.getByTestId("deploy-pill")).toBeInTheDocument();
   });
 
-  it("collapsed bar keeps public endpoint links reachable", () => {
-    localStorage.setItem("stackdome.editor-header-collapsed.s1", "1");
+  it("keeps public endpoint links reachable", () => {
     render(
       <CanvasEditorShell
         {...base}

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, ChevronDown } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
+  DropdownMenuChevron,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -79,12 +80,12 @@ export default function AddonsPage() {
   const toolbar = error ? undefined : (
     <>
       <div className="relative w-[300px]">
-        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-muted" />
+        <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-fg-muted" />
         <Input
           placeholder="Filter addons…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="pl-[30px]"
+          className="pl-8"
           aria-label="Filter addons"
         />
       </div>
@@ -93,7 +94,7 @@ export default function AddonsPage() {
           {/* Filters are working controls: `flat`, never a pill (§9). */}
           <Button variant="outline" shape="flat">
             <span className="text-fg-2">Status:</span> <span>{statusLabel}</span>
-            <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
+            <DropdownMenuChevron />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -120,7 +121,7 @@ export default function AddonsPage() {
         <DropdownMenuTrigger asChild>
           <Button variant="outline" shape="flat">
             <span className="text-fg-2">Sort:</span> <span>{sortLabel}</span>
-            <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
+            <DropdownMenuChevron />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -153,16 +154,6 @@ export default function AddonsPage() {
   return (
     <div className="flex flex-1 flex-col h-full">
       <PageHeader
-        // §12a's one fact — a count of what is ON SCREEN, so it tracks the
-        // filters. Absent while loading, absent when empty, absent when the
-        // load failed: a count of nothing is not a fact.
-        status={
-          !loading && !error && rows.length > 0 ? (
-            <span className="text-name tabular-nums text-fg-muted">
-              {rows.length} {rows.length === 1 ? "addon" : "addons"}
-            </span>
-          ) : undefined
-        }
         actions={newAddon("default")}
         toolbar={toolbar}
       />

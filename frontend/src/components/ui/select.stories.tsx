@@ -103,7 +103,12 @@ export const ControlsAgreeAtTheSameHeight: Story = {
  * menu is out, so it holds the hover fill **and** takes the stronger line. It
  * does not take the press inset — you are not still pushing it.
  */
-export const HoverMovesTheFillAndOpenHoldsIt: Story = {
+/** **The board moved the signal from the fill to the LINE** (`Select` 21:204).
+ *  The trigger is a raised card now — sheet ground, hairline, `elevation/sm` —
+ *  so hover firms the line to `line/strong` and the ground never moves. This
+ *  story used to assert the opposite (`hover:bg-control-hover`, fill changes on
+ *  open), which is exactly the behaviour that was replaced. */
+export const HoverMovesTheLineAndOpenHoldsIt: Story = {
   render: () => (
     <Select defaultValue="Next.js">
       <SelectTrigger className="w-56" aria-label="framework">
@@ -118,11 +123,26 @@ export const HoverMovesTheFillAndOpenHoldsIt: Story = {
   ),
   play: async ({ canvas, userEvent }) => {
     const trigger = canvas.getByRole('combobox', { name: 'framework' })
-    await expect(trigger.className).toContain('hover:bg-control-hover')
+    // Hover and open both work the LINE now, never the fill.
+    await expect(trigger.className).toContain('hover:[outline-color:var(--border-strong)]')
+    await expect(trigger.className).not.toContain('hover:bg-control-hover')
     // It never borrows the wash ladder — that is for faces transparent at rest.
     await expect(trigger.className).not.toContain('wash-hover')
 
-    const rest = getComputedStyle(trigger).backgroundColor
+    // Board geometry for the 32px rung: sheet ground, 1px hairline,
+    // `elevation/sm`, 12/8 inset, 6px gap, 13/20 medium.
+    const cs = getComputedStyle(trigger)
+    await expect(trigger.getBoundingClientRect().height).toBe(32)
+    await expect(cs.backgroundColor).toBe('rgb(255, 255, 255)')
+    await expect(cs.outlineWidth).toBe('1px')
+    await expect(cs.boxShadow).not.toBe('none')
+    await expect(cs.paddingLeft).toBe('8px')
+    await expect(cs.paddingRight).toBe('8px')
+    await expect(cs.columnGap).toBe('6px')
+    await expect(cs.fontWeight).toBe('500')
+    await expect(trigger.querySelector('svg')!.getBoundingClientRect().width).toBe(14)
+
+    const restGround = cs.backgroundColor
     await userEvent.click(trigger)
     await expect(trigger).toHaveAttribute('data-state', 'open')
 
@@ -132,15 +152,52 @@ export const HoverMovesTheFillAndOpenHoldsIt: Story = {
     const strongLine = getComputedStyle(probe).color
     probe.remove()
 
-    // The fill and the line are both transitioned, so the first frame after the
-    // click still reads the rest values — settle before asserting.
+    // The line is transitioned, so the first frame after the click still reads
+    // the rest value — settle before asserting.
     await waitFor(async () => {
       const open = getComputedStyle(trigger)
-      await expect(open.backgroundColor).not.toBe(rest)
-      await expect(open.borderColor).toBe(strongLine)
+      await expect(open.outlineColor).toBe(strongLine)
+      // ...and the ground stayed put. That is the whole change.
+      await expect(open.backgroundColor).toBe(restGround)
     })
 
     await userEvent.keyboard('{Escape}')
+  },
+}
+
+/** Both shapes, one material — `shape` chooses the corner and nothing else,
+ *  exactly as it does on Button and Input. */
+export const BoardShapes: Story = {
+  render: () => (
+    <div className="flex gap-4">
+      {(['flat', 'pill'] as const).map((shape) => (
+        <Select key={shape} defaultValue="Next.js">
+          <SelectTrigger shape={shape} className="w-56" aria-label={shape}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FRAMEWORKS.map((f) => (
+              <SelectItem key={f} value={f}>{f}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ))}
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const flat = canvas.getByRole('combobox', { name: 'flat' })
+    const pill = canvas.getByRole('combobox', { name: 'pill' })
+    const f = getComputedStyle(flat)
+    const p = getComputedStyle(pill)
+    // Same material...
+    await expect(p.backgroundColor).toBe(f.backgroundColor)
+    await expect(p.borderTopColor).toBe(f.borderTopColor)
+    await expect(p.boxShadow).toBe(f.boxShadow)
+    await expect(p.paddingLeft).toBe(f.paddingLeft)
+    // ...different corner. `rounded-full` resolves to an effectively infinite
+    // px value, so the pill is asserted as "at least half the height".
+    await expect(parseFloat(f.borderTopLeftRadius)).toBe(8)
+    await expect(parseFloat(p.borderTopLeftRadius)).toBeGreaterThanOrEqual(16)
   },
 }
 
@@ -197,7 +254,7 @@ export const Invalid: Story = {
     document.body.appendChild(probe)
     const expected = getComputedStyle(probe).color
     probe.remove()
-    await expect(getComputedStyle(trigger).borderColor).toBe(expected)
+    await expect(getComputedStyle(trigger).outlineColor).toBe(expected)
   },
 }
 

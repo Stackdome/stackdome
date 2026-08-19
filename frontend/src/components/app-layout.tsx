@@ -36,14 +36,36 @@ function AppLayoutContent({
    * inset that every other page keeps. Nothing about the drawer caused it —
    * the route did, and the rule outlived the screen it was written for.
    */
+  /**
+   * **Previews is the second one, and for the same reason.** Its repository
+   * rail is a REGION of the sheet: it meets the sheet's left edge, runs the full
+   * height, and draws the seam between itself and the body with a hairline (§4).
+   * Inside the standard 16px inset the rail would float 16px off the edge with a
+   * strip of sheet showing beside it, and its hairline would stop short of both
+   * ends — a boundary that does not reach either side reads as a mistake.
+   *
+   * The page pays for the exception itself: the body column supplies the 16px
+   * the shell stopped supplying, so the rows land on the same left edge as the
+   * title above them.
+   *
+   * Both segments, because `/previews/<repo>` is the same screen (§12a).
+   */
+  const isPreviews = /^\/previews(\/[^/]+)?$/.test(location.pathname);
+
   const isFullBleed =
-    /^\/stacks\/[^/]+$/.test(location.pathname) && location.pathname !== NEW_STACK_PATH;
+    isPreviews ||
+    (/^\/stacks\/[^/]+$/.test(location.pathname) && location.pathname !== NEW_STACK_PATH);
 
   return (
     <SidebarProvider defaultOpen={defaultSidebarOpen}>
-      {/* 12px gutter on every free edge (§12). The sidebar sits flush to the
-          window's left edge; the sheet is inset from the other three. */}
-      <div className="flex h-screen max-h-screen w-full overflow-hidden bg-background py-3 pr-3">
+      {/* 8px gutter on every free edge (§12). The sidebar sits flush to the
+          window's left edge; the sheet is inset from the other three.
+
+          The board tightened this from 12 to 8: the frame is a MOUNT, not a
+          margin. At 12 the grey read as a band of its own around the sheet;
+          at 8 it reads as the edge the sheet is seated in, and the content
+          plane gets the 8px back on both axes. */}
+      <div className="flex h-screen max-h-screen w-full overflow-hidden bg-background py-2 pr-2">
         <AppSidebar />
         {/* The content plane is a white sheet floating on the paper frame —
             white floats, grey recedes. The sidebar needs no divider: the

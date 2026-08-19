@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Link2, Lock, Globe } from "lucide-react";
+import { ChevronsUpDown, Link2, Lock, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -178,7 +178,7 @@ export function RepoCombobox({ id, value, integrationId, onChange, hasError }: R
           )}
         >
           <span className="truncate">{display ?? "Select repository or enter URL"}</span>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">

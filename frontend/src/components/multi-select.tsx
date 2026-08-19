@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import {
   CheckIcon,
   XCircle,
-  ChevronDown,
+  ChevronsUpDown,
   XIcon,
   WandSparkles,
 } from "lucide-react";
@@ -268,7 +268,7 @@ export const MultiSelect = React.forwardRef<
                     orientation="vertical"
                     className="flex min-h-6 h-full"
                   />
-                  <ChevronDown className="h-4 mx-2 cursor-pointer text-muted-foreground" />
+                  <ChevronsUpDown className="h-4 mx-2 cursor-pointer text-muted-foreground" />
                 </div>
               </div>
             ) : (
@@ -276,7 +276,7 @@ export const MultiSelect = React.forwardRef<
                 <span className="text-body text-muted-foreground mx-3">
                   {placeholder}
                 </span>
-                <ChevronDown className="h-4 cursor-pointer text-muted-foreground mx-2" />
+                <ChevronsUpDown className="h-4 cursor-pointer text-muted-foreground mx-2" />
               </div>
             )}
           </Button>

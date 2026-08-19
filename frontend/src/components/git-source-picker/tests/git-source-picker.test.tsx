@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -20,10 +21,10 @@ vi.mock("@/api/git-integrations", async (importOriginal) => ({
   getRepository: vi.fn(),
 }));
 vi.mock("@/lib/common", () => ({ getCurrentOrganizationId: () => "org-1" }));
-// The nested connect wizard drags in the whole github-connect flow; the picker
+// The nested connect drawer drags in the whole github-connect flow; the picker
 // only needs its open/close contract.
-vi.mock("@/components/git-source-picker/add-integration-wizard", () => ({
-  AddIntegrationWizard: ({ open }: { open: boolean }) =>
+vi.mock("@/components/git-source-picker/connect-provider-drawer", () => ({
+  ConnectProviderDrawer: ({ open }: { open: boolean }) =>
     open ? <div data-testid="add-integration-wizard" /> : null,
 }));
 
@@ -44,8 +45,30 @@ const creds = {
   credentials_configured: true,
 };
 
+/**
+ * The picker is **controlled** for its source and its typed URL — the caller
+ * owns them so the step survives an unmount. This stands in for that caller, so
+ * switching tabs and typing a URL behave here exactly as they do in the
+ * new-stack drawer and the Enable-repository wizard.
+ */
+function Harness(props: Partial<Parameters<typeof GitSourcePicker>[0]>) {
+  const [mode, setMode] = useState<"provider" | "url">("provider");
+  const [url, setUrl] = useState("");
+  return (
+    <GitSourcePicker
+      value={null}
+      onChange={vi.fn()}
+      mode={mode}
+      onModeChange={setMode}
+      url={url}
+      onUrlChange={setUrl}
+      {...props}
+    />
+  );
+}
+
 function renderPicker(props: Partial<Parameters<typeof GitSourcePicker>[0]> = {}) {
-  return render(<GitSourcePicker value={null} onChange={vi.fn()} {...props} />);
+  return render(<Harness {...props} />);
 }
 
 beforeEach(() => {

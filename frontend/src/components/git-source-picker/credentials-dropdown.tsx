@@ -1,4 +1,4 @@
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronsUpDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -58,7 +58,7 @@ export function CredentialsDropdown({
           ) : (
             <span className="text-meta text-muted-foreground">Credentials</span>
           )}
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          <ChevronsUpDown className="h-3 w-3 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[260px]">

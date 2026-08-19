@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/branded";
 import { AlertBanner } from "@/components/branded/alert-banner";
-import { AddIntegrationWizard } from "@/components/git-source-picker/add-integration-wizard";
+import { ConnectProviderDrawer } from "@/components/git-source-picker/connect-provider-drawer";
 import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -98,15 +98,6 @@ export default function GitIntegrationsPage() {
   return (
     <div className="flex flex-1 flex-col h-full">
       <PageHeader
-        // §12a's one fact. No eyebrow, no subtitle: the explanation belongs to
-        // the empty state, where it is actually needed.
-        status={
-          !loading && !error && integrations.length > 0 ? (
-            <span className="text-name tabular-nums text-fg-muted">
-              {integrations.length} {integrations.length === 1 ? "provider" : "providers"}
-            </span>
-          ) : undefined
-        }
         actions={addButton}
       />
 
@@ -138,7 +129,7 @@ export default function GitIntegrationsPage() {
         </div>
       )}
 
-      <AddIntegrationWizard
+      <ConnectProviderDrawer
         open={wizardOpen}
         onOpenChange={setWizardOpen}
         hasGithubApp={hasGithubApp}

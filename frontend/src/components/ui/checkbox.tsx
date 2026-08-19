@@ -56,7 +56,7 @@ function Checkbox({
         className={cn(
           // 4px on a 16px box — the same proportion §2's control ladder runs
           // (28/6 · 32/8 · 40/12), continued down to the smallest element.
-          "pointer-events-none inline-flex size-4 items-center justify-center rounded-[4px] border border-border-strong bg-input transition-colors",
+          "pointer-events-none inline-flex size-4 items-center justify-center rounded-[4px] [outline-width:1px] [outline-style:solid] [outline-color:var(--border-strong)] bg-card shadow-sm transition-colors",
           "peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground",
           "peer-indeterminate:border-primary peer-indeterminate:bg-primary peer-indeterminate:text-primary-foreground",
           "focus-ring-peer",

@@ -1,9 +1,6 @@
 import React from "react";
-import { TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -11,20 +8,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PlusCircle, GitBranch, Box, Trash2, Database, X, ArrowUpRight, HardDrive } from "lucide-react";
+import { PlusCircle, GitBranch, Box, Trash2, Database, ArrowUpRight, HardDrive } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { MultiSelect } from "@/components/multi-select";
 import { DirtyField } from "@/pages/stacks/components/editor/tabs/architecture/drawer-tabs/dirty-field";
-import {
-  LedgerDisclosure,
-  LedgerRow,
-  LedgerSection,
-  LedgerSegmented,
-} from "@/pages/stacks/components/editor/tabs/architecture/drawer-tabs/ledger";
-import { FieldShell } from "@/components/branded";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { FieldGrid, FieldShell, FormSection, RecordList, RecordRow } from "@/components/branded";
 import { RepoCombobox } from "@/components/git-source-picker/repo-combobox";
 import { ImageRegistrySelect } from "./image-registry-select";
 import { splitImageRef, joinImageRef } from "@/pages/stacks/lib/image-ref";
+import { NAME_RULE_HINT } from "@/pages/stacks/lib/name-rule";
 
 import type { FormStackResourceData, FormVolumeExtendedData as VolumeFormData } from "@/pages/stacks/schemas/form-schema";
 import { DEFAULT_BUILD_CONTEXT, DEFAULT_DOCKERFILE_PATH } from "@/pages/stacks/lib/stack-model/policy";
@@ -250,297 +243,315 @@ function StackResourceConfigurationTabImpl({
     : `${mounts.length} ${mounts.length === 1 ? "volume" : "volumes"}`;
 
   return (
-    <TabsContent value="general" className="pt-1">
-      <LedgerSection label="General">
-        <LedgerRow
-          label="Name"
-          htmlFor={`resource-name-${index}`}
-          required
-          meta="lowercase · unique in stack"
-          error={getError(errors, "name")}
-        >
-          <DirtyField
-            draft={draft}
-            baseline={baseline}
-            path="name"
-            compact
-            onReset={onDiscardField ? () => onDiscardField("name") : undefined}
+    <>
+      <FormSection label="General">
+        <FieldGrid>
+          <FieldShell
+            label="Name"
+            htmlFor={`resource-name-${index}`}
+            required
+            /* The rule, stated before it is broken — it used to be a mono `meta`
+             pinned to the row's far edge, which is gone with label-left. From
+             the shared constant so the hint, the error that replaces it and the
+             server's own message cannot drift apart. */
+            hint={NAME_RULE_HINT}
+            error={getError(errors, "name")}
           >
-            <Input
-              id={`resource-name-${index}`}
-              placeholder="e.g., api, database, frontend"
-              value={draft.name || ""}
-              onChange={(e) => update({ name: e.target.value })}
-              className={`h-9 text-body ${getError(errors, "name") ? "border-danger" : ""}`}
-              required
-              aria-invalid={!!getError(errors, "name")}
-            />
-          </DirtyField>
-        </LedgerRow>
-
-        <LedgerRow label="Depends on" meta="started first" error={errors["depends_on"]}>
-          <DirtyField
-            draft={draft}
-            baseline={baseline}
-            path="depends_on"
-            compact
-            onReset={onDiscardField ? () => onDiscardField("depends_on") : undefined}
-          >
-            {allResources ? (
-              <MultiSelect
-                options={allResources
-                  .filter((r) => r.index !== index && r.name && r.name.trim() !== "")
-                  .map((r) => ({ label: r.name, value: r.name }))}
-                onValueChange={updateDependsOn}
-                defaultValue={draft.depends_on || []}
-                placeholder={allResources.length <= 1 ? "No other resources available" : "Select dependencies"}
-                disabled={allResources.length <= 1}
-                className="w-full"
+            <DirtyField
+              draft={draft}
+              baseline={baseline}
+              path="name"
+              compact
+              onReset={onDiscardField ? () => onDiscardField("name") : undefined}
+            >
+              <Input
+                id={`resource-name-${index}`}
+                placeholder="e.g., api, database, frontend"
+                value={draft.name || ""}
+                onChange={(e) => update({ name: e.target.value })}
+                className="h-9 text-body"
+                required
+                aria-invalid={!!getError(errors, "name")}
               />
-            ) : (
-              <div className="text-body text-muted-foreground">No dependency information available</div>
-            )}
-          </DirtyField>
-        </LedgerRow>
-      </LedgerSection>
+            </DirtyField>
+          </FieldShell>
 
-      <LedgerSection
+          <FieldShell label="Depends on" hint="These start first." error={errors["depends_on"]}>
+            <DirtyField
+              draft={draft}
+              baseline={baseline}
+              path="depends_on"
+              compact
+              onReset={onDiscardField ? () => onDiscardField("depends_on") : undefined}
+            >
+              {allResources ? (
+                <MultiSelect
+                  options={allResources
+                    .filter((r) => r.index !== index && r.name && r.name.trim() !== "")
+                    .map((r) => ({ label: r.name, value: r.name }))}
+                  onValueChange={updateDependsOn}
+                  defaultValue={draft.depends_on || []}
+                  placeholder={allResources.length <= 1 ? "No other resources available" : "Select dependencies"}
+                  disabled={allResources.length <= 1}
+                  className="w-full"
+                />
+              ) : (
+                <div className="text-body text-muted-foreground">No dependency information available</div>
+              )}
+            </DirtyField>
+          </FieldShell>
+        </FieldGrid>
+      </FormSection>
+
+      <FormSection
         label="Source"
-        meta={draft.sourceType === "git" ? "git repository" : "container image"}
+        state={draft.sourceType === "git" ? "git repository" : "container image"}
       >
-        <LedgerRow label="Build from">
-          <DirtyField
-            draft={draft}
-            baseline={baseline}
-            path="sourceType"
-            compact
-            onReset={onDiscardField ? () => onDiscardField("sourceType") : undefined}
-          >
-            <LedgerSegmented
-              aria-label="Build from"
-              value={draft.sourceType || "image"}
-              onValueChange={(val) => {
-                const sourceType = val as "image" | "git";
-                // The API rejects a source with both `git` and `image` set
-                // (source_conflict), so the abandoned branch can't stay live
-                // in `source`. Stash it in a form-only field instead of
-                // discarding it, and restore the other branch from its own
-                // stash (falling back to fresh defaults the first time).
-                if (sourceType === "git") {
-                  update({
-                    sourceType,
-                    source: { git: draft.stashedGitSource ?? { repo_url: "", dockerfile_path: DEFAULT_DOCKERFILE_PATH, build_context: DEFAULT_BUILD_CONTEXT } },
-                    stashedImageSource: draft.source?.image ?? draft.stashedImageSource,
-                  });
-                } else {
-                  update({
-                    sourceType,
-                    source: { image: draft.stashedImageSource ?? { ref: "" } },
-                    stashedGitSource: draft.source?.git ?? draft.stashedGitSource,
-                  });
-                }
-              }}
-              options={[
-                { value: "image", label: "Container image", icon: <Box size={15} /> },
-                { value: "git", label: "Git repository", icon: <GitBranch size={15} /> },
-              ]}
-            />
-          </DirtyField>
-        </LedgerRow>
+        <FieldGrid>
+          <FieldShell label="Build from">
+            <DirtyField
+              draft={draft}
+              baseline={baseline}
+              path="sourceType"
+              compact
+              onReset={onDiscardField ? () => onDiscardField("sourceType") : undefined}
+            >
+              <SegmentedControl
+                fill
+                aria-label="Build from"
+                value={draft.sourceType || "image"}
+                onValueChange={(val) => {
+                  const sourceType = val as "image" | "git";
+                  // The API rejects a source with both `git` and `image` set
+                  // (source_conflict), so the abandoned branch can't stay live
+                  // in `source`. Stash it in a form-only field instead of
+                  // discarding it, and restore the other branch from its own
+                  // stash (falling back to fresh defaults the first time).
+                  if (sourceType === "git") {
+                    update({
+                      sourceType,
+                      source: { git: draft.stashedGitSource ?? { repo_url: "", dockerfile_path: DEFAULT_DOCKERFILE_PATH, build_context: DEFAULT_BUILD_CONTEXT } },
+                      stashedImageSource: draft.source?.image ?? draft.stashedImageSource,
+                    });
+                  } else {
+                    update({
+                      sourceType,
+                      source: { image: draft.stashedImageSource ?? { ref: "" } },
+                      stashedGitSource: draft.source?.git ?? draft.stashedGitSource,
+                    });
+                  }
+                }}
+                options={[
+                  { value: "image", label: "Container image", icon: <Box />, showLabel: true },
+                  { value: "git", label: "Git repository", icon: <GitBranch />, showLabel: true },
+                ]}
+              />
+            </DirtyField>
+          </FieldShell>
+
+        </FieldGrid>
 
         {draft.sourceType === "image" ? (
           <>
-            <LedgerRow label="Registry" htmlFor={`image-registry-${index}`}>
-              <DirtyField
-                draft={draft}
-                baseline={baseline}
-                path="source.image"
-                compact
-                onReset={onDiscardField ? () => onDiscardField("source.image") : undefined}
-              >
-                <ImageRegistrySelect
-                  id={`image-registry-${index}`}
-                  imageRef={draft.source?.image?.ref || ""}
-                  registryCredentialsId={draft.source?.image?.registry_credentials_id}
-                  onChange={(patch) =>
-                    updateImageSource({ ref: patch.ref, registry_credentials_id: patch.registry_credentials_id })
-                  }
-                />
-              </DirtyField>
-            </LedgerRow>
-
-            <LedgerRow
-              label="Image reference"
-              htmlFor={`container-image-${index}`}
-              required
-              alignTop
-              error={getError(errors, "source.image.ref")}
-            >
-              <DirtyField
-                draft={draft}
-                baseline={baseline}
-                path="source.image"
-                compact
-                onReset={onDiscardField ? () => onDiscardField("source.image") : undefined}
-              >
-                {(() => {
-                  const { host, remainder } = splitImageRef(draft.source?.image?.ref || "");
-                  return (
-                    <div className="flex items-center gap-1">
-                      {host && (
-                        <span className="rounded bg-muted px-1.5 py-1 font-mono text-label text-muted-foreground">
-                          {host}/
-                        </span>
-                      )}
-                      <Input
-                        id={`container-image-${index}`}
-                        placeholder={host ? "e.g., acme/api:1.4.2" : "e.g., nginx:latest, redis:7"}
-                        value={remainder}
-                        onChange={(e) => {
-                          const typed = e.target.value;
-                          // A pasted full ref (with its own host) replaces the
-                          // whole ref outright; otherwise compose against the
-                          // active chip host as before.
-                          const { host: typedHost } = splitImageRef(typed);
-                          updateImageSource({ ref: typedHost ? typed : joinImageRef(host, typed) });
-                        }}
-                        className={`h-9 flex-1 font-mono text-meta ${getError(errors, "source.image.ref") ? "border-danger" : ""}`}
-                        required={draft.sourceType === "image"}
-                        aria-invalid={!!getError(errors, "source.image.ref")}
-                      />
-                    </div>
-                  );
-                })()}
-              </DirtyField>
-            </LedgerRow>
-          </>
-        ) : (
-          <>
-            <LedgerRow
-              label="Repository"
-              htmlFor={`git-repo-${index}`}
-              required
-              alignTop
-              error={getError(errors, "source.git.repo_url")}
-            >
-              <DirtyField
-                draft={draft}
-                baseline={baseline}
-                path="source.git.repo_url"
-                compact
-                onReset={onDiscardField ? () => {
-                  onDiscardField("source.git.repo_url");
-                  onDiscardField("source.git.integration_id");
-                } : undefined}
-              >
-                <RepoCombobox
-                  id={`git-repo-${index}`}
-                  value={draft.source?.git?.repo_url || ""}
-                  integrationId={draft.source?.git?.integration_id}
-                  onChange={(pick) =>
-                    updateGitSource({ repo_url: pick.repo_url, integration_id: pick.integration_id })
-                  }
-                  hasError={!!getError(errors, "source.git.repo_url")}
-                />
-              </DirtyField>
-            </LedgerRow>
-
-            <LedgerRow
-              label="Revision"
-              htmlFor={`git-revision-type-${index}`}
-              error={getError(errors, "gitRevisionType")}
-            >
-              <DirtyField
-                draft={draft}
-                baseline={baseline}
-                path="gitRevisionType"
-                compact
-                onReset={onDiscardField ? () => onDiscardField("gitRevisionType") : undefined}
-              >
-                <Select
-                  value={draft.gitRevisionType ?? "default"}
-                  onValueChange={(val) =>
-                    val === "default"
-                      ? update({ gitRevisionType: undefined, gitRevisionValue: undefined, gitCommitPin: undefined })
-                      : update({ gitRevisionType: val as "branch" | "tag" })
-                  }
+            <FieldGrid>
+              <FieldShell label="Registry" htmlFor={`image-registry-${index}`}>
+                <DirtyField
+                  draft={draft}
+                  baseline={baseline}
+                  path="source.image"
+                  compact
+                  onReset={onDiscardField ? () => onDiscardField("source.image") : undefined}
                 >
-                  <SelectTrigger
-                    id={`git-revision-type-${index}`}
-                    className={`h-9 w-full text-body ${getError(errors, "gitRevisionType") ? "border-danger" : ""}`}
-                  >
-                    <SelectValue placeholder="Default branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="default">Default branch</SelectItem>
-                    <SelectItem value="branch">Branch</SelectItem>
-                    <SelectItem value="tag">Tag</SelectItem>
-                  </SelectContent>
-                </Select>
-              </DirtyField>
-            </LedgerRow>
+                  <ImageRegistrySelect
+                    id={`image-registry-${index}`}
+                    imageRef={draft.source?.image?.ref || ""}
+                    registryCredentialsId={draft.source?.image?.registry_credentials_id}
+                    onChange={(patch) =>
+                      updateImageSource({ ref: patch.ref, registry_credentials_id: patch.registry_credentials_id })
+                    }
+                  />
+                </DirtyField>
+              </FieldShell>
 
-            {draft.gitRevisionType && (
-              <LedgerRow
-                label={draft.gitRevisionType === "branch" ? "Branch name" : "Tag name"}
-                htmlFor={`git-revision-value-${index}`}
+              <FieldShell
+                label="Image reference"
+                htmlFor={`container-image-${index}`}
                 required
-                alignTop
-                error={getError(errors, "gitRevisionValue")}
+                error={getError(errors, "source.image.ref")}
               >
                 <DirtyField
                   draft={draft}
                   baseline={baseline}
-                  path="gitRevisionValue"
+                  path="source.image"
                   compact
-                  onReset={onDiscardField ? () => onDiscardField("gitRevisionValue") : undefined}
+                  onReset={onDiscardField ? () => onDiscardField("source.image") : undefined}
                 >
-                  <Input
-                    id={`git-revision-value-${index}`}
-                    value={draft.gitRevisionValue || ""}
-                    onChange={(e) => update({ gitRevisionValue: e.target.value })}
-                    placeholder={draft.gitRevisionType === "branch" ? "e.g., main, develop" : "e.g., v1.0.0"}
-                    className={`h-9 font-mono text-meta ${getError(errors, "gitRevisionValue") ? "border-danger" : ""}`}
-                    required={!!draft.gitRevisionType}
-                    aria-invalid={!!getError(errors, "gitRevisionValue")}
-                    onBlur={() => {
-                      if (!draft.gitRevisionValue) {
-                        update({ gitRevisionValue: "" });
-                      }
-                    }}
+                  {(() => {
+                    const { host, remainder } = splitImageRef(draft.source?.image?.ref || "");
+                    return (
+                      <div className="flex items-center gap-1">
+                        {host && (
+                          <span className="rounded bg-muted px-1.5 py-1 font-mono text-label text-muted-foreground">
+                            {host}/
+                          </span>
+                        )}
+                        <Input
+                          id={`container-image-${index}`}
+                          placeholder={host ? "e.g., acme/api:1.4.2" : "e.g., nginx:latest, redis:7"}
+                          value={remainder}
+                          onChange={(e) => {
+                            const typed = e.target.value;
+                            // A pasted full ref (with its own host) replaces the
+                            // whole ref outright; otherwise compose against the
+                            // active chip host as before.
+                            const { host: typedHost } = splitImageRef(typed);
+                            updateImageSource({ ref: typedHost ? typed : joinImageRef(host, typed) });
+                          }}
+                          className="h-9 flex-1 font-mono text-meta"
+                          required={draft.sourceType === "image"}
+                          aria-invalid={!!getError(errors, "source.image.ref")}
+                        />
+                      </div>
+                    );
+                  })()}
+                </DirtyField>
+              </FieldShell>
+            </FieldGrid>
+          </>
+        ) : (
+          <>
+            <FieldGrid>
+              <FieldShell
+                label="Repository"
+                htmlFor={`git-repo-${index}`}
+                required
+                error={getError(errors, "source.git.repo_url")}
+              >
+                <DirtyField
+                  draft={draft}
+                  baseline={baseline}
+                  path="source.git.repo_url"
+                  compact
+                  onReset={onDiscardField ? () => {
+                    onDiscardField("source.git.repo_url");
+                    onDiscardField("source.git.integration_id");
+                  } : undefined}
+                >
+                  <RepoCombobox
+                    id={`git-repo-${index}`}
+                    value={draft.source?.git?.repo_url || ""}
+                    integrationId={draft.source?.git?.integration_id}
+                    onChange={(pick) =>
+                      updateGitSource({ repo_url: pick.repo_url, integration_id: pick.integration_id })
+                    }
+                    hasError={!!getError(errors, "source.git.repo_url")}
                   />
                 </DirtyField>
-              </LedgerRow>
-            )}
+              </FieldShell>
 
-            <LedgerRow
-              label="Pin to commit"
-              htmlFor={`git-commit-pin-${index}`}
-              hint="Optional commit SHA. Builds stay on this commit until unpinned."
-              alignTop
-              error={getError(errors, "gitCommitPin")}
-            >
-              <DirtyField
-                draft={draft}
-                baseline={baseline}
-                path="gitCommitPin"
-                compact
-                onReset={onDiscardField ? () => onDiscardField("gitCommitPin") : undefined}
+              <FieldShell
+                label="Revision"
+                htmlFor={`git-revision-type-${index}`}
+                /* One subject in two boxes — a revision is a kind AND a name — so
+                 these two share a row and the form keeps two trailing edges. */
+                span={1}
+                error={getError(errors, "gitRevisionType")}
               >
-                <Input
-                  id={`git-commit-pin-${index}`}
-                  value={draft.gitCommitPin || ""}
-                  onChange={(e) => update({ gitCommitPin: e.target.value || undefined })}
-                  placeholder="e.g., a1b2c3d4e5..."
-                  disabled={!draft.gitRevisionType && !draft.gitCommitPin}
-                  className={`h-9 font-mono text-meta ${getError(errors, "gitCommitPin") ? "border-danger" : ""}`}
-                  aria-invalid={!!getError(errors, "gitCommitPin")}
-                />
-              </DirtyField>
-            </LedgerRow>
+                <DirtyField
+                  draft={draft}
+                  baseline={baseline}
+                  path="gitRevisionType"
+                  compact
+                  onReset={onDiscardField ? () => onDiscardField("gitRevisionType") : undefined}
+                >
+                  <Select
+                    value={draft.gitRevisionType ?? "default"}
+                    onValueChange={(val) =>
+                      val === "default"
+                        ? update({ gitRevisionType: undefined, gitRevisionValue: undefined, gitCommitPin: undefined })
+                        : update({ gitRevisionType: val as "branch" | "tag" })
+                    }
+                  >
+                    <SelectTrigger
+                      id={`git-revision-type-${index}`}
+                      className="h-9 w-full text-body"
+                      aria-invalid={!!getError(errors, "gitRevisionType")}
+                    >
+                      <SelectValue placeholder="Default branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default branch</SelectItem>
+                      <SelectItem value="branch">Branch</SelectItem>
+                      <SelectItem value="tag">Tag</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </DirtyField>
+              </FieldShell>
 
-            <LedgerDisclosure label="Advanced" meta="build & push">
-              <LedgerRow
+              {draft.gitRevisionType && (
+                <FieldShell
+                  label={draft.gitRevisionType === "branch" ? "Branch name" : "Tag name"}
+                  htmlFor={`git-revision-value-${index}`}
+                  required
+                  span={1}
+                  error={getError(errors, "gitRevisionValue")}
+                >
+                  <DirtyField
+                    draft={draft}
+                    baseline={baseline}
+                    path="gitRevisionValue"
+                    compact
+                    onReset={onDiscardField ? () => onDiscardField("gitRevisionValue") : undefined}
+                  >
+                    <Input
+                      id={`git-revision-value-${index}`}
+                      value={draft.gitRevisionValue || ""}
+                      onChange={(e) => update({ gitRevisionValue: e.target.value })}
+                      placeholder={draft.gitRevisionType === "branch" ? "e.g., main, develop" : "e.g., v1.0.0"}
+                      className="h-9 text-meta"
+                      required={!!draft.gitRevisionType}
+                      aria-invalid={!!getError(errors, "gitRevisionValue")}
+                      onBlur={() => {
+                        if (!draft.gitRevisionValue) {
+                          update({ gitRevisionValue: "" });
+                        }
+                      }}
+                    />
+                  </DirtyField>
+                </FieldShell>
+              )}
+
+              <FieldShell
+                label="Pin to commit"
+                htmlFor={`git-commit-pin-${index}`}
+                hint="Optional commit SHA. Builds stay on this commit until unpinned."
+                error={getError(errors, "gitCommitPin")}
+              >
+                <DirtyField
+                  draft={draft}
+                  baseline={baseline}
+                  path="gitCommitPin"
+                  compact
+                  onReset={onDiscardField ? () => onDiscardField("gitCommitPin") : undefined}
+                >
+                  <Input
+                    id={`git-commit-pin-${index}`}
+                    value={draft.gitCommitPin || ""}
+                    onChange={(e) => update({ gitCommitPin: e.target.value || undefined })}
+                    placeholder="e.g., a1b2c3d4e5..."
+                    disabled={!draft.gitRevisionType && !draft.gitCommitPin}
+                    className="h-9 text-meta"
+                    aria-invalid={!!getError(errors, "gitCommitPin")}
+                  />
+                </DirtyField>
+              </FieldShell>
+            </FieldGrid>
+
+            {/* A disclosure is not a field, so it sits beside the grid rather
+                than in a cell of it. `mx-0` cancels the full-bleed: this one is
+                nested inside a section that has already spent the body's 20. */}
+            <FormSection collapsible label="Advanced" state="build & push" className="mx-0">
+              <FieldShell
                 label="Dockerfile path"
                 htmlFor={`dockerfile-path-${index}`}
                 hint="Relative to the build context."
@@ -561,12 +572,12 @@ function StackResourceConfigurationTabImpl({
                       if (!e.target.value.trim()) updateGitSource({ dockerfile_path: DEFAULT_DOCKERFILE_PATH });
                     }}
                     placeholder="Dockerfile"
-                    className="h-9 font-mono text-meta"
+                    className="h-9 text-meta"
                   />
                 </DirtyField>
-              </LedgerRow>
+              </FieldShell>
 
-              <LedgerRow
+              <FieldShell
                 label="Build context"
                 htmlFor={`build-context-${index}`}
                 hint="Directory passed to the image build."
@@ -587,15 +598,14 @@ function StackResourceConfigurationTabImpl({
                       if (!e.target.value.trim()) updateGitSource({ build_context: DEFAULT_BUILD_CONTEXT });
                     }}
                     placeholder="."
-                    className="h-9 font-mono text-meta"
+                    className="h-9 text-meta"
                   />
                 </DirtyField>
-              </LedgerRow>
+              </FieldShell>
 
-              <LedgerRow
+              <FieldShell
                 label="Push registry"
                 htmlFor={`push-repo-${index}`}
-                alignTop
                 hint="Blank uses the internal cluster registry."
                 error={getError(errors, "source.git.push.repository")}
               >
@@ -613,98 +623,95 @@ function StackResourceConfigurationTabImpl({
                       updateGitSource({ push: e.target.value ? { repository: e.target.value } : undefined })
                     }
                     placeholder="e.g., ghcr.io/your-org/your-image"
-                    className="h-9 font-mono text-meta"
+                    className="h-9 text-meta"
                   />
                 </DirtyField>
-              </LedgerRow>
-            </LedgerDisclosure>
+              </FieldShell>
+            </FormSection>
           </>
         )}
-      </LedgerSection>
+      </FormSection>
 
-      <LedgerSection label="Ports" meta={portsMeta}>
-        {ports.map((port: Port, pidx: number) => (
-          <LedgerRow
-            key={pidx}
-            label={`Port ${pidx + 1}`}
-            htmlFor={`port-number-${index}-${pidx}`}
-            error={
-              getError(errors, `ports.${pidx}.number`) || getError(errors, `ports.${pidx}.protocol`)
-            }
-          >
-            <DirtyField
-              draft={draft}
-              baseline={baseline}
-              path={`ports.${pidx}`}
-              compact
-              onReset={onDiscardField ? () => onDiscardField(`ports.${pidx}`) : undefined}
+      <FormSection label="Ports" state={portsMeta}>
+        {/* 8, not 16: the rows and the button that adds one more are one
+            subject, not a column of separate things. */}
+        <RecordList>
+          {ports.map((port: Port, pidx: number) => (
+            <RecordRow
+              key={pidx}
+              label={`Port ${pidx + 1}`}
+              htmlFor={`port-number-${index}-${pidx}`}
+              error={
+                getError(errors, `ports.${pidx}.number`) || getError(errors, `ports.${pidx}.protocol`)
+              }
+              onRemove={() => removePort(pidx)}
+              removeLabel={port.number ? `Remove port ${port.number}` : `Remove port ${pidx + 1}`}
             >
-              <div className="flex items-center gap-2.5">
-                <Input
-                  id={`port-number-${index}-${pidx}`}
-                  inputMode="numeric"
-                  value={port.number?.toString() ?? ""}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, "");
-                    updatePort(pidx, { number: digits === "" ? undefined : parseInt(digits, 10) });
-                  }}
-                  className={`h-9 w-[84px] shrink-0 font-mono text-body ${getError(errors, `ports.${pidx}.number`) ? "border-danger" : ""}`}
-                  required
-                />
-                <Select
-                  value={port.protocol || "tcp"}
-                  onValueChange={(value) => updatePort(pidx, { protocol: value as "tcp" | "http" })}
-                >
-                  <SelectTrigger
-                    aria-label="Protocol"
-                    className="h-9 w-[92px] shrink-0 text-body"
+              <DirtyField
+                draft={draft}
+                baseline={baseline}
+                path={`ports.${pidx}`}
+                compact
+                onReset={onDiscardField ? () => onDiscardField(`ports.${pidx}`) : undefined}
+                className="min-w-0 flex-1"
+              >
+                {/* Arbitrary values flex; the closed set is fixed at the width
+                    of its widest option. The remove button is packed straight
+                    after by `RecordRow` — never pushed to the far edge. */}
+                <div className="flex min-w-0 items-center gap-1">
+                  <Input
+                    id={`port-number-${index}-${pidx}`}
+                    inputMode="numeric"
+                    value={port.number?.toString() ?? ""}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "");
+                      updatePort(pidx, { number: digits === "" ? undefined : parseInt(digits, 10) });
+                    }}
+                    className="min-w-0 flex-1"
+                    aria-invalid={!!getError(errors, `ports.${pidx}.number`)}
+                    required
+                  />
+                  <Select
+                    value={port.protocol || "tcp"}
+                    onValueChange={(value) => updatePort(pidx, { protocol: value as "tcp" | "http" })}
                   >
-                    <SelectValue placeholder="Protocol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tcp">TCP</SelectItem>
-                    <SelectItem value="http">HTTP</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="ml-auto flex items-center gap-2">
-                  <Label
-                    htmlFor={`port-expose-${index}-${pidx}`}
-                    className="cursor-pointer font-mono text-label text-muted-foreground"
-                  >
-                    {port.exposed_to_public ? "public" : "internal"}
-                  </Label>
-                  <Switch
-                    id={`port-expose-${index}-${pidx}`}
-                    checked={port.exposed_to_public || false}
-                    onCheckedChange={(checked) => updatePort(pidx, { exposed_to_public: checked })}
+                    {/* `!` because a record member is the exception FieldShell
+                        names: its fill rule reaches every select inside a
+                        field, and a closed set here is fixed at its own width. */}
+                    <SelectTrigger aria-label="Protocol" className="!w-[92px] flex-none">
+                      <SelectValue placeholder="Protocol" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tcp">TCP</SelectItem>
+                      <SelectItem value="http">HTTP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {/* A segmented, not a switch: a switch needs a word beside it to
+                    say what it toggles, and that word was `public`/`internal` in
+                    mono at the far end of an `ml-auto`. A segmented IS its own
+                    label. 130 is the closed set's own width. */}
+                  <SegmentedControl
+                    aria-label="Visibility"
+                    className="w-[130px] flex-none"
+                    value={port.exposed_to_public ? "public" : "internal"}
+                    onValueChange={(v) => updatePort(pidx, { exposed_to_public: v === "public" })}
+                    options={[
+                      { value: "public", label: "Public" },
+                      { value: "internal", label: "Internal" },
+                    ]}
                   />
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removePort(pidx)}
-                  title="Remove port"
-                  aria-label="Remove port"
-                  className="shrink-0 text-fg-muted hover:bg-danger-bg hover:text-danger"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </DirtyField>
-          </LedgerRow>
-        ))}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={addPort}
-          className="ml-1.5 mt-3 h-8 gap-1.5 rounded-md border-border font-mono text-meta font-normal text-muted-foreground hover:border-border-strong hover:text-foreground"
-        >
-          <PlusCircle className="h-3.5 w-3.5" />
-          add port
-        </Button>
-      </LedgerSection>
+              </DirtyField>
+            </RecordRow>
+          ))}
+          <Button variant="outline" size="sm" onClick={addPort} className="self-start">
+            <PlusCircle aria-hidden />
+            Add port
+          </Button>
+        </RecordList>
+      </FormSection>
 
-      <LedgerSection label="Mounts" meta={mountsMeta}>
+      <FormSection label="Mounts" state={mountsMeta}>
         {mountsReadOnly ? (
           <div>
             {mounts.length === 0 && (
@@ -731,10 +738,10 @@ function StackResourceConfigurationTabImpl({
                     <span className="truncate">{vm.source_volume_name}</span>
                   </div>
                   {/* deliberate off-scale: ~22px-tall code chip, rounded-sm reads too round */}
-                  <code className="shrink-0 rounded-[3px] bg-secondary px-2 py-1 font-mono text-label text-muted-foreground">
+                  <code className="shrink-0 rounded-[3px] bg-secondary px-2 py-1 text-label text-muted-foreground">
                     {vm.target_path}
                   </code>
-                  <span className="ml-auto shrink-0 font-mono text-label text-fg-muted/70">
+                  <span className="ml-auto shrink-0 text-label text-fg-muted/70">
                   drag a volume onto the node to attach
                   </span>
                   {onOpenVolume && vm.source_volume_name && (
@@ -779,7 +786,7 @@ function StackResourceConfigurationTabImpl({
                       >
                         <SelectTrigger
                           id={`volume-name-${index}-${vmIdx}`}
-                          className={getError(errors, `volume_mounts.${vmIdx}.source_volume_name`) ? "border-danger" : ""}
+                          aria-invalid={!!getError(errors, `volume_mounts.${vmIdx}.source_volume_name`)}
                         >
                           <SelectValue placeholder="Select volume" />
                         </SelectTrigger>
@@ -846,7 +853,7 @@ function StackResourceConfigurationTabImpl({
                       value={vm.target_path || ""}
                       onChange={(e) => updateVolumeMount(vmIdx, { target_path: e.target.value })}
                       placeholder="e.g., /mnt/data"
-                      className={getError(errors, `volume_mounts.${vmIdx}.target_path`) ? "border-danger" : ""}
+                      aria-invalid={!!getError(errors, `volume_mounts.${vmIdx}.target_path`)}
                       required
                     />
                   </FieldShell>
@@ -878,8 +885,8 @@ function StackResourceConfigurationTabImpl({
             )}
           </div>
         )}
-      </LedgerSection>
-    </TabsContent>
+      </FormSection>
+    </>
   );
 }
 

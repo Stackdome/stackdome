@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+import { Kbd, ariaShortcut, matchesShortcut } from "./kbd"
 
 const buttonVariants = cva(
   // Radius is NOT set here — it belongs to `shape`, because a button's radius
@@ -54,8 +55,15 @@ const buttonVariants = cva(
         // `ghost`, in danger's hue instead of ink's.
         "destructive-ghost":
           "bg-transparent text-danger not-disabled:hover:bg-[var(--danger-bg)] not-disabled:active:bg-[var(--danger-bg)] not-disabled:active:shadow-[var(--btn-press-soft)] [--press-shadow:var(--btn-press-soft)]",
+        // **A raised card, like the Select beside it.** Sheet ground, hairline,
+        // `elevation/sm` — and hover lifts the LINE, never the fill, so the
+        // ground stays put the way it does on a field and a select.
+        //
+        // The PRESS is deliberately unchanged: it is still the soft recess, and
+        // it still spells out the combined focus state above. Hover moved to
+        // the line; the press is the one place this face is allowed to move.
         outline:
-          "bg-control text-foreground border border-border not-disabled:hover:bg-control-hover not-disabled:active:bg-control not-disabled:active:shadow-[var(--btn-press-soft)] [--press-shadow:var(--btn-press-soft)]",
+          "bg-card shadow-sm text-foreground [outline-width:1px] [outline-style:solid] [outline-color:var(--border)] not-disabled:hover:[outline-color:var(--border-strong)] not-disabled:active:bg-card not-disabled:active:shadow-[var(--btn-press-soft)] [--press-shadow:var(--btn-press-soft)]",
         // Same material as `outline`, no border — the two looked doubled up
         // side by side in stories, so secondary drops the hairline.
         secondary:
@@ -98,7 +106,12 @@ const buttonVariants = cva(
       // A pill needs no curvature correction here — at the vertical midline,
       // where single-line text sits, the rounded edge is at its full extent.
       size: {
-        default: "h-8 px-3 has-[svg]:px-3 has-[>span>svg:first-child]:not-has-[>span>svg:last-child]:pl-[9px] has-[>span>svg:first-child]:not-has-[>span>svg:last-child]:pr-[14px] has-[>span>svg:last-child]:not-has-[>span>svg:first-child]:pr-[9px] has-[>span>svg:last-child]:not-has-[>span>svg:first-child]:pl-[14px]",
+        // **8 and 8, flat.** Every 32px control in the product takes the same
+        // side padding now — field, select, button — so a toolbar reads as one
+        // column start instead of three. This size used to run a 12px base with
+        // an optical trim on the glyph side (9 / 14), which is why a button and
+        // the field next to it never began at the same x.
+        default: "h-8 px-2 has-[svg]:px-2",
         sm: "h-7 gap-1 px-2.5 has-[svg]:px-2.5 has-[>span>svg:first-child]:not-has-[>span>svg:last-child]:pl-[7px] has-[>span>svg:first-child]:not-has-[>span>svg:last-child]:pr-[12px] has-[>span>svg:last-child]:not-has-[>span>svg:first-child]:pr-[7px] has-[>span>svg:last-child]:not-has-[>span>svg:first-child]:pl-[12px]",
         lg: "h-10 px-[15px] has-[svg]:px-[15px] has-[>span>svg:first-child]:not-has-[>span>svg:last-child]:pl-[12px] has-[>span>svg:first-child]:not-has-[>span>svg:last-child]:pr-[17px] has-[>span>svg:last-child]:not-has-[>span>svg:first-child]:pr-[12px] has-[>span>svg:last-child]:not-has-[>span>svg:first-child]:pl-[17px]",
         icon: "size-8",
@@ -169,14 +182,34 @@ function Button({
   asChild = false,
   loading = false,
   loadingText,
+  shortcut,
   children,
   disabled,
+  onClick,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
     /** Swaps the content for a spinner and makes the button inert. */
     loading?: boolean
+    /**
+     * The keystroke that fires this button — `"mod+enter"`, `"mod+k"`, `"esc"`.
+     *
+     * **One string does all three jobs**: it draws the key cap, it fills
+     * `aria-keyshortcuts`, and it binds the listener. Call sites used to write
+     * their own `window.addEventListener` beside a hand-drawn `<kbd>`, which is
+     * two copies of the same fact — and the pair drifted, because nothing fails
+     * when a cap says `⌘⏎` and the listener wants plain Enter.
+     *
+     * The binding is skipped while the button is disabled or loading, so a
+     * shortcut can never do what the click cannot, and it yields to any layer
+     * that has already handled the event (`defaultPrevented`) — a dialog's own
+     * Enter is not this button's.
+     *
+     * The cap is hidden while `loading`: a button that is already working has
+     * nothing to invite.
+     */
+    shortcut?: string
     /**
      * What the button says while it works — "Creating…", "Deploying…". Say what
      * is happening, not that something is: a spinner already reports *that*.
@@ -185,6 +218,25 @@ function Button({
     loadingText?: React.ReactNode
   }) {
   const Comp = asChild ? Slot : "button"
+  const inert = disabled || loading
+
+  // The shortcut fires the button's own handler, so there is exactly one path
+  // into the action and a call site cannot bind a key to something the click
+  // does not do.
+  const ref = React.useRef<HTMLButtonElement>(null)
+  React.useEffect(() => {
+    if (!shortcut || inert) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Consumed by a nested layer (dialog, drawer, an open menu) — that layer
+      // owns the keystroke while it is up.
+      if (e.defaultPrevented) return
+      if (!matchesShortcut(e, shortcut)) return
+      e.preventDefault()
+      ref.current?.click()
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [shortcut, inert])
 
   /**
    * The content span — the thing every optical-padding selector reaches
@@ -209,7 +261,15 @@ function Button({
           {wrapChildren(loadingText ?? inner)}
         </>
       ) : (
-        wrapChildren(inner)
+        <>
+          {wrapChildren(inner)}
+          {/* **8 from the label, and the button's own 12 from its edge.**
+              The cap has no face any more, so it is content rather than an
+              object pinned to the edge — it sits inside the padding like the
+              label does. `-mr-2` used to pull a boxed cap out to the board's 4;
+              a bare glyph that close reads as falling off the end. */}
+          {shortcut && <Kbd keys={shortcut} className="ml-1" />}
+        </>
       )}
     </span>
   )
@@ -224,10 +284,13 @@ function Button({
 
   return (
     <Comp
+      ref={ref}
       data-slot="button"
       data-loading={loading ? "" : undefined}
       aria-busy={loading || undefined}
-      disabled={disabled || loading}
+      aria-keyshortcuts={shortcut ? ariaShortcut(shortcut) : undefined}
+      onClick={onClick}
+      disabled={inert}
       className={cn(
         buttonVariants({ variant, size, shape }),
         // An `asChild` button is usually an <a>, where `disabled` is not a real

@@ -59,17 +59,20 @@ export const RadiusTracksHeight: Story = {
 export const HoverMovesTheLineNotTheFill: Story = {
   play: async ({ canvas }) => {
     const input = canvas.getByRole('textbox')
-    await expect(input.className).toContain('hover:border-border-strong')
+    await expect(input.className).toContain('hover:[outline-color:var(--border-strong)]')
     // No fill change on hover, in any form.
     await expect(input.className).not.toContain('hover:bg-')
-    await expect(input.className).toContain('bg-input')
+    await expect(input.className).toContain('bg-card')
 
     // The well is grey, not the sheet's white.
     const style = getComputedStyle(input)
     const probe = document.createElement('div')
+    // The well now sits ON the sheet, like the select and the outline button
+    // beside it. It used to be asserted as "not the card" — that was the whole
+    // point of `--input`, and the point moved.
     probe.className = 'bg-card'
     document.body.appendChild(probe)
-    await expect(style.backgroundColor).not.toBe(getComputedStyle(probe).backgroundColor)
+    await expect(style.backgroundColor).toBe(getComputedStyle(probe).backgroundColor)
     probe.remove()
   },
 }
@@ -92,7 +95,7 @@ export const Disabled: Story = {
     await expect(style.cursor).toBe('not-allowed')
     await expect(parseFloat(style.opacity)).toBeLessThan(1)
     // Dim is the whole signal — the line must not move as well.
-    await expect(input.className).toContain('disabled:hover:border-border')
+    await expect(input.className).toContain('disabled:hover:[outline-color:var(--border)]')
   },
 }
 export const Invalid: Story = {
@@ -135,5 +138,61 @@ export const KeyboardFocusOutline: Story = {
     await expect(style.outlineStyle).toBe('none')
     await expect(input.className).toMatch(/(?:^|\s)focus-ring(?:-edge|-inset)?(?:\s|$)/)
     await expect(input.className).not.toMatch(/(?:^|[\s:])ring-/)
+  },
+}
+
+/** **The board's `Field` — all eight variants** (`Shape × State`, node 21:191).
+ *  Two shapes, four states, one 32px height. Hover and focus are driven by the
+ *  play function rather than mocked with classes, so what is asserted is the
+ *  real cascade and not a picture of it. */
+export const BoardField: Story = {
+  render: () => (
+    <div className="bg-background flex gap-6 p-6">
+      {(['pill', 'flat'] as const).map((shape) => (
+        <div key={shape} className="flex w-[300px] flex-col gap-4">
+          {(['default', 'hover', 'focus', 'disabled'] as const).map((state) => (
+            <Input
+              key={state}
+              shape={shape}
+              disabled={state === 'disabled'}
+              aria-label={`${shape}-${state}`}
+              placeholder="Filter stacks…"
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    // Board: 32px tall, 8px inset, pill 999 / flat 8.
+    for (const shape of ['pill', 'flat'] as const) {
+      const el = canvas.getByLabelText(`${shape}-default`)
+      const cs = getComputedStyle(el)
+      await expect(el.getBoundingClientRect().height).toBe(32)
+      await expect(cs.paddingLeft).toBe('8px')
+      await expect(cs.paddingRight).toBe('8px')
+      // `rounded-full` resolves to an effectively infinite px value, so a pill
+      // is asserted as "at least half the height" rather than a literal number.
+      const radius = parseFloat(cs.borderTopLeftRadius)
+      if (shape === 'pill') await expect(radius).toBeGreaterThanOrEqual(16)
+      else await expect(radius).toBe(8)
+    }
+
+    // Hover is NOT asserted here. Synthetic pointer events do not put an
+    // element into the real `:hover` state, so a computed read after
+    // `userEvent.hover` returns the resting value and the check passes on
+    // nothing. Verified with a real pointer instead: hovering the field lifts
+    // its border to `--border-strong` (0.18) and leaves the fill untouched —
+    // a field is a WELL, so hover is carried by the LINE (§4).
+
+    // Board: focus is the 2px accent ring, and the flush ring REPLACES the
+    // hairline — the border keeps its 1px and goes transparent (§5).
+    // Focus is not re-asserted here — `KeyboardFocusOutline` above already
+    // proves the ring, and proving it twice in a variant grid only adds a
+    // second thing to break.
+
+    // Board: disabled is dimmed and nothing else — the line does not move.
+    const off = canvas.getByLabelText('flat-disabled')
+    await expect(getComputedStyle(off).opacity).toBe('0.5')
   },
 }

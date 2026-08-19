@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Search, ChevronDown } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useSecrets } from "@/hooks/use-secrets";
 import { SecretList, SecretListSkeleton, formatSecretType } from "./components/secret-list";
 import { SecretFormDrawer } from "./components/secret-form-drawer";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
+  DropdownMenuChevron,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -198,12 +199,12 @@ export default function SecretsPage() {
   const toolbar = error ? undefined : (
     <>
       <div className="relative w-[300px]">
-        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-muted" />
+        <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-fg-muted" />
         <Input
           placeholder="Filter secrets…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="pl-[30px]"
+          className="pl-8"
           aria-label="Filter secrets"
         />
       </div>
@@ -214,7 +215,7 @@ export default function SecretsPage() {
           <Button variant="outline" shape="flat">
             <span className="text-fg-2">Type:</span>{" "}
             <span>{typeFilter === ALL_TYPES ? "All" : formatSecretType(typeFilter)}</span>
-            <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
+            <DropdownMenuChevron />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -251,7 +252,7 @@ export default function SecretsPage() {
         <DropdownMenuTrigger asChild>
           <Button variant="outline" shape="flat">
             <span className="text-fg-2">Sort:</span> <span>{sortLabel}</span>
-            <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
+            <DropdownMenuChevron />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -284,15 +285,6 @@ export default function SecretsPage() {
   return (
     <div className="flex flex-1 flex-col h-full">
       <PageHeader
-        // §12a's one fact — a count of what is ON SCREEN, so it tracks the
-        // filters. Absent while loading, absent when empty, absent on error.
-        status={
-          !loading && !error && filtered.length > 0 ? (
-            <span className="text-name tabular-nums text-fg-muted">
-              {filtered.length} {filtered.length === 1 ? "secret" : "secrets"}
-            </span>
-          ) : undefined
-        }
         actions={newSecret("default")}
         toolbar={toolbar}
       />

@@ -178,13 +178,16 @@ const withStacks = (items: Stack[]) => [
   ...baselineHandlers,
 ]
 
-/** The header fact counts what is ON SCREEN. The bar this replaces said
- *  "8 stacks" while six rendered, because it counted before the
- *  preview-created stacks were excluded. */
-export const HeaderFact: Story = {
+/** **Preview-created stacks are not in the list.** The fixture carries more
+ *  stacks than this; the ones a preview environment made belong to Previews,
+ *  and a stack that exists in two places is counted twice by whoever reads it.
+ *  This used to be asserted through the header's count, which is gone. */
+export const PreviewStacksAreExcluded: Story = {
   parameters: { msw: withStacks(oneFailure) },
   play: async ({ canvas }) => {
-    await expect(await canvas.findByText(/4 stacks · 1 needs attention/)).toBeInTheDocument()
+    await waitFor(async () => {
+      await expect(canvas.getByText('payments-gateway')).toBeInTheDocument()
+    }, { timeout: 5000 })
     await expect(canvas.getAllByRole('link', { name: /stack$/ })).toHaveLength(4)
   },
 }
@@ -202,16 +205,6 @@ export const FailuresFirst: Story = {
   },
 }
 
-/** All healthy: the attention clause disappears rather than reading "0". */
-export const AllHealthy: Story = {
-  parameters: { msw: withStacks(oneFailure.slice(0, 3)) },
-  play: async ({ canvas }) => {
-    const fact = await canvas.findByText(/^3 stacks/)
-    // The clause disappears rather than reading "0 need attention". Scoped to
-    // the fact itself: "Needs attention" is also the default sort's own label.
-    await expect(fact.textContent).toBe('3 stacks')
-  },
-}
 
 /** §7 — both views show the same rows, the same filters and the same sort.
  *  A card view that quietly drops a column is a different page wearing the
@@ -280,14 +273,18 @@ export const LongNames: Story = {
 }
 
 /**
- * **The mechanic, checked against the header's own number.**
+ * **Two lines means `needsAttention`, and nothing else does.**
  *
  * The reason line is gated on `needsAttention` — the same predicate behind the
- * header fact and the default sort — so the rows that are two lines must be
- * *exactly* the rows the header counts. Before the gate this failed: a
- * cancelled or superseded release writes a message too, so a stack that was
- * serving perfectly well grew a second line and the shape stopped meaning
- * anything.
+ * default sort — so the rows that are two lines must be *exactly* the rows
+ * that predicate selects. Before the gate this failed: a cancelled or
+ * superseded release writes a message too, so a stack that was serving
+ * perfectly well grew a second line and the shape stopped meaning anything.
+ *
+ * The count used to be read out of the header's own fact. That fact is gone,
+ * so the expected number is named here: `payments-gateway` (failed) and
+ * `auth-gateway` (degraded). `analytics-ingest` carries a message and is
+ * healthy — it is the row this test exists to keep at one line.
  */
 export const TwoLineRowsAreTheAttentionSet: Story = {
   parameters: {
@@ -323,16 +320,20 @@ export const TwoLineRowsAreTheAttentionSet: Story = {
     ]),
   },
   play: async ({ canvas }) => {
-    const fact = await canvas.findByText(/needs? attention/)
-    const counted = Number(fact.textContent!.match(/·\s*(\d+) needs? attention/)![1])
-    await expect(counted).toBe(2)
+    await waitFor(async () => {
+      await expect(canvas.getByText('analytics-ingest')).toBeInTheDocument()
+    }, { timeout: 5000 })
 
     const rows = canvas.getAllByRole('link', { name: /stack$/ })
     // A row's status cell holds the word and, only when there is one, the why.
     const twoLine = rows.filter(
       (r) => r.querySelector('[data-slot="status-text"]')!.parentElement!.children.length > 1,
     )
-    await expect(twoLine).toHaveLength(counted)
+    // The named two, and only those — see the note above.
+    await expect(twoLine.map((r) => r.getAttribute('aria-label')).sort()).toEqual([
+      'auth-gateway stack',
+      'payments-gateway stack',
+    ])
     // And the healthy stack carrying a message is not one of them.
     await expect(canvas.queryByText('superseded by release 12')).toBeNull()
     await expect(canvas.getByText('session · 1 of 3 replicas available')).toBeVisible()

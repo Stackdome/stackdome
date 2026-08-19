@@ -29,22 +29,45 @@ const inputVariants = cva(
   // not a dial you nudge, and every one of them keeps its `min`/`max` and its
   // own clamping. Arrow keys still step the value, which is the affordance a
   // keyboard user actually had.
-  "file:text-foreground placeholder:text-fg-muted selection:bg-primary selection:text-primary-foreground bg-input border-border flex w-full min-w-0 border text-body font-normal transition-[color,box-shadow,border-color] hover:border-border-strong file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-body file:font-medium disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border focus-ring-edge aria-invalid:border-danger [&[type=number]]:[appearance:textfield] [&[type=number]::-webkit-inner-spin-button]:appearance-none [&[type=number]::-webkit-outer-spin-button]:appearance-none",
+  "file:text-foreground placeholder:text-fg-muted selection:bg-primary selection:text-primary-foreground bg-card shadow-sm [outline-width:1px] [outline-style:solid] [outline-color:var(--border)] flex w-full min-w-0 text-body font-normal transition-[color,box-shadow,border-color] hover:[outline-color:var(--border-strong)] file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-body file:font-medium disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:[outline-color:var(--border)] focus-ring-edge aria-invalid:[outline-color:var(--danger)] [&[type=number]]:[appearance:textfield] [&[type=number]::-webkit-inner-spin-button]:appearance-none [&[type=number]::-webkit-outer-spin-button]:appearance-none",
   {
-    // §5's three heights, and §2's radius for each. The horizontal inset is
-    // the same base the Button size uses (10 / 12 / 15), so a field and the
-    // button beside it read as one row rather than two.
+    // §5's three heights.
+    //
+    // **The 32px field is 8px, from the board's `Field` component — it no
+    // longer shares Button's inset.** A field is a WELL and a button is a FACE:
+    // the button's padding is holding a label off its own edge, the field's is
+    // holding a value off a line. `sm` and `lg` still carry the old button base
+    // (10 / 15) because the board only specifies the 32px field.
     //
     // There is no `h-9`. 36px is not a rung on the ladder.
     variants: {
       size: {
-        sm: "h-7 rounded-sm px-2.5",
-        default: "h-8 rounded-md px-3",
-        lg: "h-10 rounded-lg px-[15px]",
+        sm: "h-7 px-2.5",
+        default: "h-8 px-2",
+        lg: "h-10 px-[15px]",
+      },
+      // The board's `Field` carries the same two shapes as `Button`, for the
+      // same reason: radius reports what KIND of thing this is, not how big it
+      // is. Set by the compoundVariants below so a flat field and the flat
+      // button beside it take the same corner at the same height.
+      //
+      // `flat` is the DEFAULT, matching Button — new work is correct without
+      // thinking about it, and deliberate pills get restored screen by screen
+      // rather than retrofitted in a sweep.
+      shape: {
+        pill: "rounded-full",
+        flat: "",
       },
     },
+    // §2 — radius is a function of HEIGHT: 28/6 · 32/8 · 40/12.
+    compoundVariants: [
+      { shape: "flat", size: "sm", class: "rounded-sm" },        // 28px
+      { shape: "flat", size: "default", class: "rounded-md" },   // 32px
+      { shape: "flat", size: "lg", class: "rounded-lg" },        // 40px
+    ],
     defaultVariants: {
       size: "default",
+      shape: "flat",
     },
   }
 )
@@ -55,6 +78,7 @@ function Input({
   className,
   type,
   size,
+  shape,
   ...props
 }: Omit<React.ComponentProps<"input">, "size"> & VariantProps<typeof inputVariants>) {
   return (
@@ -62,7 +86,8 @@ function Input({
       type={type}
       data-slot="input"
       data-size={size ?? "default"}
-      className={cn(inputVariants({ size, className }))}
+      data-shape={shape ?? "flat"}
+      className={cn(inputVariants({ size, shape, className }))}
       {...props}
     />
   )

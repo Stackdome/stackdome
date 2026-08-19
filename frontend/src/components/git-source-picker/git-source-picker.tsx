@@ -25,7 +25,7 @@ import {
 } from "@/api/git-integrations";
 import { getErrorMessage } from "@/api/client";
 import { getCurrentOrganizationId } from "@/lib/common";
-import { AddIntegrationWizard } from "@/components/git-source-picker/add-integration-wizard";
+import { ConnectProviderDrawer } from "@/components/git-source-picker/connect-provider-drawer";
 import {
   GIT_INTEGRATION_TYPE_GITHUB_APP,
   GIT_INTEGRATION_TYPE_CREDENTIALS,
@@ -70,12 +70,34 @@ const SOURCES = [
 interface GitSourcePickerProps {
   value: PickedRepo | null;
   onChange: (repo: PickedRepo | null) => void;
+  /**
+   * Which source is showing, and the Public URL tab's text — both **controlled
+   * by the caller**.
+   *
+   * They are not internal state because the caller needs them for its own
+   * copy: the new-stack drawer's blocked-action list says "Paste the
+   * repository's URL" on one tab and "Pick a repository from the list" on the
+   * other, which it cannot phrase without knowing which tab you are on. Owning
+   * them also survives an unmount — stepping forward to the service step and
+   * back used to be the only way to lose a URL you had already typed.
+   */
+  mode: Tab;
+  onModeChange: (mode: Tab) => void;
+  url: string;
+  onUrlChange: (url: string) => void;
   /** Shown under the Public URL tab (e.g. preview wizard's PR-automation note). */
   publicUrlHint?: string;
 }
 
-export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePickerProps) {
-  const [tab, setTab] = useState<Tab>("provider");
+export function GitSourcePicker({
+  value,
+  onChange,
+  mode,
+  onModeChange,
+  url,
+  onUrlChange,
+  publicUrlHint,
+}: GitSourcePickerProps) {
   const [integrations, setIntegrations] = useState<GitIntegration[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -84,8 +106,10 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
   const [repos, setRepos] = useState<GitRepository[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hostUrl, setHostUrl] = useState("");
-  const [publicUrl, setPublicUrl] = useState("");
+  /* Seeded from the value so a token-connection URL comes back with the rest
+     of the step. Only ever rendered for a credentials integration, where the
+     picked repo's clone URL IS what was typed here. */
+  const [hostUrl, setHostUrl] = useState(() => value?.cloneUrl ?? "");
 
   const selected = integrations.find((i) => i.id === selectedId) ?? null;
   const hasGithubApp = integrations.some((i) => i.type === GIT_INTEGRATION_TYPE_GITHUB_APP);
@@ -117,7 +141,7 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
 
   // Repos load once per integration; the query filters them client-side.
   useEffect(() => {
-    if (tab !== "provider" || selected?.type !== GIT_INTEGRATION_TYPE_GITHUB_APP) return;
+    if (mode !== "provider" || selected?.type !== GIT_INTEGRATION_TYPE_GITHUB_APP) return;
     const orgId = getCurrentOrganizationId();
     if (!orgId || !selected.id) return;
     let cancelled = false;
@@ -137,7 +161,7 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
     return () => {
       cancelled = true;
     };
-  }, [tab, selected?.id, selected?.type]);
+  }, [mode, selected?.id, selected?.type]);
 
   const pickRepo = async (repo: GitRepository) => {
     const orgId = getCurrentOrganizationId();
@@ -164,9 +188,9 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
   };
 
   const switchTab = (next: Tab) => {
-    setTab(next);
+    onModeChange(next);
     setError(null);
-    setPublicUrl("");
+    onUrlChange("");
     setHostUrl(selected?.type === GIT_INTEGRATION_TYPE_CREDENTIALS ? `https://${selected.host}/` : "");
     onChange(null);
   };
@@ -203,9 +227,9 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
    * also tightened the gate: any non-empty text used to count as a repository,
    * so `abc` unblocked the button.
    */
-  const emitPublicUrl = (url: string) => {
-    setPublicUrl(url);
-    const parsed = parsePublicRepoUrl(url);
+  const emitPublicUrl = (next: string) => {
+    onUrlChange(next);
+    const parsed = parsePublicRepoUrl(next);
     onChange(
       parsed
         ? { fullName: parsed.fullName, cloneUrl: parsed.cloneUrl, defaultBranch: "main", integrationId: null }
@@ -228,14 +252,14 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
    * repository. Parsed, not fetched — a public URL has no integration to look
    * it up through — and the SAME parse `onChange` emits.
    */
-  const parsed = useMemo(() => parsePublicRepoUrl(publicUrl), [publicUrl]);
+  const parsed = useMemo(() => parsePublicRepoUrl(url), [url]);
 
   /* `flex-none` on the row, `self-start` on its own — either way the control
      hugs its segments rather than being stretched by the flex parent (§11). */
   const modes = (className: string) => (
     <SegmentedControl
       options={SOURCES}
-      value={tab}
+      value={mode}
       onValueChange={switchTab}
       aria-label="Where the repository lives"
       className={className}
@@ -253,20 +277,32 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
    * margin paints over whatever is above it.
    */
   const band = (searchDisabled?: boolean) => (
-    <StickyBar>
+    /* **One band, rendered in EVERY mode, so the switch never leaves the tree.**
+       It used to live in two places — inside this bar for a provider, and alone
+       above the field for a URL — which are two different positions in the React
+       tree, so switching unmounted the control and mounted a new one. The
+       travelling face was then a brand-new node arriving un-armed, and it
+       could not animate because it had never been anywhere else.
+
+       In `url` mode the row holds the switch and nothing else, which is the
+       layout that branch already had: the switch keeps the row to itself,
+       because the URL box is content, not a tool over content. */
+    <StickyBar dissolve={mode !== "url"}>
       <div className="flex items-center gap-4">
         {modes("flex-none")}
-        <SearchField
-          value={query}
-          onChange={setQuery}
-          placeholder="Search repositories…"
-          label="Search repositories"
-          disabled={searchDisabled}
-          className="min-w-0 flex-1"
-        />
+        {mode !== "url" && (
+          <SearchField
+            value={query}
+            onChange={setQuery}
+            placeholder="Search repositories…"
+            label="Search repositories"
+            disabled={searchDisabled}
+            className="min-w-0 flex-1"
+          />
+        )}
         {/* Only when there is a choice to make. With one connected provider the
             chip names something that could not have been anything else. */}
-        {integrations.length > 1 && (
+        {mode !== "url" && integrations.length > 1 && (
           <CredentialsDropdown
             integrations={integrations}
             selectedId={selectedId}
@@ -278,9 +314,17 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
     </StickyBar>
   );
 
+  // The band is the same control in every branch, so its one variable is
+  // resolved here rather than at three call sites.
+  const searchDisabled =
+    loaded && integrations.length === 0
+      ? true
+      : selected?.type !== GIT_INTEGRATION_TYPE_GITHUB_APP;
+
   return (
     <div className="flex flex-col gap-4">
-      {tab === "url" ? (
+      {band(searchDisabled)}
+      {mode === "url" ? (
         <div className="flex flex-col gap-4">
           {/* **The URL does NOT take the search field's slot.** That position is
               a toolbar position — a tool OVER the content below it. A search
@@ -292,7 +336,6 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
               actually is: a form field, with a label saying what it is and a
               hint saying what it costs. The hint is the sentence that used to
               float above the row as loose body copy. */}
-          {modes("self-start")}
           <FieldShell
             label="Repository URL"
             htmlFor="git-source-public-url"
@@ -305,7 +348,7 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
               id="git-source-public-url"
               className="font-mono"
               placeholder="https://github.com/acme/web-api.git"
-              value={publicUrl}
+              value={url}
               onChange={(e) => emitPublicUrl(e.target.value)}
             />
           </FieldShell>
@@ -349,7 +392,6 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
               different state, not a different source, so the controls do not
               rearrange themselves — and §9 is satisfied because the reason sits
               directly under the dead field, in full, with the fix as a button. */}
-          {band(true)}
           {/* The first thing a brand-new organisation can ever see here, so it
               gets the page-grade first-run treatment rather than a dashed box:
               the same severed-connection drawing New stack and the Previews page
@@ -377,7 +419,6 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
         <>
           {/* A token connection cannot list anything, so the search above it is
               off and the reason is the field's own hint directly beneath. */}
-          {band(selected?.type !== GIT_INTEGRATION_TYPE_GITHUB_APP)}
 
           {error && <p className="text-meta text-danger">{error}</p>}
 
@@ -463,7 +504,7 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
         </>
       )}
 
-      <AddIntegrationWizard
+      <ConnectProviderDrawer
         open={connectOpen}
         onOpenChange={setConnectOpen}
         hasGithubApp={hasGithubApp}

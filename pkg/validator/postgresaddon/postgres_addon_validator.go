@@ -89,7 +89,7 @@ func (v *postgresAddonValidator) validateBasicFields(spec *models.PostgresAddon)
 	// Validate name format (DNS-1123 subdomain)
 	nameRegex := regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
 	if !nameRegex.MatchString(spec.Name) {
-		return errors.BadRequest("PostgreSQL addon name must be a valid DNS subdomain (lowercase letters, numbers, and hyphens)")
+		return errors.BadRequest("Addon name is invalid. " + validator.NameRuleBroken)
 	}
 
 	if len(spec.Name) > models.MaxAddonNameLength {

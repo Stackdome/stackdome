@@ -186,10 +186,18 @@ export const EnvVarRowKeepsItsWidths: Story = {
     await userEvent.click(await drawer().findByRole('button', { name: /add variable/i }))
 
     const name = await drawer().findByLabelText(/variable name/i)
+    const value = drawer().getByLabelText(/variable value/i)
     const nameField = drawer().getByLabelText(/^name/i)
     const remove = drawer().getByRole('button', { name: /remove variable/i })
 
-    expect(name.getBoundingClientRect().width).toBeGreaterThan(120)
+    // **The key is pinned at 120 and the value takes the slack**, because this
+    // row carries a third control. At 147/147 the value truncated
+    // `https://staging.acme.dev` while the key had headroom nobody used — an
+    // env-var NAME is short by convention and a value is a URL or a token.
+    expect(Math.round(name.getBoundingClientRect().width)).toBe(120)
+    expect(value.getBoundingClientRect().width).toBeGreaterThan(
+      name.getBoundingClientRect().width,
+    )
     // The row ends where every field above it ends.
     expect(Math.round(remove.getBoundingClientRect().right)).toBe(
       Math.round(nameField.getBoundingClientRect().right),

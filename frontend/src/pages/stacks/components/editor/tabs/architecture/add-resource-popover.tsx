@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check, ExternalLink, HardDrive, Plus, Search } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { blockCatalog, BLOCK_CATEGORY_META } from "@/pages/stacks/data/blocks/registry";
@@ -67,9 +68,11 @@ export function AddResourcePanel({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-body font-medium text-foreground">Volume</span>
-        <span className="block truncate font-mono text-label text-muted-foreground">persistent storage</span>
+        <span className="block truncate text-label text-muted-foreground">persistent storage</span>
       </span>
-      <Plus className="h-[17px] w-[17px] text-primary" />
+      {/* No trailing slot — the block tiles beside it have none either. A click
+          IS the add and the graph is the record; there is no running set here
+          for a mark to report. */}
     </button>
   );
 
@@ -80,7 +83,10 @@ export function AddResourcePanel({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search services, data stores…"
+          /* §8: if the copy sets the floor on the field's width, shorten the
+             copy. `Search services, data stores…` measured 198 and would have
+             decided this panel's width on its own. */
+          placeholder="Search resources…"
           className="pl-9"
         />
       </div>
@@ -97,14 +103,16 @@ export function AddResourcePanel({
           query={query}
           onAdd={onAdd}
           hideEmptyMessage
+          columns={1}
+          showAdded={false}
         />
         {showStorageSection ? (
           <div className="mt-5">
-            <div className="mb-3 font-mono text-label text-muted-foreground">
+            <div className="mb-3 text-label text-muted-foreground">
               Storage
             </div>
-            {/* Same half-width card size as the block tiles. */}
-            <div className="grid grid-cols-2 gap-2.5">
+            {/* Same tile shape as the blocks above — one column here too. */}
+            <div className="grid grid-cols-1 gap-2.5">
               {!canAddVolume ? (
                 <Tooltip delayDuration={300}>
                   <TooltipTrigger asChild>
@@ -128,12 +136,14 @@ export function AddResourcePanel({
             query={query}
             onAdd={onAdd}
             hideEmptyMessage
+            columns={1}
+            showAdded={false}
           />
         </div>
         {/* Last section, matching the wizard's block composer order. */}
         {(visibleAddons.length > 0 || (addons.length === 0 && !trimmedQuery)) && (
           <div className="mt-5">
-            <div className="mb-3 font-mono text-label text-muted-foreground">
+            <div className="mb-3 text-label text-muted-foreground">
               Managed add-ons
             </div>
             {addons.length === 0 ? (
@@ -174,7 +184,7 @@ export function AddResourcePanel({
                         <span className="block text-body font-medium text-foreground">
                           {a.name}
                         </span>
-                        <span className="block truncate font-mono text-label text-muted-foreground">
+                        <span className="block truncate text-label text-muted-foreground">
                           managed postgres
                         </span>
                       </span>
@@ -208,17 +218,27 @@ export function AddResourcePopover(props: AddResourcePopoverProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-body font-medium text-foreground shadow-xs transition-colors hover:bg-muted"
-        >
-          <Plus className="size-3.5" />
+        {/* A cell in its own island: `ghost` for the transparent face and the
+            product's one wash ladder, `sm` for the 28px rung that sits inside
+            the island's 2px padding. It was a hand-rolled `<button>` carrying a
+            `rounded-[5px]` off the radius ladder, a `bg-foreground/[0.06]` hover
+            hand-mixed instead of `--wash-hover`, and a 14px glyph beside its
+            neighbours' 16 — three ways to disagree with the four controls 8px
+            to its left. */}
+        <Button variant="ghost" size="sm">
+          <Plus />
           Add resource
-        </button>
+        </Button>
       </PopoverTrigger>
-      {/* align="end": the trigger sits at the canvas's top-right, so the wide
-          panel must open leftward to stay on screen. */}
-      <PopoverContent align="end" className="w-[560px] p-0">
+      {/* **272 — 248 of tile plus 12 either side**, not 560. Measured: the text
+          column starts at 56 and the widest line in the catalogue runs to 180,
+          so 248 clears every tile with the right padding intact. 560 was two
+          columns' worth of room for a list you scan down.
+
+          align="start": the trigger sits in the canvas's top-LEFT island, so the
+          panel hangs from its left edge. It was `end` from when `Add resource`
+          lived alone in the opposite corner. */}
+      <PopoverContent align="start" className="w-[272px] p-0">
         <AddResourcePanel {...props} onRequestClose={() => setOpen(false)} />
       </PopoverContent>
     </Popover>

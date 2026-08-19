@@ -34,7 +34,7 @@ describe("GitHubSignInButton", () => {
     vi.mocked(useAppConfigModule.useAppConfig).mockReturnValue({ githubOAuth: true, loading: false });
     render(<GitHubSignInButton />);
     const button = screen.getByRole("button", { name: /github/i });
-    expect(button.className).toContain("bg-control");
+    expect(button.className).toContain("bg-card");
     expect(button.className).not.toContain("bg-foreground");
   });
 });

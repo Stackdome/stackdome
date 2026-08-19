@@ -12,6 +12,23 @@ interface BlockPickerProps {
   /** Suppress the "No matches" note — for callers that render several pickers
    *  and show a single combined empty state instead. */
   hideEmptyMessage?: boolean;
+  /**
+   * Tiles per row. **2 for the wizard's rail, 1 on the canvas** — the canvas
+   * panel is 272 wide, which is the widest tile plus its padding, so a second
+   * column there would either overflow the popover or halve the tile.
+   */
+  columns?: 1 | 2;
+  /**
+   * Report which blocks are already in the stack, with a tick.
+   *
+   * **On by default, and off on the canvas.** In the wizard the rail IS the set
+   * you are building — you can take things back out of it, so it has to say
+   * what is in. On the canvas a click *is* the add and the graph beside it is
+   * the record: there is no running set for a badge to report, and a tick on a
+   * tile you can click again reads as "already done" rather than "one of these
+   * exists".
+   */
+  showAdded?: boolean;
 }
 
 /** Shared query predicate so split-picker callers can pre-compute matches. */
@@ -20,7 +37,16 @@ export function blockMatchesQuery(b: BlockPreset, query: string): boolean {
   return !q || b.name.toLowerCase().includes(q) || b.summary.toLowerCase().includes(q);
 }
 
-export function BlockPicker({ catalog, categories, addedIds, onAdd, query, hideEmptyMessage }: BlockPickerProps) {
+export function BlockPicker({
+  catalog,
+  categories,
+  addedIds,
+  onAdd,
+  query,
+  hideEmptyMessage,
+  columns = 2,
+  showAdded = true,
+}: BlockPickerProps) {
   const visible = catalog.filter((b) => blockMatchesQuery(b, query));
 
   if (visible.length === 0) {
@@ -42,9 +68,9 @@ export function BlockPicker({ catalog, categories, addedIds, onAdd, query, hideE
             <div className="mb-3 font-mono text-label text-muted-foreground">
               {cat.label}
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className={cn("grid gap-2.5", columns === 1 ? "grid-cols-1" : "grid-cols-2")}>
               {blocks.map((b) => {
-                const added = addedIds.includes(b.id);
+                const added = showAdded && addedIds.includes(b.id);
                 return (
                   <button
                     type="button"
@@ -62,7 +88,12 @@ export function BlockPicker({ catalog, categories, addedIds, onAdd, query, hideE
                       <span className="block text-body font-medium text-foreground">{b.name}</span>
                       <span className="block truncate font-mono text-label text-muted-foreground">{b.summary}</span>
                     </span>
-                    {added ? <Check className="h-[17px] w-[17px] text-success" /> : <Plus className="h-[17px] w-[17px] text-primary" />}
+                    {showAdded &&
+                      (added ? (
+                        <Check className="h-[17px] w-[17px] text-success" />
+                      ) : (
+                        <Plus className="h-[17px] w-[17px] text-primary" />
+                      ))}
                   </button>
                 );
               })}

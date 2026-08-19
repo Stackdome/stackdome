@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertBanner, BlockedAction, FieldShell, reasonList } from "@/components/branded";
+import { AlertBanner, BlockedAction, FieldGrid, FieldShell, reasonList } from "@/components/branded";
 import { KeyValueRows } from "@/components/branded/key-value-rows";
 import {
   Select,
@@ -20,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SecretFormSchema } from "../schemas/secret-schema";
+import { SecretFormSchema, SecretTypeSchema } from "../schemas/secret-schema";
+import { formatSecretType } from "./secret-list";
 import type { Secret, SecretType, SecretData } from "../types";
 import { ZodError } from "zod";
 
@@ -33,11 +34,17 @@ interface SecretFormDrawerProps {
   editingSecret?: Secret | null;
 }
 
-const SECRET_TYPES: { value: SecretType; label: string }[] = [
-  { value: "Generic", label: "Generic" },
-  { value: "DockerRegistry", label: "Docker Registry" },
-  { value: "GitCredentials", label: "Git Credentials" },
-];
+/**
+ * Every kind the product has, named the way the list names them.
+ *
+ * It was a hand-written list of **three**, while the API, the zod schema and
+ * this form's own switch all carry six — so `Token`, `SSH key` and
+ * `Username / password` could not be created at all, and opening one that
+ * already existed showed an **empty** Type box over a form full of that kind's
+ * fields. The second copy is gone: the values come off `SecretTypeSchema` and
+ * the words off `formatSecretType`, which is what the rows already read.
+ */
+const SECRET_TYPES: SecretType[] = SecretTypeSchema.options;
 
 export function SecretFormDrawer({
   open,
@@ -308,6 +315,80 @@ export function SecretFormDrawer({
     setShowPassword(prev => ({ ...prev, [field]: !prev[field] }));
   };
 
+  /**
+   * **Username and password are one credential in two boxes**, so they take one
+   * row — the `CPU request ǀ CPU limit` case (§8, "pairing by meaning").
+   *
+   * Nothing else on this form pairs. `Registry URL` is a URL and not half of
+   * anything, and `Name`, `Description` and `Type` each answer their own
+   * question — which is why every other field fills the body. Half width used
+   * to be what happened when nobody decided; here it is the decision.
+   *
+   * `required` also picks which error the typing clears: on Git credentials the
+   * pair is optional and the message belongs to the pair as a whole
+   * (`credentials`), because either arm satisfies it.
+   */
+  const credentialPair = ({ required = true }: { required?: boolean } = {}) => {
+    const clear = (key: "username" | "password") =>
+      setFormErrors((prev) => ({ ...prev, [required ? key : "credentials"]: "" }));
+
+    return (
+      <FieldGrid>
+        <FieldShell
+          label="Username"
+          htmlFor="username"
+          span={1}
+          required={required}
+          error={required ? formErrors.username : undefined}
+        >
+          <Input
+            id="username"
+            value={username}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              clear("username");
+            }}
+            placeholder="acme-ci"
+            className={required && formErrors.username ? "border-danger" : ""}
+          />
+        </FieldShell>
+        <FieldShell
+          label="Password"
+          htmlFor="password"
+          span={1}
+          required={required}
+          error={required ? formErrors.password : undefined}
+        >
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword.password ? "text" : "password"}
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                clear("password");
+              }}
+              /* No placeholder. A placeholder shows a specimen, and there is no
+                 specimen of a password that is not either a lie or a hint at
+                 someone's real one. */
+              className={required && formErrors.password ? "border-danger pr-10" : "pr-10"}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3"
+              onClick={() => togglePasswordVisibility("password")}
+              aria-label={showPassword.password ? "Hide password" : "Show password"}
+            >
+              {showPassword.password ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+          </div>
+        </FieldShell>
+      </FieldGrid>
+    );
+  };
+
   const renderTypeSpecificFields = () => {
     switch (type) {
       case "DockerRegistry":
@@ -323,50 +404,11 @@ export function SecretFormDrawer({
                     setFormErrors(prev => ({ ...prev, registry: "" }));
                   }
                 }}
-                placeholder="docker.io, gcr.io, your-registry.com"
+                placeholder="ghcr.io, docker.io, registry.acme.dev"
                 className={formErrors.registry ? "border-danger" : ""}
               />
             </FieldShell>
-            <FieldShell label="Username" htmlFor="username" required error={formErrors.username}>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  if (formErrors.username) {
-                    setFormErrors(prev => ({ ...prev, username: "" }));
-                  }
-                }}
-                placeholder="Enter username"
-                className={formErrors.username ? "border-danger" : ""}
-              />
-            </FieldShell>
-            <FieldShell label="Password" htmlFor="password" required error={formErrors.password}>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword.password ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (formErrors.password) {
-                      setFormErrors(prev => ({ ...prev, password: "" }));
-                    }
-                  }}
-                  placeholder="Enter password"
-                  className={formErrors.password ? "border-danger pr-10" : "pr-10"}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => togglePasswordVisibility("password")}
-                >
-                  {showPassword.password ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </FieldShell>
+            {credentialPair()}
           </div>
         );
 
@@ -376,45 +418,7 @@ export function SecretFormDrawer({
             {formErrors.credentials && (
               <AlertBanner>{formErrors.credentials}</AlertBanner>
             )}
-            <FieldShell label="Username" htmlFor="username">
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  if (formErrors.credentials) {
-                    setFormErrors(prev => ({ ...prev, credentials: "" }));
-                  }
-                }}
-                placeholder="Enter username"
-              />
-            </FieldShell>
-            <FieldShell label="Password" htmlFor="password">
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword.password ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (formErrors.credentials) {
-                      setFormErrors(prev => ({ ...prev, credentials: "" }));
-                    }
-                  }}
-                  placeholder="Enter password"
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => togglePasswordVisibility("password")}
-                >
-                  {showPassword.password ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </FieldShell>
+            {credentialPair({ required: false })}
             {/* Either the pair above or the token below — the divider says so
                 once, instead of two numbered headings that read as steps. */}
             <div className="flex items-center gap-3 text-meta text-fg-muted">
@@ -438,7 +442,6 @@ export function SecretFormDrawer({
                       setFormErrors(prev => ({ ...prev, credentials: "" }));
                     }
                   }}
-                  placeholder="Enter personal access token"
                   className="pr-10"
                 />
                 <Button
@@ -456,54 +459,19 @@ export function SecretFormDrawer({
         );
 
       case "UsernamePassword":
-        return (
-          <div className="flex flex-col gap-4">
-            <FieldShell label="Username" htmlFor="username" required error={formErrors.username}>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  if (formErrors.username) {
-                    setFormErrors(prev => ({ ...prev, username: "" }));
-                  }
-                }}
-                placeholder="Enter username"
-                className={formErrors.username ? "border-danger" : ""}
-              />
-            </FieldShell>
-            <FieldShell label="Password" htmlFor="password" required error={formErrors.password}>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword.password ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (formErrors.password) {
-                      setFormErrors(prev => ({ ...prev, password: "" }));
-                    }
-                  }}
-                  placeholder="Enter password"
-                  className={formErrors.password ? "border-danger pr-10" : "pr-10"}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => togglePasswordVisibility("password")}
-                >
-                  {showPassword.password ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-            </FieldShell>
-          </div>
-        );
+        return credentialPair();
 
       case "Token":
         return (
-          <FieldShell label="Token" htmlFor="token" required error={formErrors.token}>
+          <FieldShell
+            label="Token"
+            htmlFor="token"
+            required
+            /* The length rule was inside the placeholder, where it read as a
+               specimen of a token. It is a constraint, so it is a hint. */
+            hint="At least 8 characters."
+            error={formErrors.token}
+          >
             <div className="relative">
               <Input
                 id="token"
@@ -515,7 +483,6 @@ export function SecretFormDrawer({
                     setFormErrors(prev => ({ ...prev, token: "" }));
                   }
                 }}
-                placeholder="Enter token (min 8 characters)"
                 className={formErrors.token ? "border-danger pr-10" : "pr-10"}
               />
               <Button
@@ -624,7 +591,9 @@ export function SecretFormDrawer({
                   setFormErrors(prev => ({ ...prev, name: "" }));
                 }
               }}
-              placeholder="Enter secret name"
+              /* A specimen, not the label again. "Enter secret name" under a
+                 label reading "Name" spends a line saying nothing. */
+              placeholder="stripe-api-key"
               className={formErrors.name ? "border-danger" : ""}
             />
           </FieldShell>
@@ -634,7 +603,10 @@ export function SecretFormDrawer({
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter secret description (optional)"
+              /* No "(optional)". The red `*` says required and its absence
+                 says optional — a third convention for the same fact just
+                 makes the reader check which one is authoritative. */
+              placeholder="Live key, billing service only"
               rows={2}
               className="resize-none [field-sizing:fixed]"
             />
@@ -647,8 +619,8 @@ export function SecretFormDrawer({
               </SelectTrigger>
               <SelectContent>
                 {SECRET_TYPES.map((secretType) => (
-                  <SelectItem key={secretType.value} value={secretType.value}>
-                    {secretType.label}
+                  <SelectItem key={secretType} value={secretType}>
+                    {formatSecretType(secretType)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -662,10 +634,14 @@ export function SecretFormDrawer({
           {/* In the footer band, not the body. Inside a band that scrolls, a
               failure scrolls away from the button that produced it. */}
           {error && <AlertBanner>{error}</AlertBanner>}
+          {/* **The footer holds the primary alone**, on a one-phase drawer as
+              on every other. `Cancel` came off the journeys because the path
+              and the ✕ are the exits; here there is no path, so the argument
+              had to be made again rather than inherited — and it lands the same
+              way. Nothing has been committed, so leaving is the ✕, Esc or the
+              scrim, and a `Cancel` beside `Create secret` is a third control
+              for an act two others already offer (§13). */}
           <DrawerActions>
-            <Button shape="flat" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-              Cancel
-            </Button>
             {/* Disabled until the form can actually be sent, and it says why —
                 §6a's rule applied to a form: render the cost, never hide it. */}
             <BlockedAction reason={isLoading ? null : blockedReason()}>

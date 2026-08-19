@@ -27,7 +27,7 @@ type Story = StoryObj<typeof meta>
 export const Enabled: Story = {
   play: async ({ canvas }) => {
     const button = await canvas.findByRole('button', { name: /continue with github/i })
-    await expect(button.className).toContain('bg-control')
+    await expect(button.className).toContain('bg-card')
     await expect(button.className).not.toContain('bg-foreground')
   },
 }

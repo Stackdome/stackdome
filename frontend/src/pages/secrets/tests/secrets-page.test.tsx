@@ -47,7 +47,7 @@ const secret = {
 describe("SecretsPage", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("deletes a secret via the row menu and confirm dialog", async () => {
+  it("deletes a secret via the row action and confirm dialog", async () => {
     vi.mocked(getSecrets)
       .mockResolvedValueOnce({ items: [secret] })
       .mockResolvedValueOnce({ items: [] });
@@ -57,8 +57,8 @@ describe("SecretsPage", () => {
     await waitFor(() => expect(screen.getByText("api-key")).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^Actions for / }), { pointerEventsCheck: 0 });
-    await user.click(await screen.findByText("Delete"), { pointerEventsCheck: 0 });
+    // Two actions, so Delete is ON the row — no menu to open first (§11).
+    await user.click(screen.getByRole("button", { name: /^Delete / }), { pointerEventsCheck: 0 });
 
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent(/delete secret\?/i);
@@ -80,8 +80,7 @@ describe("SecretsPage", () => {
     await waitFor(() => expect(screen.getByText("api-key")).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^Actions for / }), { pointerEventsCheck: 0 });
-    await user.click(await screen.findByText("Delete"), { pointerEventsCheck: 0 });
+    await user.click(screen.getByRole("button", { name: /^Delete / }), { pointerEventsCheck: 0 });
 
     await screen.findByRole("alertdialog");
     await user.click(screen.getByRole("button", { name: /cancel/i }), { pointerEventsCheck: 0 });

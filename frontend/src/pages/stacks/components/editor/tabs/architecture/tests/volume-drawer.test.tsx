@@ -95,4 +95,38 @@ describe("VolumeDrawer", () => {
     expect(updateResources).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("shows the trail back to the service it was opened from", () => {
+    // One panel, two levels: `web › data`, and the first crumb is the way back.
+    const { session } = makeSession([{ name: "data", spec: { size: "1Gi" } }]);
+    const onBack = vi.fn();
+    render(
+      <VolumeDrawer volumeName="data" session={session} onClose={vi.fn()} from={{ name: "web", onBack }} />,
+    );
+
+    const path = screen.getByTestId("volume-drawer").querySelector('[data-slot="drawer-path"]');
+    expect(path).toHaveTextContent("web");
+    expect(path).toHaveTextContent("data");
+
+    fireEvent.click(screen.getByRole("button", { name: "web" }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it("opened straight off the canvas, it is a title with no path back", () => {
+    const { session } = makeSession([{ name: "data", spec: { size: "1Gi" } }]);
+    render(<VolumeDrawer volumeName="data" session={session} onClose={vi.fn()} />);
+
+    expect(screen.queryByRole("button", { name: "web" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "data" })).toBeInTheDocument();
+  });
+
+  it("is a landmark, not a dialog — the canvas beside it stays reachable", () => {
+    const { session } = makeSession([{ name: "data", spec: { size: "1Gi" } }]);
+    render(<VolumeDrawer volumeName="data" session={session} onClose={vi.fn()} />);
+
+    const region = screen.getByTestId("volume-drawer");
+    expect(region.tagName).toBe("ASIDE");
+    expect(region).toHaveAttribute("aria-label", "Volume data");
+    expect(region).not.toHaveAttribute("aria-modal");
+  });
 });

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Stackdome/stackdome/pkg/errors"
 	"github.com/Stackdome/stackdome/pkg/models"
+	"github.com/Stackdome/stackdome/pkg/validator"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/robfig/cron/v3"
 )
@@ -61,10 +62,15 @@ func validateName(resource *models.StackResource) []errors.FieldError {
 	if resource.Name == "" {
 		return []errors.FieldError{fieldErr("name", errors.VErrResourceNameRequired, "resource name is required")}
 	}
-	if !resourceNamePattern.MatchString(resource.Name) || len(resource.Name) > maxResourceNameLength {
+	// Length and charset are two different mistakes, so they are two different
+	// sentences. Combined, a 70-character valid name was told to "match
+	// ^[a-z0-9]..." — which it did.
+	if len(resource.Name) > maxResourceNameLength {
 		return []errors.FieldError{fieldErr("name", errors.VErrResourceNameInvalid,
-			"resource name '%s' must match %s and be at most %d characters",
-			resource.Name, resourceNamePattern.String(), maxResourceNameLength)}
+			"resource name must be at most %d characters", maxResourceNameLength)}
+	}
+	if !resourceNamePattern.MatchString(resource.Name) {
+		return []errors.FieldError{fieldErr("name", errors.VErrResourceNameInvalid, validator.NameRuleBroken)}
 	}
 	return nil
 }

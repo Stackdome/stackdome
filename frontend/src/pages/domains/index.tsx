@@ -12,14 +12,14 @@ import type { Organization } from "@/api/organizations";
 import { getErrorMessage } from "@/api/client";
 import { type DomainName, createDomainFromForm } from "./schemas/api-schema";
 import DomainListItem, { DomainListSkeleton } from "./components/domain-list-item";
-import AddDomainDialog from "./components/add-domain-dialog";
+import AddDomainDrawer from "./components/add-domain-drawer";
 
 export default function DomainsPage() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showAddDrawer, setShowAddDrawer] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
   const { setCustomLabel, setPathLoading } = useBreadcrumb();
@@ -106,7 +106,7 @@ export default function DomainsPage() {
       return;
     }
 
-    setShowAddDialog(false);
+    setShowAddDrawer(false);
     toast({
       title: "Domain added",
       description: "Domain configuration added successfully.",
@@ -154,7 +154,7 @@ export default function DomainsPage() {
     <BlockedAction
       reason={domains.length >= 1 ? "Only one domain is supported today." : null}
     >
-      <Button variant={variant} onClick={() => setShowAddDialog(true)}>
+      <Button variant={variant} onClick={() => setShowAddDrawer(true)}>
         <Plus />
         Add domain
       </Button>
@@ -164,16 +164,6 @@ export default function DomainsPage() {
   return (
     <div className="flex flex-1 flex-col h-full">
       <PageHeader
-        // §12a's one fact. No eyebrow, no subtitle: the explanation belongs to
-        // the empty state, where it is actually needed. This page has no tools,
-        // so it passes no toolbar and the band collapses to 56px.
-        status={
-          !loading && !error && domains.length > 0 ? (
-            <span className="text-name tabular-nums text-fg-muted">
-              {domains.length} {domains.length === 1 ? "domain" : "domains"}
-            </span>
-          ) : undefined
-        }
         actions={addDomain("default")}
       />
 
@@ -214,12 +204,12 @@ export default function DomainsPage() {
         </div>
       )}
 
-      <AddDomainDialog
+      <AddDomainDrawer
         submitError={addError}
-        open={showAddDialog}
+        open={showAddDrawer}
         onOpenChange={(next) => {
           if (!next) setAddError(null);
-          setShowAddDialog(next);
+          setShowAddDrawer(next);
         }}
         onAddDomain={handleAddDomain}
         existingDomains={domains}

@@ -1,6 +1,6 @@
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, ChevronsUpDownIcon } from "lucide-react"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
@@ -30,25 +30,45 @@ function SelectValue({
 //
 // The inset matches the Button/Input base for the same height (10 / 12 / 15).
 const selectTriggerVariants = cva(
-  // A select is a control with its OWN FACE, so §4 sends it to its own fill —
-  // `control-hover` on hover, exactly as `secondary` Button does. It never
-  // borrows the wash ladder; that is for faces transparent at rest.
+  // **A select is a raised card** (board `Select` 21:204, `Shape=flat`): the sheet
+  // ground, the hairline, and `elevation/sm`. It used to sit on `--control` and
+  // answer hover with `control-hover`, the way a `secondary` Button does — a
+  // face changing its fill. It now reads as a small surface standing on the
+  // page, and hover lifts the LINE instead of the fill.
   //
-  // `open` is a derivation rather than a rung the rules already carry: the
-  // trigger stays engaged for as long as the menu is out, so it takes the
-  // hover fill AND the stronger line. Not the press inset — you are not still
-  // pushing it.
-  "border-border data-[placeholder]:text-fg-muted [&_svg:not([class*='text-'])]:text-muted-foreground aria-invalid:border-danger bg-control flex w-fit items-center justify-between gap-2 border py-0 text-body font-normal whitespace-nowrap transition-[color,box-shadow,background-color,border-color] hover:bg-control-hover data-[state=open]:bg-control-hover data-[state=open]:border-border-strong disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-control *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus-ring-edge",
+  // The MATERIAL is the same in both shapes; `shape` only chooses the corner,
+  // exactly as it does on Button and Input. A pill and a flat select standing
+  // in one toolbar are the same object with a different radius, not two
+  // materials.
+  //
+  // `open` keeps the stronger line: the trigger stays engaged for as long as
+  // the menu is out. Not the press inset — you are not still pushing it.
+  "[outline-width:1px] [outline-style:solid] [outline-color:var(--border)] data-[placeholder]:text-fg-muted [&_svg:not([class*='text-'])]:text-fg-2 aria-invalid:[outline-color:var(--danger)] bg-card shadow-sm flex w-fit items-center justify-between gap-1.5 py-0 text-body font-medium whitespace-nowrap transition-[color,box-shadow,background-color,border-color] hover:[outline-color:var(--border-strong)] data-[state=open]:[outline-color:var(--border-strong)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:[outline-color:var(--border)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 focus-ring-edge",
   {
     variants: {
+      // **8 and 8 at 32px, like every other control.** The board's Select node
+      // still reads `pl-[12px] pr-[8px]`; the flat 8 supersedes it, so that one
+      // rung of the board needs updating. `sm` and `lg` keep the old inset —
+      // only the 32px rung is unified.
       size: {
-        sm: "h-7 rounded-sm px-2.5",
-        default: "h-8 rounded-md px-3",
-        lg: "h-10 rounded-lg px-[15px]",
+        sm: "h-7 px-2.5",
+        default: "h-8 px-2",
+        lg: "h-10 px-[15px]",
+      },
+      shape: {
+        pill: "rounded-full",
+        flat: "",
       },
     },
+    // §2 — radius is a function of HEIGHT: 28/6 · 32/8 · 40/12.
+    compoundVariants: [
+      { shape: "flat", size: "sm", class: "rounded-sm" },        // 28px
+      { shape: "flat", size: "default", class: "rounded-md" },   // 32px
+      { shape: "flat", size: "lg", class: "rounded-lg" },        // 40px
+    ],
     defaultVariants: {
       size: "default",
+      shape: "flat",
     },
   }
 )
@@ -56,6 +76,7 @@ const selectTriggerVariants = cva(
 function SelectTrigger({
   className,
   size = "default",
+  shape = "flat",
   children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> &
@@ -64,12 +85,23 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
-      className={cn(selectTriggerVariants({ size, className }))}
+      data-shape={shape}
+      className={cn(selectTriggerVariants({ size, shape, className }))}
       {...props}
     >
       {children}
+      {/* **Chevrons up-down, not a single chevron down.** The two glyphs make
+          different promises: one chevron pointing down says *this reveals what
+          is underneath it* — a disclosure, an accordion, a section that opens in
+          place. A pair says *this CYCLES between values*, which is what a select
+          does, and it is why the same mark already sits on the account switcher.
+          A control that opens a listbox and a control that unfolds a paragraph
+          must not wear the same glyph. (Settled by Jaseem, August 2026.)
+
+          `SelectScrollDownButton` keeps its single chevron: that one really is
+          pointing at content below it. */}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="size-4 opacity-50" />
+        <ChevronsUpDownIcon className="size-3.5" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )

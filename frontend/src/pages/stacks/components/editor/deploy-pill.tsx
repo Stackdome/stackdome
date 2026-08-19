@@ -1,13 +1,4 @@
-import { useEffect } from "react";
-import { CornerDownLeft, Command, FileDiff, Loader2, MoreHorizontal, Rocket, Undo2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export interface DeployPillProps {
   isDraft?: boolean;
@@ -21,16 +12,24 @@ export interface DeployPillProps {
   canWrite: boolean;
   onDeploy: () => void;
   onDraftDeploy?: () => void;
-  onViewChanges: () => void;
-  canDiscardDraft: boolean;
-  onDiscardDraft?: () => void;
 }
 
 /**
- * Floating action pill centered at the top of the canvas. It exists only when
- * there is something to act on: pending changes (existing stack), a deploy in
- * flight, or a deployable draft. Deploy on a draft creates the stack and starts
- * the first release in one go — there is no separate create action.
+ * **Deploy — in the header, on the title row, beside the thing it deploys.**
+ *
+ * It was a pill floating at the top of the canvas: a bar that appeared over the
+ * drawing the moment you changed anything, said `Apply 3 changes`, and carried
+ * `Details` and a ⋯ of its own. Three problems. It covered the graph at the
+ * exact moment you were editing it. It put an action about the STACK on the
+ * surface that draws the stack's parts. And the two things in its menu —
+ * reviewing the diff and throwing it away — are things you do to a *version*,
+ * which is now what the version chip beside it is for.
+ *
+ * What is left is the one thing that was always the point: commit. It appears
+ * only when there is something to commit — pending changes on a saved stack, a
+ * deploy in flight, or a draft with at least one resource. Deploy on a draft
+ * creates the stack and starts the first release in one go; there is no
+ * separate create action.
  */
 export function DeployPill({
   isDraft,
@@ -43,9 +42,6 @@ export function DeployPill({
   canWrite,
   onDeploy,
   onDraftDeploy,
-  onViewChanges,
-  canDiscardDraft,
-  onDiscardDraft,
 }: DeployPillProps) {
   // Same rule the shell rail used: mid-session dirt or a saved-but-undeployed
   // diff; never for drafts (nothing server-side to review).
@@ -57,76 +53,37 @@ export function DeployPill({
     : deployBusy || !canWrite || !(isStaged || (isActive && dirtyTotal > 0));
   const fireDeploy = isDraft ? onDraftDeploy : onDeploy;
 
-  useEffect(() => {
-    if (!visible || deployDisabled || !fireDeploy) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return; // consumed by a nested layer (dialog, drawer…)
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        fireDeploy();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [visible, deployDisabled, fireDeploy]);
-
   if (!visible) return null;
 
-  const isMac = typeof navigator !== "undefined" && navigator.platform.toUpperCase().includes("MAC");
-
   return (
-    <div
-      data-testid="deploy-pill"
-      className={cn(
-        "absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-2.5 rounded-md border border-brand-border bg-background py-2 animate-in fade-in slide-in-from-top-2 duration-[260ms]",
-        hasChanges ? "pl-4 pr-2" : "px-2",
+    <div data-testid="deploy-pill" className="flex flex-none items-center gap-2">
+      {/* **Nothing is disabled without saying why**, and the why sits beside the
+          button rather than under a hover: a tooltip on a disabled control is a
+          reason you have to go looking for. */}
+      {deployDisabled && !busy && !canWrite && (
+        <span className="whitespace-nowrap text-meta text-fg-muted">Ask an admin for deploy access</span>
       )}
-    >
-      {hasChanges && (
-        <span className="whitespace-nowrap text-body font-medium tracking-[-0.01em] text-brand">
-          Apply {dirtyTotal} {dirtyTotal === 1 ? "change" : "changes"}
-        </span>
-      )}
-      {hasChanges && (
-        <Button type="button" variant="outline" size="sm" className="rounded-md border-border bg-transparent hover:bg-muted" onClick={onViewChanges}>
-          <FileDiff className="size-3.5" />
-          Details
-        </Button>
-      )}
-      <Button type="button" variant="default" size="sm" className="rounded-md" onClick={fireDeploy} disabled={deployDisabled}>
-        {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Rocket className="size-3.5" />}
-        {busy ? "Deploying" : "Deploy"}
-        {!busy && (
-          <kbd
-            aria-hidden
-            // currentColor so the chip follows the button's foreground —
-            // white in light mode, primary-foreground (near-black) in dark.
-            // deliberate off-scale: rounded-sm (9px) overwhelms this ~16px key chip
-            className="ml-1 flex items-center gap-px rounded-[4px] border border-current/30 bg-current/10 px-1 py-0.5 text-current"
-          >
-            {isMac ? <Command className="size-2.5" /> : <span className="font-mono text-[9px] font-semibold leading-none">Ctrl</span>}
-            <CornerDownLeft className="size-2.5" />
-          </kbd>
-        )}
+      {/* **No rocket.** The label is the verb, and a glyph that only illustrates
+          the word it sits beside is the duplication §7 bans — it also pushed the
+          one filled button on the screen wider than the row it lives in.
+          The spinner stays: that reports a state the word cannot.
+
+          **⌘⏎ belongs to the button, not to this file.** The cap, the
+          `aria-keyshortcuts` value and the listener all come off `shortcut` —
+          they used to be a hand-drawn `<kbd>` beside a `window` listener that
+          only this component knew about, which is the same fact written twice
+          in two places that nothing keeps in step. */}
+      <Button
+        type="button"
+        variant="default"
+        shortcut="mod+enter"
+        loading={busy}
+        loadingText="Deploying"
+        onClick={fireDeploy}
+        disabled={deployDisabled}
+      >
+        Deploy
       </Button>
-      {!isDraft && canDiscardDraft && onDiscardDraft && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button shape="flat" type="button" variant="ghost" size="icon" className="rounded-md" aria-label="Change actions">
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[200px]">
-            {/* Deferred so the confirm dialog mounts only after the menu has
-                closed and released its body pointer-events lock.
-                See https://github.com/radix-ui/primitives/issues/1836 */}
-            <DropdownMenuItem onSelect={() => setTimeout(() => onDiscardDraft(), 0)}>
-              <Undo2 className="size-4" />
-              Discard draft changes
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
     </div>
   );
 }

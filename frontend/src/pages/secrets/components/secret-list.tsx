@@ -1,11 +1,5 @@
-import { Ellipsis, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   DataListActions,
   DataListCell,
@@ -14,6 +8,7 @@ import {
   DataListRow,
   DataListSkeleton,
 } from "@/components/branded/data-list";
+import { relativeAge, absoluteAge } from "@/components/branded/entity-card";
 import type { Secret } from "../types";
 
 /**
@@ -23,7 +18,8 @@ import type { Secret } from "../types";
  * `Type` is the flexible one — it is the longest word in the row
  * ("Username/Password") and the only one that varies in length.
  */
-const SECRET_TRACKS = "grid-cols-[minmax(240px,420px)_minmax(0,1fr)_130px_32px]";
+/** 64, not 32 — the actions are two buttons on the row, not one kebab (§11). */
+const SECRET_TRACKS = "grid-cols-[minmax(240px,420px)_minmax(0,1fr)_130px_64px]";
 
 const LABELS = ["Name", "Type", "Created", ""];
 
@@ -46,8 +42,17 @@ export function formatSecretType(type: string): string {
   }
 }
 
+/**
+ * **A time column on a list page is an age, not a date.**
+ *
+ * This shipped `toLocaleDateString()` — `8/1/2026` — which is the one thing a
+ * column you scan cannot be: a value you have to subtract from today before it
+ * means anything. `relativeAge` is the same helper the Stacks list's
+ * `Last change` uses, and the exact timestamp rides along as the cell's title
+ * for the one case where the date itself is the question.
+ */
 function createdLabel(secret: Secret): string {
-  return secret.created_at ? new Date(secret.created_at).toLocaleDateString() : "—";
+  return relativeAge(secret.created_at) ?? "—";
 }
 
 export function SecretListHeader() {
@@ -102,36 +107,40 @@ export function SecretList({
                 and the tile was a card inside a list. */}
             <DataListName name={secret.name ?? ""} secondary={secret.description} mono={false} />
             <DataListCell>{formatSecretType(secret.type)}</DataListCell>
-            <DataListCell numeric>{createdLabel(secret)}</DataListCell>
+            <DataListCell numeric title={absoluteAge(secret.created_at) ?? undefined}>
+              {createdLabel(secret)}
+            </DataListCell>
+            {/* **Two actions, so they are ON the row** (§11). A kebab that only
+                ever opens two items spends a click and a menu to hide what fits
+                — and the Object stores list, with the same Edit and Delete, had
+                been showing them inline all along.
+
+                The `setTimeout` around Edit went with the menu. It existed to
+                let the dropdown release its body pointer-events lock before a
+                dialog mounted (radix-ui/primitives#1836); with no dropdown
+                there is nothing to wait for. */}
             <DataListActions>
               {rowCanWrite && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      shape="flat"
-                      aria-label={`Actions for ${secret.name}`}
-                    >
-                      <Ellipsis />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  {/* `start`, not `end` — the menu opens INTO the row rather than
-                      off the sheet edge. */}
-                  <DropdownMenuContent align="start" className="w-[160px]">
-                    {/* Edit opens a dialog; deferred so the dialog mounts only
-                        after the menu has closed and released its body
-                        pointer-events lock (radix-ui/primitives#1836). */}
-                    <DropdownMenuItem onSelect={() => setTimeout(() => onEdit(secret), 0)}>
-                      <Pencil />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem variant="destructive" onSelect={() => onDelete(secret)}>
-                      <Trash2 />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    shape="flat"
+                    aria-label={`Edit ${secret.name}`}
+                    onClick={() => onEdit(secret)}
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    shape="flat"
+                    aria-label={`Delete ${secret.name}`}
+                    onClick={() => onDelete(secret)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </>
               )}
             </DataListActions>
           </DataListRow>

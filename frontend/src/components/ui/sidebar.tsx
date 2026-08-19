@@ -6,7 +6,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { PanelLeftIcon } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
-import { cn } from "@/lib/utils"
+import { cn, washes } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -219,7 +219,7 @@ function Sidebar({
       <div
         data-slot="sidebar-gap"
         className={cn(
-          "relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear",
+          "relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-[var(--ease-panel)]",
           "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
           variant === "floating" || variant === "inset"
@@ -230,7 +230,7 @@ function Sidebar({
       <div
         data-slot="sidebar-container"
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
+          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-[var(--ease-panel)] md:flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -277,37 +277,15 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      <PanelLeftIcon />
+      {/* **16px, said out loud — this is what makes the column line up.**
+          `Button` defaults an unsized glyph to 14 (`[&_svg:not([class*='size-'])]`),
+          and 14 centred in a 32px button lands at 9px from its edge while the
+          field beside it puts its own icon at a flat 8. One pixel, and the two
+          columns stop agreeing. At 16 the centring arithmetic gives 8 by itself:
+          (32 − 16) / 2. The board and §12a both spec 16 here. */}
+      <PanelLeftIcon className="size-4" />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
-  )
-}
-
-function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
-  const { toggleSidebar } = useSidebar()
-
-  return (
-    <button
-      data-sidebar="rail"
-      data-slot="sidebar-rail"
-      aria-label="Toggle Sidebar"
-      tabIndex={-1}
-      onClick={toggleSidebar}
-      title="Toggle Sidebar"
-      className={cn(
-        // `after:inset-y-3` matches the shell's 12px gutter, so the drag
-        // affordance stops where the sheet does. At `inset-y-0` it ran the full
-        // window height and cut straight through the sheet's rounded corners.
-        "hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-3 after:left-1/2 after:w-[2px] after:rounded-full sm:flex",
-        "in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",
-        "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
-        "hover:group-data-[collapsible=offcanvas]:bg-sidebar group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full",
-        "[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",
-        "[[data-side=right][data-collapsible=offcanvas]_&]:-left-2",
-        className
-      )}
-      {...props}
-    />
   )
 }
 
@@ -484,8 +462,61 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
   )
 }
 
+/**
+ * **The selected row is a CARD, not a tint.** The sidebar sits on the frame
+ * (`--sidebar`, #F5F4F1), so the selected row takes the sheet — `--card`, plain
+ * white — plus the hairline and `shadow-sm`. Ground, edge, lift: the three
+ * things that make a card a card (§3). A wash would have been a mark ON the
+ * frame; this is a different surface sitting on top of it, which is what
+ * "you are here" actually means in a rail of destinations.
+ *
+ * **This is why the rail in `previews/` cannot share it.** That one sits on
+ * `bg-card` already, and white does not lift off white — it keeps the wash
+ * ladder (`washes()`). The treatment is a function of the GROUND underneath,
+ * not of the component.
+ *
+ * The line is `--border-subtle` (6%), not the 11% hairline — the board calls it
+ * `line/subtle`. On a white card sitting on the frame the full hairline read as
+ * a drawn box; 6% is enough to close the shape once a shadow is under it.
+ *
+ * It is a real `outline`, NOT a `border`: a border is inside the box and
+ * joins the measurement, so giving one to the selected row alone would shift its
+ * label a pixel sideways on every navigation. An outline takes no space at all,
+ * so nothing moves. It is also a different property from the shadow, so the two
+ * coexist instead of one string having to carry both.
+ *
+ * **The outline stays OUTSIDE — an inside stroke deletes the card.** At 6% over
+ * white the line is `rgb(243,242,240)`, and the rail it sits on is
+ * `rgb(245,244,241)`: two levels apart, which is nothing. So the line is not
+ * what you see. What you see is the white card against the frame — 10 to 14
+ * levels. Drawing the line INSIDE (`outline-offset: -1px`) spends the card's
+ * outermost pixel row on a colour indistinguishable from the frame, and the
+ * edge dissolves; it reads as "the border is missing" because the CARD went,
+ * not the line. Outside, the white meets the frame directly and the shape is
+ * crisp.
+ *
+ * This is why the top row is no longer shaved either, without any padding: the
+ * scroll container still clips 1px off the first row, but at 6% that pixel is
+ * two levels from the frame and cannot be seen. It was the 11% line that showed
+ * when it was cut.
+ *
+ * The outline survives focus correctly on its own — `.focus-ring-edge:focus-visible`
+ * sets `outline: none` from outside any cascade layer, which beats this layered
+ * utility, so the blue ring REPLACES the hairline rather than doubling it (§5).
+ * Written as an arbitrary property so width, style and colour land as one
+ * declaration and no separate `outline-style` is needed.
+ *
+ * Hover hangs off `data-[active=false]:` rather than a bare `hover:`. That is
+ * the §4 rule kept, not broken: the two branches are mutually EXCLUSIVE, so
+ * nothing races — which is exactly what a bare `hover:` alongside
+ * `data-[active=true]:hover:` could not promise.
+ *
+ * **There is no pressed state here.** A nav row's click navigates, so a press
+ * tint landed on the same frame the route swapped and the row re-rendered as
+ * selected — which read as a flicker on every click. See `washes()`.
+ */
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2.5 overflow-hidden rounded-md px-2 text-left transition-[width,height,padding] [&>svg]:text-fg-2 data-[active=true]:[&>svg]:text-foreground hover:text-sidebar-accent-foreground focus-ring-edge active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-[var(--wash-selected-hover)] data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+  "peer/menu-button flex w-full items-center gap-2.5 overflow-hidden rounded-md px-2 text-left transition-[width,height,padding] duration-200 ease-[var(--ease-panel)] [&>svg]:text-fg-2 data-[active=true]:[&>svg]:text-foreground hover:text-sidebar-accent-foreground focus-ring-edge disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:text-sidebar-accent-foreground data-[active=true]:bg-card data-[active=true]:[outline:1px_solid_var(--border-subtle)] data-[active=true]:shadow-sm data-[active=false]:hover:bg-[var(--wash-hover)] data-[state=open]:bg-[var(--wash-selected)] data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -512,24 +543,6 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
-/**
- * The §4 wash ladder, chosen in JS rather than by stacking Tailwind variants.
- *
- * `hover:` and `data-[active=true]:hover:` both match a selected row being
- * hovered, so which one wins came down to a specificity race that Tailwind's
- * variant compilation does not make predictable. The component already knows
- * whether the row is active — branching here makes the two cases mutually
- * exclusive by construction, and the ladder is legible in one place.
- */
-function washes(isActive: boolean) {
-  // Raw `var()` rather than theme utilities: `bg-wash-*` generated the selector
-  // but resolved to transparent for three of the four rungs. `outline-[var(--ring)]`
-  // elsewhere in this file uses the same escape hatch.
-  return isActive
-    ? "bg-[var(--wash-selected)] hover:bg-[var(--wash-selected-hover)] active:bg-[var(--wash-pressed)]"
-    : "hover:bg-[var(--wash-hover)] active:bg-[var(--wash-pressed)]"
-}
-
 function SidebarMenuButton({
   asChild = false,
   isActive = false,
@@ -552,7 +565,7 @@ function SidebarMenuButton({
       data-sidebar="menu-button"
       data-size={size}
       data-active={isActive}
-      className={cn(sidebarMenuButtonVariants({ variant, size }), washes(isActive), className)}
+      className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
       {...props}
     />
   )
@@ -721,8 +734,15 @@ function SidebarMenuSubButton({
       data-size={size}
       data-active={isActive}
       className={cn(
-        "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground [&>svg]:text-sidebar-accent-foreground flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 focus-ring-edge disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
-        "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
+        "text-sidebar-foreground hover:text-sidebar-accent-foreground [&>svg]:text-sidebar-accent-foreground flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 focus-ring-edge disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+        // Same two rungs as the row above it — it had its own copy that put
+        // HOVER on `sidebar-accent` (6%, the selected value), so a hovered sub
+        // row and a selected one were the same fill, and pressing flickered for
+        // the reason in `washes()`. A sub row stays FLAT, though: no outline and
+        // no lift, because the card treatment is what separates the parent rung
+        // from this one.
+        washes(!!isActive),
+        "data-[active=true]:text-sidebar-accent-foreground",
         size === "sm" && "text-meta",
         size === "md" && "text-body",
         "group-data-[collapsible=icon]:hidden",
@@ -754,7 +774,6 @@ export {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarProvider,
-  SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,

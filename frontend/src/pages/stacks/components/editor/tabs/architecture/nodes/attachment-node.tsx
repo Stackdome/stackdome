@@ -23,13 +23,17 @@ const ICON: Record<AttachmentKind, LucideIcon> = {
 function AttachmentNodeImpl({ data }: NodeProps<AttachmentFlowNode>) {
   const Icon = ICON[data.kind];
   return (
-    <div className="w-[180px] cursor-pointer rounded-lg border border-border bg-surface-node px-[13px] py-2.5 transition-colors hover:border-border-strong">
+    // `outline`, not `border` — same rule as the resource node beside it (§8):
+    // a stroke on something that FLOATS sits outside the box. As a border it
+    // ate 2px of the 180, so an attachment card and a resource card on the same
+    // canvas measured their widths by different rules.
+    <div className="w-[180px] cursor-pointer rounded-lg outline outline-1 outline-border bg-surface-node px-[13px] py-2.5 transition-colors hover:outline-border-strong">
       <Handle type="target" position={Position.Left} style={HIDDEN_HANDLE} isConnectable={false} />
       <Handle type="source" position={Position.Right} style={HIDDEN_HANDLE} isConnectable={false} />
       <div className="flex items-center gap-2.5">
         <Icon className="size-[15px] shrink-0 text-fg-muted" aria-hidden />
         <span className="flex-1 truncate text-body font-medium text-fg-2">{data.name}</span>
-        <span className="shrink-0 font-mono text-[9px] text-fg-muted">{data.kindLabel}</span>
+        <span className="shrink-0 text-[9px] text-fg-muted">{data.kindLabel}</span>
       </div>
     </div>
   );

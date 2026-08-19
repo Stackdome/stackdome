@@ -3,7 +3,7 @@ import { LazyLog } from 'react-lazylog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle, Check, Clock, ChevronDown, Layers, ScrollText, WifiOff, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, Check, Clock, ChevronsUpDown, Layers, ScrollText, WifiOff, RefreshCw } from 'lucide-react';
 import { StatusPill, EmptyState, type StatusVariant } from '@/components/branded';
 import {
   Popover,
@@ -144,7 +144,7 @@ export function LogViewer({ stackId, organizationId, resources = [], liveStatusR
                 <Button variant="outline" size="sm" className="h-8 w-48 justify-start rounded-sm text-meta font-medium">
                   <Layers className="h-3.5 w-3.5" />
                   Resources
-                  <ChevronDown className="ml-auto h-3.5 w-3.5" />
+                  <ChevronsUpDown className="ml-auto h-3.5 w-3.5" />
                   {filters.sources.length > 0 && (
                     <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-meta">
                       {filters.sources.length}

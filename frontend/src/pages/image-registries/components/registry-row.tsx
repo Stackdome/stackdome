@@ -7,7 +7,7 @@ import {
   DataListRow,
   DataListSkeleton,
 } from "@/components/branded/data-list";
-import { providerIdForHost, PURPOSE_LABELS, PURPOSE_BOTH, REGISTRY_PROVIDERS } from "../lib/providers";
+import { providerIdForHost, PURPOSE_LABELS, PURPOSE_BOTH, registryProvider } from "../lib/providers";
 import { RowMenu } from "./row-menu";
 
 /**
@@ -63,8 +63,7 @@ export function RegistryRow({
   onUpdateCredentials: (credential: RegistryCredential) => void;
   onRemove: (credential: RegistryCredential) => void;
 }) {
-  const providerId = providerIdForHost(credential.host);
-  const providerLabel = REGISTRY_PROVIDERS.find((p) => p.id === providerId)?.label ?? "Registry";
+  const providerLabel = registryProvider(providerIdForHost(credential.host)).label;
 
   return (
     <DataListRow columns={REGISTRY_TRACKS}>

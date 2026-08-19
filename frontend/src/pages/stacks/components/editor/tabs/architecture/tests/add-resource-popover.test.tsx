@@ -60,7 +60,7 @@ describe("AddResourcePopover storage tile search", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Add resource/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Search services/i), { target: { value: "storage" } });
+    fireEvent.change(screen.getByPlaceholderText(/Search resources/i), { target: { value: "storage" } });
     expect(screen.getByText("Storage")).toBeInTheDocument();
     expect(screen.getByText("Volume")).toBeInTheDocument();
   });
@@ -78,7 +78,7 @@ describe("AddResourcePopover storage tile search", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Add resource/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Search services/i), { target: { value: "volume" } });
+    fireEvent.change(screen.getByPlaceholderText(/Search resources/i), { target: { value: "volume" } });
     expect(screen.getByText("Storage")).toBeInTheDocument();
   });
 
@@ -95,7 +95,7 @@ describe("AddResourcePopover storage tile search", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Add resource/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Search services/i), { target: { value: "postgres" } });
+    fireEvent.change(screen.getByPlaceholderText(/Search resources/i), { target: { value: "postgres" } });
     expect(screen.queryByText("Storage")).toBeNull();
   });
 });

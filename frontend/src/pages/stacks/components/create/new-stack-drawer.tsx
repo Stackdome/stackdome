@@ -49,7 +49,7 @@ import { templateServices } from "./template-services"
 import { BlankTab } from "./tabs/blank-tab"
 import { BlocksTab } from "./tabs/blocks-tab"
 import { ComposeTab, parseCompose } from "./tabs/compose-tab"
-import { RepositoryTab } from "./tabs/repository-tab"
+import { GitSourcePicker } from "@/components/git-source-picker/git-source-picker"
 import { ServiceTab } from "./tabs/service-tab"
 import { TemplateDetail, TemplateTab } from "./tabs/template-tab"
 
@@ -419,11 +419,19 @@ export function NewStackDrawer({
             <>
               <div className="flex min-w-0 flex-1 flex-col gap-4">
                 {source === "git" && (
-                  <RepositoryTab
+                  /* The SAME picker the Enable-repository wizard uses. This
+                     step used to be its own copy of it, and the copy was the
+                     thinner one: it never offered a choice when the org had
+                     more than one provider (it silently took the first), it
+                     had no field at all for a token connection — which cannot
+                     list repositories, so the step just sat empty — and its
+                     "Connect provider" was a link OUT of the drawer, which
+                     threw away everything picked so far. */
+                  <GitSourcePicker
+                    value={selection.git.repo}
+                    onChange={(repo) => update((s) => ({ ...s, git: { ...s.git, repo } }))}
                     mode={selection.git.mode}
                     onModeChange={(mode) => update((s) => ({ ...s, git: { ...s.git, mode } }))}
-                    repo={selection.git.repo}
-                    onRepoChange={(repo) => update((s) => ({ ...s, git: { ...s.git, repo } }))}
                     url={selection.git.url}
                     onUrlChange={(url) => update((s) => ({ ...s, git: { ...s.git, url } }))}
                   />

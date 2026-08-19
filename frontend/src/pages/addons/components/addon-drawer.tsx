@@ -210,7 +210,7 @@ export function AddonDrawer({ open, onOpenChange, addon, onSaved }: AddonDrawerP
     <Drawer open={open} onOpenChange={onOpenChange}>
       {/* `work`, not `form`: two phases and a catalogue with categories need the
           wider rung, and the width must not change between steps. */}
-      <DrawerContent size="work">
+      <DrawerContent size="form">
         {/* Step one only. By step two you have been oriented (§13). */}
         <DrawerHeader
           steps={path}

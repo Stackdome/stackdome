@@ -172,14 +172,14 @@
   --sidebar-foreground: #191714;
   --sidebar-primary: #191714;
   --sidebar-primary-foreground: #FFFFFF;
-  /* ── Interaction washes — one ink, four rungs (§4) ──────────────────
+  /* ── Interaction washes — one ink, three rungs (§4) ─────────────────
      Hover, selected and pressed all used to share the 6% tint, so a hovered
      row was indistinguishable from the selected one and pressing showed
      nothing at all. Hover sits BELOW selected on purpose: selection has to
-     stay the stronger signal. */
+     stay the stronger signal — and a SELECTED face takes no hover at all, so
+     there is no fourth rung above it. */
   --wash-hover: rgba(25, 23, 20, 0.04);
   --wash-selected: rgba(25, 23, 20, 0.06);
-  --wash-selected-hover: rgba(25, 23, 20, 0.09);
   --wash-pressed: rgba(25, 23, 20, 0.12);
   --sidebar-accent: var(--wash-selected);
   --sidebar-accent-foreground: #191714;
@@ -223,12 +223,36 @@
   --ctl-px-l: 15px;
 
   /* ── Canvas ── */
-  --wire: #FF6007;
+  /* **A canvas is a space, not a surface** — and after three passes at giving it
+     a ground of its own, the answer is that the SPACE is drawn, not tinted.
+     
+     It shipped at `#FBFBF8`, 1.3 L off the sheet, which merged. Dropping it to
+     `#F0EFEC` separated it and read as a grey panel bolted into a white page;
+     insetting it from the sheet framed it and read as a widget. Both were tone
+     doing a job tone is bad at here, because everything ON this canvas — the
+     node cards, the tool islands — is white, so any tint the ground takes is a
+     tint the content has to climb back out of.
+     
+     **The canvas is the sheet, and the GRID is what says "space".** Dots are the
+     one mark that means *extent* rather than *surface*: they are not a fill, so
+     nothing sits on a different plane, and they read as a place you can put
+     things down. Elevation already separates what floats (§5) — `shadow-md` on a
+     node, `shadow-sm` on an island — and a measured hairline cannot do that on
+     white anyway. */
+  --surface-canvas: var(--card);
+  /* Ink, not orange. A wire is the quietest thing on the canvas — it says two
+     nodes are related, which you read once and then stop looking at. Orange is
+     the mark and the accent; spending it on every edge made the connections
+     shout louder than the services they connect. */
+  --wire: rgba(25, 23, 20, 0.28);
   --surface-node: #FFFFFF;
   /* Dot-grid tokens: dots need far firmer alpha than hairlines — a 1-1.5px
-     disc at hairline alpha is invisible (see website design-system gotchas). */
-  --grid: rgba(25, 23, 20, 0.16);
-  --grid-bold: rgba(25, 23, 20, 0.24);
+     disc at hairline alpha is invisible (see website design-system gotchas).
+     With the ground now white (see `--surface-canvas`), the grid is the ONLY
+     thing distinguishing the canvas from the sheet, so it is drawn to be read
+     rather than merely sensed: 0.16/0.24 → **0.24/0.34**. */
+  --grid: rgba(25, 23, 20, 0.24);
+  --grid-bold: rgba(25, 23, 20, 0.34);
 
   /* ── Terminal / code surfaces — dark in both themes ── */
   --code-bg: #181611;
@@ -248,6 +272,26 @@
      The four that differ are defined; the rest alias them, so a call site using
      `shadow-xs` still renders and says out loud which rung it really lands on.
      The matching Figma effect styles are named after the four. */
+  /* **The rail's own movement.** One duration and one curve, shared by the
+     sidebar frame (`sidebar-container` in ui/sidebar.tsx) and everything that
+     travels with it (`rail-*` utilities below) — the frame and its contents
+     cannot drift if they read the same two numbers. `linear` on a 200ms width
+     reads mechanical; this leaves fast and lands soft, which is what makes the
+     two edges feel attached to a single movement. */
+  --rail-duration: 200ms;
+  /* **One curve for a large surface moving.** The rail and the drawer are the
+     same job — a big plane changing where it is — so they share it rather than
+     each picking their own. It is an ease-OUT family curve: leaves fast, lands
+     soft, which is what a panel arriving from off-screen has to do. The default
+     `ease` accelerates INTO the movement, so the drawer crawled off the edge
+     for the first 40ms and then rushed the landing. */
+  --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* **The exit is shorter than the enter, deliberately.** Arriving asks to be
+     followed; leaving must not compete with whatever you turned to next. */
+  --drawer-enter: 260ms;
+  --drawer-exit: 180ms;
+
   --shadow-sm: 0 1px 2px rgba(16, 20, 26, 0.035);                                                  /* raised */
   --shadow-md: 0 4px 16px -5px rgba(16, 20, 26, 0.06), 0 2px 6px -3px rgba(16, 20, 26, 0.035);     /* small overlay */
   --shadow-lg: 0 20px 50px -22px rgba(16, 20, 26, 0.11), 0 8px 22px -12px rgba(16, 20, 26, 0.06);  /* popover, dropdown */
@@ -257,6 +301,21 @@
   --shadow-xs: var(--shadow-sm);
   --shadow: var(--shadow-md);
   --shadow-xl: var(--shadow-lg);
+
+  /* `elevation/lg` plus a CONTACT layer — the tight darkness where an object
+     meets the surface it sits on. The four rungs above are all soft pools with
+     negative spread, so they blur out *below* a card and leave nothing at its
+     own edge. That is right everywhere the card has something behind it.
+
+     The toast is the one surface with nothing behind it: it lands on the white
+     sheet, its own fill IS that white (`surface vs ground` measures 1.00), and
+     unlike a dialog it has no scrim. Measured on rendered pixels, the contact
+     layer takes its edge from 1.43 to 1.52 at the side and 1.54 to 1.72 below.
+
+     **A fifth value, and deliberately not a fifth RUNG.** It is `lg` with one
+     more layer, named for its one caller, so §5's ladder still has four
+     entries. Jaseem's call, 16 Aug 2026. */
+  --shadow-toast: var(--shadow-lg), 0 2px 6px -1px rgba(16, 20, 26, 0.10);
 
   /* ── The scrim: ONE value, every overlay ──
      There was no scrim token. Dialog hardcoded `bg-black/50`, AlertDialog
@@ -418,7 +477,6 @@
      field separates less than a dark mark on white (§4). */
   --wash-hover: rgba(255, 253, 247, 0.05);
   --wash-selected: rgba(255, 253, 247, 0.07);
-  --wash-selected-hover: rgba(255, 253, 247, 0.10);
   --wash-pressed: rgba(255, 253, 247, 0.13);
   --sidebar-accent: var(--wash-selected);
   --sidebar-accent-foreground: var(--foreground);
@@ -450,10 +508,18 @@
   --control: var(--secondary);
   --control-hover: var(--muted);
 
-  --wire: #FF7A2E;
+  /* The sheet, same as light — the grid draws the space (see the light block).
+     Dark tried 20.5% and 16.4% first: the one merged with `--card`, the other
+     read as a black hole, because dark grounds are compressed into a far
+     shorter range and there is no room for a fourth rung under the frame. */
+  --surface-canvas: var(--card);
+  --wire: rgba(255, 253, 247, 0.3);
   --surface-node: var(--card);           /* = --card, the way light has it */
   /* Dark is not the light alpha flipped: white dots on the near-black field
-     separate less, so they run firmer than the light values. */
+     separate less, so they run firmer than the light values.
+     **Unchanged when light was raised to 0.24/0.34** — measured over the dark
+     sheet these already clear 16.1 and 23.9 L, against light's 17.0 and 24.2.
+     The two modes were already matched; only light was short. */
   --grid: rgba(255, 253, 247, 0.2);
   --grid-bold: rgba(255, 253, 247, 0.3);
 
@@ -466,6 +532,14 @@
   --shadow-md: 0 6px 18px -5px rgba(0, 0, 0, 0.55), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.7), 0 10px 24px -10px rgba(0, 0, 0, 0.55);
   --shadow-2xl: 0 28px 64px -20px rgba(0, 0, 0, 0.7);
+
+  /* **No contact layer in dark, measured.** A contact shadow works by darkening
+     the ground right at the edge, and dark's ground is already near-black —
+     adding one moved the toast's edge by nothing at all (1.44 / 1.32, both
+     unchanged). Dark carries its edge on the hairline instead, which is why the
+     rung went to `line/strong`. So this aliases `lg` rather than shipping a
+     layer that costs paint and buys no contrast. */
+  --shadow-toast: var(--shadow-lg);
 
   /* Deeper in dark: the ground is already near-black, so 50% ink barely
      separates the overlay from the page behind it. */
@@ -544,6 +618,7 @@
   --color-control: var(--control);
   --color-control-hover: var(--control-hover);
   --color-surface-node: var(--surface-node);
+  --color-surface-canvas: var(--surface-canvas);
 
   --color-code-bg: var(--code-bg);
   --color-code-fg: var(--code-fg);
@@ -906,79 +981,167 @@ body {
   --xy-selection-border: 1px dotted var(--border-strong);
 }
 
+/* ── Drawer choreography ──────────────────────────────────────────────
+   A modal drawer is a solid panel arriving from the right edge. Three things
+   follow from that sentence, and the shadcn default got all three wrong.
+
+   **1. It does not fade.** The default paired `slide-in-from-right` with
+   `fade-in-0`, so 100ms into the open the panel sat at x=1240 at 31% opacity —
+   the list showing straight through an opaque white surface. Nothing solid
+   becomes transparent while it moves. The SCRIM fades; the panel only travels.
+
+   **2. It is interruptible.** The default used keyframes for both directions,
+   and a keyframe cannot start from wherever the last one got to. Measured:
+   pressing Esc 112ms into the open, with the panel at x=1232, moved it to
+   x=800 on the very next frame — a 208px jump backwards before it began
+   leaving. A transition retargets from the current value instead, so a
+   reversal reads as a reversal.
+
+   The `drawer-present` animation is what buys that. Radix keeps an exiting
+   node mounted only while an ANIMATION is running on it, so the transition
+   alone would be unmounted before it could play. This is a no-op keyframe
+   whose only job is to hold the mount open for exactly as long as the
+   transition needs. It paints nothing.
+
+   `@starting-style` supplies the off-screen value the enter transitions FROM —
+   Radix mounts the node with `data-state="open"` already set, so without it
+   there is no start value and the panel would simply appear. Where it is not
+   supported the drawer arrives instantly, which is a degradation, not a break.
+
+   **3. It leaves faster than it arrives.** 260 in, 180 out. Arriving asks to
+   be followed; leaving must not compete with whatever you turned to next. */
+
+/* **It animates `visibility`, and that is not arbitrary.** A running animation
+   outranks a transition on the SAME property, so the first version of this held
+   `opacity: 1 → 1` and pinned the scrim fully opaque for its whole exit — the
+   panel slid away and the wash cut out underneath it in one frame. `visibility`
+   is a property nothing else here touches, so the hold is invisible. */
+@keyframes drawer-present {
+  from { visibility: visible; }
+  to { visibility: visible; }
+}
+
+@layer components {
+  [data-slot="drawer-content"] {
+    translate: 100% 0;
+    transition: translate var(--drawer-enter) var(--ease-panel);
+  }
+  [data-slot="drawer-content"][data-state="open"] {
+    translate: 0 0;
+  }
+  @starting-style {
+    [data-slot="drawer-content"][data-state="open"] {
+      translate: 100% 0;
+    }
+  }
+  [data-slot="drawer-content"][data-state="closed"] {
+    translate: 100% 0;
+    transition-duration: var(--drawer-exit);
+    animation: drawer-present var(--drawer-exit) linear;
+  }
+
+  /* The scrim is the one thing that DOES fade — it is a wash, not an object.
+     It leads the panel in slightly and clears out ahead of it, so the page is
+     never left sitting under a scrim with nothing on top of it. */
+  [data-slot="drawer-overlay"] {
+    opacity: 0;
+    transition: opacity var(--drawer-enter) var(--ease-panel);
+  }
+  [data-slot="drawer-overlay"][data-state="open"] {
+    opacity: 1;
+  }
+  @starting-style {
+    [data-slot="drawer-overlay"][data-state="open"] {
+      opacity: 0;
+    }
+  }
+  [data-slot="drawer-overlay"][data-state="closed"] {
+    opacity: 0;
+    transition-duration: var(--drawer-exit);
+    animation: drawer-present var(--drawer-exit) linear;
+  }
+
+  /* The panel still has to ARRIVE for someone who asked for less motion — a
+     drawer that was not there a moment ago is a change of place, not a
+     flourish. It just arrives without the journey. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="drawer-content"],
+    [data-slot="drawer-overlay"] {
+      transition-duration: 1ms;
+      animation-duration: 1ms;
+    }
+  }
+}
+
 /* ── Rail collapse choreography ───────────────────────────────────────
-   The rail animates its width over 200ms (see `sidebar-container`). Anything
-   inside it that arrives or leaves has to travel with that width, not snap once
-   it has finished.
+   The rail travels 240 → 56 in 200ms. Two rules are what make that read as
+   ONE movement rather than a stack of little jumps:
 
-   The two directions are deliberately NOT symmetric:
+   1. **Nothing moves vertically.** The board gives the collapsed rail exactly
+      the same vertical geometry as the expanded one — every row, every group
+      block, the footer, all on identical y. So there is no height left to
+      animate, and the eye has one axis to follow instead of two. The group
+      label and the rule that replaces it share one 24px box and crossfade in
+      place; they do not trade heights.
 
-   • **Leaving is immediate and fast.** The column is already closing on the
-     label, so holding it there just means watching it get guillotined.
-   • **Arriving waits for the width to settle.** Text faded in early lands in a
-     column too narrow to hold it and then reflows while you are reading it.
+   2. **A width closes to the REAL width, never to a guessed one.** These used
+      to animate `max-width: 12rem → 0`. A 60px label then spends the first
+      130ms of a 200ms transition above its own width with nothing visible
+      happening, and vanishes in the last 70. The label snapped while the rail
+      glided, and that mismatch was the whole complaint. A grid track sized
+      `1fr → 0fr` interpolates the CONTENT's width, so every label leaves at
+      the rail's own speed. `0fr` only reaches zero if the item's automatic
+      minimum size is zero — which is what `overflow: hidden` on the child
+      buys, and why each of these takes exactly one child.
 
-   `display` cannot be transitioned, so anything that has to vacate space
-   animates its max-width or max-height to zero instead and is clipped by its
-   own overflow. */
+   Only OPACITY stays asymmetric between the two directions:
+   • **Leaving fades immediately.** The column is already closing on the word.
+   • **Arriving waits ~90ms.** Text faded in early lands in a column too narrow
+     to hold it and reflows while you are reading it. */
 
 @layer utilities {
-  /* Text that sits beside a glyph and vacates horizontally: nav labels,
-     "Appearance", the account's name and organisation. */
+  /* Anything that vacates HORIZONTALLY: nav labels, "Appearance", the
+     account's name and organisation, its chevron. Takes ONE child. */
   .rail-x {
-    max-width: 12rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    min-width: 0;
     opacity: 1;
-    transition: opacity 140ms ease-out 90ms, max-width 200ms ease-linear;
+    transition:
+      grid-template-columns var(--rail-duration) var(--ease-panel),
+      opacity 140ms ease-out 90ms;
+  }
+  .rail-x > * {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
   }
   [data-collapsible="icon"] .rail-x {
-    max-width: 0;
+    grid-template-columns: 0fr;
     opacity: 0;
-    transition: opacity 100ms ease-out, max-width 200ms ease-linear;
+    transition:
+      grid-template-columns var(--rail-duration) var(--ease-panel),
+      opacity 110ms ease-out;
   }
 
-  /* A block that vacates vertically — the group label, which the rail replaces
-     with a hairline. Collapsing the height as well as the opacity is what stops
-     the whole column jumping upward in one frame. */
+  /* The group label, and the 16px rule that stands in for it once the rail is
+     narrow. They occupy the SAME 24px box on the SAME centreline, so this is a
+     crossfade and nothing else — no height, no padding, no margin. */
   .rail-y {
-    max-height: 2rem;
-    /* The board runs a 2px gap between every child of the nav column, the
-       label included — without it the group boundary comes out at 66 instead
-       of 68. It rides on the label so it collapses with it. */
-    margin-bottom: 2px;
     opacity: 1;
-    transition: opacity 140ms ease-out 90ms, max-height 200ms ease-linear,
-      padding 200ms ease-linear, margin-bottom 200ms ease-linear;
+    transition: opacity 140ms ease-out 90ms;
   }
   [data-collapsible="icon"] .rail-y {
-    max-height: 0;
-    margin-bottom: 0;
-    /* `max-height: 0` cannot shrink a box below its own padding — the group
-       label's 12px + 4px stayed in the flow and pushed every group below it
-       16px out of rhythm. The padding has to collapse with the height. */
-    padding-top: 0;
-    padding-bottom: 0;
     opacity: 0;
-    transition: opacity 100ms ease-out, max-height 200ms ease-linear,
-      padding 200ms ease-linear, margin-bottom 200ms ease-linear;
+    transition: opacity 110ms ease-out;
   }
-
-  /* The mirror: hidden while expanded, arriving once the rail is narrow. */
   .rail-y-in {
-    max-height: 0;
-    margin-bottom: 0;
     opacity: 0;
-    transition: opacity 100ms ease-out, max-height 200ms ease-linear,
-      margin-bottom 200ms ease-linear;
+    transition: opacity 110ms ease-out;
   }
   [data-collapsible="icon"] .rail-y-in {
-    max-height: 1px;
-    /* The board draws a zero-height line with 2px of air either side, giving a
-       36px step across a group boundary. A real line is 1px, so it carries 1px
-       of its own margin to land on the same 36. */
-    margin-bottom: 1px;
     opacity: 1;
-    transition: opacity 140ms ease-out 110ms, max-height 200ms ease-linear,
-      margin-bottom 200ms ease-linear;
+    transition: opacity 140ms ease-out 90ms;
   }
 
   /* The lockup is ONE drawing: the cube sits at the left of the viewBox and the
@@ -987,11 +1150,12 @@ body {
      the cube itself never moves a pixel. Cross-fading two SVGs instead made the
      mark appear to slide in from the right.
 
-     23.2px is where the cube ends at this render size: the mark occupies 66.25
-     of the lockup's 301-unit viewBox, and 105.5 × 66.25 / 301 = 23.2. */
+     Both ends are known widths here, so `max-width` costs nothing: 23.2px is
+     where the cube ends at this render size — the mark occupies 66.25 of the
+     lockup's 301-unit viewBox, and 105.5 × 66.25 / 301 = 23.2. */
   .rail-logo {
     max-width: 106px;
-    transition: max-width 200ms ease-linear;
+    transition: max-width var(--rail-duration) var(--ease-panel);
   }
   [data-collapsible="icon"] .rail-logo {
     max-width: 23.2px;

@@ -8,8 +8,8 @@ import {
   DataListRow,
   DataListSkeleton,
 } from "@/components/branded/data-list";
+import { relativeAge, absoluteAge } from "@/components/branded/entity-card";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
 import type { PostgresAddon } from "@/api/addons";
 
 /**
@@ -36,9 +36,16 @@ function addonPath(a: PostgresAddon): string {
   return `/addons/postgres/${a.id}`;
 }
 
+/**
+ * The **shared** age, not a second reading of the same fact.
+ *
+ * This called `formatDistanceToNow` directly and rendered `19 days ago`, next
+ * to a Stacks list rendering `3d ago` and a Secrets list rendering `8/1/2026` —
+ * three spellings of one column across eight pages. `relativeAge` is the one in
+ * a primitive, so it is the one that wins (§11).
+ */
 function createdLabel(a: PostgresAddon): string {
-  if (!a.created_at) return "—";
-  return formatDistanceToNow(new Date(a.created_at), { addSuffix: true }).replace(/^about\s/, "");
+  return relativeAge(a.created_at) ?? "—";
 }
 
 export function AddonListHeader() {
@@ -108,7 +115,9 @@ export function AddonList({
 
             <DataListCell mono>PG {a.spec.version.major}</DataListCell>
             <DataListCell mono>{a.spec.storage.size ?? "—"}</DataListCell>
-            <DataListCell numeric>{createdLabel(a)}</DataListCell>
+            <DataListCell numeric title={absoluteAge(a.created_at) ?? undefined}>
+              {createdLabel(a)}
+            </DataListCell>
 
             {/* The chevron is the row's own affordance rather than an action, so
                 it stays put instead of waiting for the pointer. */}

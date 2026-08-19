@@ -74,12 +74,11 @@ export function AddVolumeDialog({ open, onOpenChange, resources, volumes, initia
                     id="add-volume-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className={`font-mono ${errors.name ? "border-danger" : ""}`}
                     aria-invalid={!!errors.name}
                   />
                 </FieldShell>
                 <FieldShell label="Size" htmlFor="add-volume-size" hint="e.g., 1Gi, 500Mi.">
-                  <Input id="add-volume-size" value={size} onChange={(e) => setSize(e.target.value)} className="font-mono" />
+                  <Input id="add-volume-size" value={size} onChange={(e) => setSize(e.target.value)} />
                 </FieldShell>
               </div>
               <FieldShell label="Attach to service" htmlFor="add-volume-service" required error={errors.resource}>
@@ -87,7 +86,7 @@ export function AddVolumeDialog({ open, onOpenChange, resources, volumes, initia
                   value={resourceIdx == null ? "" : String(resourceIdx)}
                   onValueChange={(v) => setResourceIdx(Number(v))}
                 >
-                  <SelectTrigger id="add-volume-service" className={errors.resource ? "border-danger" : ""}>
+                  <SelectTrigger id="add-volume-service" aria-invalid={!!errors.resource}>
                     <SelectValue placeholder="Select service" />
                   </SelectTrigger>
                   <SelectContent>
@@ -113,7 +112,6 @@ export function AddVolumeDialog({ open, onOpenChange, resources, volumes, initia
                   value={targetPath}
                   onChange={(e) => setTargetPath(e.target.value)}
                   placeholder="/var/lib/data"
-                  className={`font-mono ${errors.targetPath ? "border-danger" : ""}`}
                   aria-invalid={!!errors.targetPath}
                 />
               </FieldShell>

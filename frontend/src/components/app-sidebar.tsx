@@ -13,7 +13,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarRail,
   SidebarMenu,
   SidebarGroup,
   SidebarGroupLabel,
@@ -62,7 +61,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       {/* The 16px left inset never changes. The board anchors the lockup to the
           left in BOTH states — collapsing narrows the rail around it, it does
           not re-centre the mark. */}
-      <SidebarHeader className="h-[76px] pb-4 pl-4 pr-3 pt-[28px]">
+      {/* 72 = the frame's 8px gutter + the board's 64px brand band (16 + 32 +
+          16). It was 76 while the gutter was 12; the band itself never moved. */}
+      <SidebarHeader className="h-[72px] pb-4 pl-4 pr-3 pt-6">
         {/* The lockup is named for the PRODUCT, not its destination. Labelling
             it "…go to Stacks" gave this link and the Stacks nav row the same
             accessible name, so a screen reader announced two different
@@ -88,23 +89,45 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           const items = group.items.filter((item) => !item.adminOnly || isOrgAdmin);
           if (items.length === 0) return null;
 
+          // 2px between everything in the nav column — rows AND label blocks.
+          // The board keeps one flat 2px rhythm (50:1241, `gap-[2px]`); this
+          // group ran `gap-0`, which closed the seam under each label to nothing
+          // while the seam above it stayed 2.
           return (
-            <SidebarGroup key={group.label ?? `group-${i}`} className="gap-0 p-0">
+            <SidebarGroup key={group.label ?? `group-${i}`} className="gap-0.5 p-0">
               {group.label && (
-                <>
-                  {/* Not a centred 32px block: the board hangs the label off
-                      the group below it — 12px of air above, 4px below. */}
-                  <SidebarGroupLabel className="rail-y h-auto overflow-hidden pb-1 pl-2 pr-0 pt-3 text-label font-medium leading-4 text-fg-muted">
+                /* **The label and the hairline occupy the SAME 24px block.**
+                   They are two renderings of one thing — the group's name — and
+                   only one is ever visible, so they cross-fade in place rather
+                   than stacking. Stacked, the rule was a 1px sibling BELOW the
+                   label, which put it at the bottom edge of the block when the
+                   rail collapsed instead of through its middle. */
+                <div className="relative">
+                  {/* **A 24px block: 4px, the 16px line, 4px** (board 50:2246,
+                      `Frame` → `pl-[8px] py-[4px]`). It ran 12px above and 4px
+                      below — a 32px block — which put a whole row's worth of air
+                      above every group label and made the two groups drift
+                      apart from the rail they belong to. The label hangs off the
+                      group BELOW it, so the air goes under, not over. */}
+                  <SidebarGroupLabel className="rail-y h-auto overflow-hidden pb-1 pl-2 pr-0 pt-1 text-label font-medium leading-4 text-fg-muted">
                     {group.label}
                   </SidebarGroupLabel>
                   {/* Collapsed, the label has no room — but the grouping still
                       has to survive, so the board replaces each one with a
                       16px centred hairline. Without it the rail is nine
                       undifferentiated glyphs.
+
+                      `absolute inset-0 m-auto` centres it on BOTH axes inside
+                      the block above, so it needs no height of its own and adds
+                      nothing to the expanded layout.
+
                       Decorative: the groups are already named for assistive
                       tech by the expanded label, so this is aria-hidden. */}
-                  <div aria-hidden className="rail-y-in mx-auto h-px w-4 bg-border" />
-                </>
+                  <div
+                    aria-hidden
+                    className="rail-y-in bg-border absolute inset-0 m-auto h-px w-4"
+                  />
+                </div>
               )}
               <SidebarGroupContent>
                 {/* 34px pitch — a 32px row and a 2px gap. */}
@@ -128,18 +151,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <div className="px-3">
           <ThemeToggle presentation="row" />
         </div>
-        {/* The account is inset 7px rather than 12px: its 28px avatar carries a
+        {/* The account is inset 8px rather than 12px: its 28px avatar carries a
             hairline, so squaring its optical left edge with the 16px glyphs
-            above needs the extra 5px.
+            above needs the extra 4px. **8, not the 7 this carried** — the board
+            (50:2246) puts the account row in a `pl-[8px] pr-[12px]` column and
+            the block itself at `px-[6px]`, landing the avatar at 14.
 
             That inset is the SAME in both states — the avatar does not move
             when the rail collapses, it is simply the last thing left. Only the
             right inset closes, to the board's 44px collapsed width. */}
-        <div className="pl-[7px] pr-3 group-data-[collapsible=icon]:pr-[5px]">
+        <div className="pl-2 pr-3 group-data-[collapsible=icon]:pr-[5px]">
           <NavUser user={userData} />
         </div>
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   )
 }

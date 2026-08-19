@@ -168,6 +168,12 @@ func (r *applyReconciler) Reconcile(ctx context.Context, release *models.StackRe
 		r.logger.Error(ctx, "release %s: prune error (non-fatal): %v", release.ID, err)
 	}
 
+	// Same sweep, one level up: a RENAMED stack leaves a Stack CR under the
+	// old name, exactly as a renamed resource leaves a StackResource CR.
+	if err := r.pruneStackCRs(ctx, clusterClient, stack); err != nil {
+		r.logger.Error(ctx, "release %s: stack CR prune error (non-fatal): %v", release.ID, err)
+	}
+
 	return resultNil, nil
 }
 
@@ -319,6 +325,47 @@ func (r *applyReconciler) pruneStackResources(ctx context.Context, clusterClient
 				}
 				return fmt.Errorf("failed to delete orphaned StackResource CR '%s': %w", srList.Items[i].Name, err)
 			}
+		}
+	}
+	return nil
+}
+
+// pruneStackCRs deletes Stack CRs for this stack that are no longer named
+// after it.
+//
+// **This is what makes a stack renameable.** A Kubernetes object's name cannot
+// change, and the Stack CR takes the stack's name (`BuildStackCR`), so a rename
+// makes the next apply create a CR under the new name and leave the old one
+// running — with its Deployments, Services and Ingresses still serving. That
+// orphan is the whole reason the name was immutable for so long.
+//
+// It is the identical problem pruneStackResources already solves for a renamed
+// RESOURCE, and the identical solution: the CR carries LabelStackID, so the
+// stack's identity survives the rename even though its name did not. Anything
+// labelled with this stack's ID and not currently named after it is stale.
+//
+// Ordering matters and is already correct: this runs AFTER the new CR has been
+// applied, so the workload is never without one. Non-fatal, like its sibling —
+// a failed sweep leaves an orphan, which is worse than tidy but far better than
+// failing a release that has otherwise landed.
+func (r *applyReconciler) pruneStackCRs(ctx context.Context, clusterClient client.Client, stack *models.Stack) error {
+	stackList := &corev1alpha1.StackList{}
+	if err := clusterClient.List(ctx, stackList, client.InNamespace(stack.Namespace), client.MatchingLabels{
+		corev1alpha1.LabelStackID: stack.ID,
+	}); err != nil {
+		return fmt.Errorf("failed to list Stack CRs: %w", err)
+	}
+
+	for i := range stackList.Items {
+		if stackList.Items[i].Name == stack.Name {
+			continue
+		}
+		r.logger.Info(ctx, "pruning orphaned Stack CR '%s' (stack renamed to '%s')", stackList.Items[i].Name, stack.Name)
+		if err := clusterClient.Delete(ctx, &stackList.Items[i], client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
+			if k8sapierrors.IsNotFound(err) {
+				continue
+			}
+			return fmt.Errorf("failed to delete orphaned Stack CR '%s': %w", stackList.Items[i].Name, err)
 		}
 	}
 	return nil

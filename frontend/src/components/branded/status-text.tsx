@@ -1,15 +1,6 @@
-import {
-  CircleCheck,
-  CircleDashed,
-  CircleOff,
-  CircleX,
-  Loader2,
-  TriangleAlert,
-  Trash2,
-  type LucideIcon,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { statusVariant, type StatusDomain, type StatusVariant } from "./status-variant";
+import { GLYPH, SPINS, humanise } from "./status-glyph";
 
 /**
  * Status, said once, as a word (§4, §7).
@@ -30,6 +21,11 @@ import { statusVariant, type StatusDomain, type StatusVariant } from "./status-v
  * No dot. §7: a coloured dot at the left of a row AND the status word in a
  * column is saying it twice. The dot survives only where there is no room for
  * a word, which is not here.
+ *
+ * **The word alone, on the page's own ground.** Where the status needs a
+ * container of its own — a header, where it sits beside a title rather than in
+ * a column of its peers — the filled form is `StatusChip`, and both read the
+ * same glyph map (`status-glyph.ts`).
  */
 const TONE: Record<StatusVariant, string> = {
   ready: "text-success",
@@ -38,100 +34,6 @@ const TONE: Record<StatusVariant, string> = {
   info: "text-info",
   neutral: "text-fg-muted",
 };
-
-/**
- * One glyph per **state** — and, like the colour, it is *derived* from domain +
- * state. It cannot be passed in, so an icon that disagrees with the word it
- * sits next to is as unbuildable as a colour that disagrees.
- *
- * **Why per state and not per family.** The first version had three glyphs for
- * three families, which meant `Degraded`, `Unavailable` and `Failed` all drew
- * the same triangle — and that is precisely the distinction that changes what
- * you do next. A glyph that cannot make the distinction the word makes is pure
- * chrome, which is why both call sites had switched icons off. Each state now
- * gets its own mark:
- *
- * | State | Glyph | Reads as |
- * |---|---|---|
- * | Healthy | `CircleCheck` | serving, nothing to do |
- * | Deploying | `Loader2`, spinning | in flight, wait |
- * | Degraded | `TriangleAlert` | serving, but not fully |
- * | Unavailable | `CircleOff` | not serving at all |
- * | Failed | `CircleX` | the deploy did not land |
- * | NotDeployed | `CircleDashed` | never run — a fact, not a fault |
- * | Deleting | `Trash2` | on its way out |
- *
- * Outline glyphs at the same stroke weight as every other icon in the product;
- * nothing here is filled. Colour still comes from the variant, so the glyph and
- * the word can never disagree about severity.
- */
-const GLYPH: Partial<Record<StatusDomain, Record<string, LucideIcon>>> = {
-  stack_rollup: {
-    healthy: CircleCheck,
-    deploying: Loader2,
-    degraded: TriangleAlert,
-    unavailable: CircleOff,
-    failed: CircleX,
-    notdeployed: CircleDashed,
-    deleting: Trash2,
-  },
-  // The same seven readings, in the addon's words. A managed database has one
-  // extra: `Hibernated` and `Fenced` are both "up but not serving", and neither
-  // is a fault — `CircleOff` says stopped, `TriangleAlert` says held back.
-  // pkg/models/postgres_addon.go:21-31
-  addon: {
-    ready: CircleCheck,
-    pending: CircleDashed,
-    creating: Loader2,
-    initializing: Loader2,
-    updating: Loader2,
-    "backing up": Loader2,
-    restoring: Loader2,
-    deleting: Trash2,
-    error: CircleX,
-    hibernated: CircleOff,
-    fenced: TriangleAlert,
-  },
-  // A provider is either reaching your repositories or it is not, and if it is
-  // not there are two different reasons — which is exactly the distinction the
-  // glyph has to carry.
-  git_integration: {
-    connected: CircleCheck,
-    needs_setup: CircleDashed,
-    action_needed: CircleX,
-  },
-};
-
-/** States whose glyph turns. `motion-safe:` so reduced-motion gets a still mark
- *  rather than no mark — the shape still reports "in flight". */
-const SPINS = new Set([
-  "deploying",
-  "creating",
-  "initializing",
-  "updating",
-  "backing up",
-  "restoring",
-]);
-
-/**
- * The word the backend sent, made readable — `InProgress` → `In progress`,
- * `image_pull_failed` → `Image pull failed`.
- *
- * The raw state is shown rather than a bucket label because the buckets are
- * lossy: `Degraded` and `Failed` are both `error`, and which one you are
- * looking at changes what you do next.
- */
-function humanise(state: string): string {
-  const words = state
-    .trim()
-    .replace(/[_-]+/g, " ")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (!words.length) return "";
-  return words[0].charAt(0).toUpperCase() + words[0].slice(1) + (words.length > 1 ? " " + words.slice(1).join(" ") : "");
-}
 
 export function StatusText({
   domain,

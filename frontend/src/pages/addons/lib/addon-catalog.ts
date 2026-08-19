@@ -34,8 +34,14 @@ function isDataStore(block: BlockPreset): boolean {
  * unavailable services are off **together, for one reason**, which is the
  * definition of a region, so the sentence sits above them once.
  */
+/*
+ * Shortened when the drawer came down to 480: it broke to leave `as a
+ * container.` on a second line at 19% of the first. `today` went with it — the
+ * heading directly above already reads **Not managed yet**, so the word was
+ * that heading said twice, six words apart.
+ */
 export const NOT_MANAGED_YET =
-  "Stackdome runs Postgres for you today. The rest you can still add to a stack as a container.";
+  "Stackdome manages Postgres. The others run as containers in a stack.";
 
 export interface AddonCatalogGroup {
   id: BlockCategory;

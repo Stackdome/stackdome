@@ -15,6 +15,6 @@ Working context for the design pass:
 | File | Holds |
 |---|---|
 | `DESIGN-PRODUCT.md` | The product's design rules. If a rule and the code disagree, the code is wrong |
-| `docs/design/redesign-log.md` | Why each rule changed, newest last. Reversals are recorded as reversals |
+| `docs/design/redesign-log.md` | Why each rule changed, **newest first**. Reversals are recorded as reversals |
 | `docs/tasks.md` | Work left — Now / Next / Done |
 | `docs/session-log.md` | Session trail, newest first |

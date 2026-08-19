@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Globe, Package } from "lucide-react";
+import { ChevronsUpDown, Globe, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -90,7 +90,7 @@ export function ImageRegistrySelect({ id, imageRef, registryCredentialsId, onCha
           )}
         >
           <span className="truncate">{display}</span>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">

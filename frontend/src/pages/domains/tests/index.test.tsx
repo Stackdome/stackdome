@@ -48,8 +48,7 @@ describe("DomainsPage", () => {
         </SheetHost>
       </MemoryRouter>,
     );
-    expect(await screen.findByText("1 domain")).toBeInTheDocument();
-    expect(screen.getByText("apps.acme.dev")).toBeInTheDocument();
+    expect(await screen.findByText("apps.acme.dev")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add domain/ })).toBeDisabled();
   });
 

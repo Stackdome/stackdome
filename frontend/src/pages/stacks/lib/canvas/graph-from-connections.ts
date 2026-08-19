@@ -69,6 +69,8 @@ export interface ResourceNodeData {
   /** Live status-dot colour bucket, from the resource/addon's runtime state. */
   dotVariant: StatusVariant;
   summary: string;
+  /** The summary is an image reference, so it renders mono. */
+  summaryIsRef?: boolean;
   /** One card line per declared port (`port N · public|internal`). */
   details?: PortLine[];
   /** Live public URL per declared port number — makes the matching public
@@ -256,6 +258,7 @@ export function deriveGraph(input: DeriveGraphInput): CanvasGraph {
         // per-resource state from live status / topology once available.
         dotVariant: statusVariant("resource", undefined),
         summary: pres.summary,
+        summaryIsRef: pres.summaryIsRef,
         details: pres.details,
         volumes: volumeChips(resource, knownVolumes),
         dirtyState: serviceDirtyState(idx, input.dirty),

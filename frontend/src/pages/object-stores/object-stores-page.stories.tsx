@@ -64,8 +64,6 @@ export const Populated: Story = {
   parameters: { msw: withStores(stores) },
   play: async ({ canvas, canvasElement }) => {
     await expect(await canvas.findByText('minio-onprem')).toBeInTheDocument()
-    // §12a's one fact, in the sheet header. Never an eyebrow, never a subtitle.
-    await expect(canvas.getByText('3 object stores')).toBeInTheDocument()
     await expect(canvas.queryByText('Platform')).toBeNull()
     // The Stacks geometry, asserted rather than described. Gaps, not positions.
     const rows = [...canvasElement.querySelectorAll('[data-slot="data-list-row"]')] as HTMLElement[]
@@ -95,14 +93,6 @@ export const Populated: Story = {
   },
 }
 
-/** A count of one reads "1 object store", not "1 object stores". */
-export const SingleRow: Story = {
-  parameters: { msw: withStores([stores[0]]) },
-  play: async ({ canvas }) => {
-    await expect(await canvas.findByText('1 object store')).toBeInTheDocument()
-  },
-}
-
 export const Empty: Story = {
   parameters: { msw: withStores([]) },
   play: async ({ canvas, canvasElement }) => {
@@ -123,8 +113,6 @@ export const Empty: Story = {
     await expect(buttons).toHaveLength(2)
     const fills = buttons.map((b) => getComputedStyle(b).backgroundColor)
     await expect(new Set(fills).size).toBe(2)
-    // No count on a page with nothing to count — not even "0 object stores".
-    await expect(canvas.queryByText(/^\d+ object stores?$/)).toBeNull()
   },
 }
 

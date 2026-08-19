@@ -46,21 +46,11 @@ export const Populated: Story = {
   parameters: { msw: withAddons(addons) },
   play: async ({ canvas }) => {
     await expect(await canvas.findByText('analytics-db')).toBeInTheDocument()
-    // §12a's one fact, in the sheet header. Never an eyebrow, never a subtitle.
-    await expect(canvas.getByText('3 addons')).toBeInTheDocument()
     await expect(canvas.queryByText('Platform')).toBeNull()
     // The tools moved OUT of the list and into the header's second row.
     await expect(canvas.getByLabelText('Filter addons')).toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: /^Status:/ })).toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: /^Sort:/ })).toBeInTheDocument()
-  },
-}
-
-/** A count of one reads "1 addon", not "1 addons". */
-export const SingleRow: Story = {
-  parameters: { msw: withAddons([addons[0]]) },
-  play: async ({ canvas }) => {
-    await expect(await canvas.findByText('1 addon')).toBeInTheDocument()
   },
 }
 
@@ -74,8 +64,6 @@ export const Empty: Story = {
     await expect(buttons).toHaveLength(2)
     const fills = buttons.map((b) => getComputedStyle(b).backgroundColor)
     await expect(new Set(fills).size).toBe(2)
-    // No count on a page with nothing to count — not even "0 addons".
-    await expect(canvas.queryByText(/^\d+ addons?$/)).toBeNull()
   },
 }
 

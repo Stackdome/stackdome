@@ -131,13 +131,16 @@ describe("EnvRow (addon variant)", () => {
     expect(onChangeAddon).toHaveBeenCalledWith({ credField: "port" });
   });
 
-  it("renders no error styling without rowErrors", () => {
+  // `aria-invalid`, not a class: the danger border is the PRIMITIVE's, drawn
+  // from this attribute. Asserting the class tested that a call site had
+  // hand-written the styling — which is exactly what stopped being true.
+  it("renders no error state without rowErrors", () => {
     render(<EnvRow row={baseAddonRow()} {...noopProps} />);
-    expect(screen.getByTestId("field-picker-trigger")).not.toHaveClass("border-danger");
-    expect(screen.getByPlaceholderText("KEY")).not.toHaveClass("border-danger");
+    expect(screen.getByTestId("field-picker-trigger")).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByPlaceholderText("KEY")).not.toHaveAttribute("aria-invalid", "true");
   });
 
-  it("renders red border + message on field picker when rowErrors.credField set", () => {
+  it("marks the field picker invalid and shows the message when rowErrors.credField set", () => {
     render(
       <EnvRow
         row={baseAddonRow({ credField: undefined })}
@@ -145,7 +148,7 @@ describe("EnvRow (addon variant)", () => {
         rowErrors={{ credField: "Pick a field" }}
       />,
     );
-    expect(screen.getByTestId("field-picker-trigger")).toHaveClass("border-danger");
+    expect(screen.getByTestId("field-picker-trigger")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByText("Pick a field")).toBeInTheDocument();
   });
 
@@ -157,7 +160,7 @@ describe("EnvRow (addon variant)", () => {
         rowErrors={{ duplicate: 'Duplicate name "PG_HOST"' }}
       />,
     );
-    expect(screen.getByPlaceholderText("KEY")).toHaveClass("border-danger");
+    expect(screen.getByPlaceholderText("KEY")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByText('Duplicate name "PG_HOST"')).toBeInTheDocument();
   });
 

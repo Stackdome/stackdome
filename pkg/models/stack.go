@@ -136,7 +136,12 @@ type Stack struct {
 	ProjectID         string      `gorm:"index" json:"project_id"`
 	ClusterID         string      `gorm:"not null"`
 	UserID            string      `gorm:"not null"`
-	Name              string      `gorm:"not null;<-:create"`
+	// **Not `<-:create`.** It was, alongside Namespace, and that alone made a
+	// rename silently do nothing: GORM drops a create-only column from every
+	// UPDATE, so the service could accept the new name, the store could report
+	// success, and the row would still hold the old one. Namespace keeps the
+	// tag — that one really is fixed at create (see namespaceNameForStack).
+	Name              string      `gorm:"not null"`
 	NamespaceID       string      `gorm:"not null"`
 	Namespace         string      `gorm:"unique;not null;<-:create"`
 	Labels            Labels      `gorm:"type:jsonb"`

@@ -11,6 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useBreadcrumb } from "@/hooks/use-breadcrumb";
+import { RenameableTitle } from "@/components/renameable-title";
 
 interface BreadcrumbItemType {
   name: string;
@@ -61,7 +62,14 @@ export function SheetHeader({ leading }: { leading?: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const navigationType = useNavigationType();
-  const { customLabels, loadingLabels, nonClickablePaths, journeyOrigin } = useBreadcrumb();
+  const {
+    customLabels,
+    loadingLabels,
+    nonClickablePaths,
+    journeyOrigin,
+    selectionPaths,
+    renameHandlers,
+  } = useBreadcrumb();
 
   const pathSegments = location.pathname.split("/").filter(Boolean);
 
@@ -84,10 +92,18 @@ export function SheetHeader({ leading }: { leading?: React.ReactNode }) {
     },
   );
 
+  // A segment registered as an in-page SELECTION is dropped from the trail
+  // entirely: `/previews/<repo>` is the previews screen with that repository
+  // picked in its rail, not a page below it. §12a bans such a selection from
+  // renaming the title, and a crumb is the same claim in the same band — it
+  // would offer a way back to a screen you never left. The address still
+  // resolves, because people have it bookmarked.
+  const placeItems = breadcrumbItems.filter((item) => !selectionPaths[item.path]);
+
   // A journey shows its title alone (§12a). The trail's last segment IS the
   // title, so keep that and drop the wayfinding in front of it: the sidebar
   // already says which section you are in, and the arrow is the way out.
-  const trailItems = journeyOrigin ? breadcrumbItems.slice(-1) : breadcrumbItems;
+  const trailItems = journeyOrigin ? placeItems.slice(-1) : placeItems;
 
   function goBack() {
     // Did we arrive here by navigating inside the app? Only then is there an
@@ -119,35 +135,66 @@ export function SheetHeader({ leading }: { leading?: React.ReactNode }) {
             </Button>
           </>
         )}
+        {/* **The same path the drawer draws, one rung down.**
+            The two were built apart and drifted on five separate details: the
+            trail ran 400 where the drawer's steps run 500, in `fg-2` against
+            the drawer's `fg-muted`, its separator was knocked back a further
+            50%, the steps sat 8px apart instead of 6, and a hovered crumb
+            changed colour with no underline while a hovered step got both. None
+            of that was a decision — it is two implementations of one idea.
+
+            **The size stays different, and that one IS a decision.** A drawer
+            step is `title/500` because it is the drawer's title; a sheet crumb
+            is `body` under a `name/500` title (§12a). The rung differs; the
+            treatment should not. */}
         <Breadcrumb>
-          <BreadcrumbList className="text-body gap-2 sm:gap-2">
+          {/* **The whole trail is `name/500` — 14/20 at weight 500.** The
+              breadcrumb used to run at body size with the current page one rung
+              above it, which made the seam between "where you are" and "how you
+              got here" a SIZE change. It is a weight and a colour change now;
+              the trail and its last item are the same rung. Sheet, drawer and
+              page header all come through here, so they cannot drift apart. */}
+          <BreadcrumbList className="text-name font-medium gap-1.5 sm:gap-1.5">
             {trailItems.map((item, index) => (
               <React.Fragment key={index}>
                 {index > 0 && (
-                  <BreadcrumbSeparator className="text-fg-2/50 [&>svg]:hidden">
+                  <BreadcrumbSeparator className="text-fg-muted font-normal [&>svg]:hidden">
                     <span>/</span>
                   </BreadcrumbSeparator>
                 )}
-                {index === trailItems.length - 1 ? (
+                {index === trailItems.length - 1 && renameHandlers[item.path] ? (
+                  // **The title renames itself.** A page registers a handler to
+                  // say its name is the object's name and can be changed; a
+                  // page that does not gets the plain title below. See
+                  // `registerRename`.
+                  <BreadcrumbItem>
+                    <RenameableTitle name={item.name} onRename={renameHandlers[item.path]} />
+                  </BreadcrumbItem>
+                ) : index === trailItems.length - 1 ? (
                   <BreadcrumbItem>
                     {/* The page title. The trail before it is 13px wayfinding.
-                        14/20 at weight 500, per the Shape + Hierarchy board
-                        (node 110:4030). It has been 16/24 at 600 and 20/28 at
-                        500; both made the header shout over the content it
-                        introduces. The title is a label on the sheet, not a
-                        headline — one rung above the trail, one below a card's
-                        own name, and hierarchy is carried by the card. */}
+                        **14/20 at weight 500** — `name/500`.
+
+                        This rung has moved several times: 16/24 at 600 (a
+                        headline, too loud), 14/20 at 500, back up to 16/24 at
+                        500 on the app-shell board, briefly 13/20. It settles at
+                        NAME size — one rung above the 13px body it introduces,
+                        which is enough to lead without announcing. The weight
+                        is what separates it from the trail beside it. */}
                     <BreadcrumbPage className="text-name font-medium text-foreground">
                       {item.name}
                     </BreadcrumbPage>
                   </BreadcrumbItem>
                 ) : !item.clickable ? (
                   <BreadcrumbItem>
-                    <span className="text-fg-2">{item.name}</span>
+                    <span className="text-fg-muted font-medium whitespace-nowrap">{item.name}</span>
                   </BreadcrumbItem>
                 ) : (
                   <BreadcrumbItem>
-                    <BreadcrumbLink asChild className="text-fg-2 hover:text-foreground transition-colors">
+                    <BreadcrumbLink
+                      asChild
+                      className="text-fg-muted font-medium whitespace-nowrap transition-colors hover:text-foreground hover:underline underline-offset-4"
+                    >
                       <Link to={item.path}>{item.name}</Link>
                     </BreadcrumbLink>
                   </BreadcrumbItem>
@@ -157,12 +204,32 @@ export function SheetHeader({ leading }: { leading?: React.ReactNode }) {
           </BreadcrumbList>
         </Breadcrumb>
 
-        {/* The page's one fact and its actions. Only things scoped to the page
-            you are looking at may land here; global helpers stay in the grey
-            frame. Bar buttons run at `text-name`, enforced here so call sites
-            cannot drift. 8px between actions; the fact adds 4px more to reach
-            the 12px the board specifies. */}
-        <div id="topnav-actions" className="ml-auto flex items-center gap-2 [&_button]:text-name" />
+        {/* **The fact that belongs to the TITLE, not to the row.**
+            §12a puts the page's one fact on the right, opposite the title, and
+            that is right for a fact ABOUT the page — `20 stacks` counts what
+            the list is showing, and it belongs with the tools that change the
+            count.
+
+            A detail page's status is not that. `Degraded` is a property of
+            `orders-api` itself, and read from the far end of a 1200px bar it
+            has nothing to attach to — the eye has to travel back to the name to
+            learn what is degraded. Beside the name it is one phrase.
+
+            12px from the trail: 6 from the row's own gap, 6 from here. */}
+        <div id="sheet-identity" className="ml-1.5 flex items-center gap-2 empty:hidden" />
+
+        {/* The page's actions. Only things scoped to the page you are looking
+            at may land here; global helpers stay in the grey frame. 8px
+            between actions.
+
+            **The type size is the Button's own.** This carried
+            `[&_button]:text-name`, which put every button in the band at 14 —
+            and there is no 14px button in the system: every size runs at
+            `text-body`, height is the only thing a size changes (§6). Because
+            a container rule outranks the button's own class, a call site could
+            not opt out; the stack editor had to force `!text-body` back onto
+            its row just to get the documented size. Nothing here sets type. */}
+        <div id="topnav-actions" className="ml-auto flex items-center gap-2" />
       </div>
 
       {/* ── 2. Toolbar row — the tools for that section. Conditional. ── */}

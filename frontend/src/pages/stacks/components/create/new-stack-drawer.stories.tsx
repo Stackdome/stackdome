@@ -1,21 +1,46 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, userEvent, within, screen } from 'storybook/test'
+import { expect, userEvent, within, screen, waitFor } from 'storybook/test'
 import { http, HttpResponse } from 'msw'
 
 import { baselineHandlers } from '../../../../../.storybook/msw-handlers'
 import { withConfirm, withCurrentUser } from '../../../../../.storybook/decorators'
-import { GIT_INTEGRATION_TYPE_CREDENTIALS, STATUS_ACTIVE } from '@/lib/git-integrations'
+import {
+  GIT_INTEGRATION_TYPE_CREDENTIALS,
+  GIT_INTEGRATION_TYPE_GITHUB_APP,
+  STATUS_ACTIVE,
+  STATUS_INSTALLED,
+} from '@/lib/git-integrations'
 import { NewStackDrawer } from './new-stack-drawer'
 import { parseCompose } from './tabs/compose-tab'
 
 const INTEGRATIONS = '/api/v1/organizations/:orgId/git-integrations'
 const REPOS = '/api/v1/organizations/:orgId/git-integrations/:id/repositories'
+// Picking a row re-reads that one repository, so the clone URL and default
+// branch the next step is seeded from come from the repository itself rather
+// than from whatever the list page happened to carry.
+const REPO = `${REPOS}/:owner/:name`
 
 // The constants, not the strings: `usableIntegrations` filters on exactly these
 // and a hand-typed "connected" silently produces the no-provider state instead.
+//
+// **A GitHub App, because only an App can list repositories.** This said
+// `credentials` while the step still had its own copy of the picker — a copy
+// that listed repositories for any integration at all, so a token connection
+// filled a list the real API cannot fill. The shared picker knows the
+// difference, and `ATokenConnectionAsksForAUrl` below covers the other half.
 const integration = {
   id: 'gh-1',
   name: 'acme',
+  type: GIT_INTEGRATION_TYPE_GITHUB_APP,
+  status: STATUS_INSTALLED,
+  credentials_configured: true,
+}
+
+/** A token connection: authenticated, but it cannot enumerate anything. */
+const tokenIntegration = {
+  id: 'tok-1',
+  name: 'acme-gitlab',
+  host: 'gitlab.example.com',
   type: GIT_INTEGRATION_TYPE_CREDENTIALS,
   status: STATUS_ACTIVE,
   credentials_configured: true,
@@ -28,6 +53,11 @@ const repos = [
 
 const connected = [
   http.get(INTEGRATIONS, () => HttpResponse.json({ items: [integration], total: 1 })),
+  http.get(REPO, ({ params }) =>
+    HttpResponse.json(
+      repos.find((r) => r.full_name === `${params.owner}/${params.name}`) ?? repos[0],
+    ),
+  ),
   http.get(REPOS, () => HttpResponse.json({ items: repos, total: repos.length })),
   ...baselineHandlers,
 ]
@@ -35,6 +65,12 @@ const connected = [
 /** A brand-new organisation: nothing connected, so the list can never fill. */
 const noProvider = [
   http.get(INTEGRATIONS, () => HttpResponse.json({ items: [], total: 0 })),
+  ...baselineHandlers,
+]
+
+/** Connected, but by token — so there is nothing to enumerate. */
+const tokenOnly = [
+  http.get(INTEGRATIONS, () => HttpResponse.json({ items: [tokenIntegration], total: 1 })),
   ...baselineHandlers,
 ]
 
@@ -55,6 +91,19 @@ async function pick(name: RegExp) {
   // Picking advances. There is no Continue to press.
   await userEvent.click(await dialog.findByRole('option', { name }))
   return dialog
+}
+
+/**
+ * Picking a repository is **not** synchronous with the click.
+ *
+ * The row only carries what the list page returned; the step is seeded from the
+ * repository itself, so the pick re-reads that one repo and the selection lands
+ * a tick later. Asserting straight after the click reads the step as incomplete
+ * and the `Continue` beneath it as still dead.
+ */
+async function pickRepository(dialog: ReturnType<typeof within>, name: RegExp) {
+  await userEvent.click(await dialog.findByRole('option', { name }))
+  await waitFor(() => expect(dialog.getByRole('button', { name: 'Continue' })).toBeEnabled())
 }
 
 /**
@@ -156,7 +205,7 @@ export const SwitchAndSearchShareOneRow: Story = {
     // **The TRACK, not a segment inside it.** The track carries a hairline and
     // its last segment sits flush against the inside of it, so measuring to the
     // segment reports the gap 1px wide and the number never lands.
-    const track = dialog.getByRole('radiogroup', { name: 'Where the code lives' })
+    const track = dialog.getByRole('radiogroup', { name: 'Where the repository lives' })
 
     const a = search.getBoundingClientRect()
     const b = track.getBoundingClientRect()
@@ -182,7 +231,7 @@ export const ARepositoryHasNoRail: Story = {
     await expect(dialog.queryByText(/In this stack/)).toBeNull()
 
     // And the list gets the whole body as a result.
-    await userEvent.click(await dialog.findByRole('option', { name: /web-storefront/ }))
+    await pickRepository(dialog, /web-storefront/)
     await expect(dialog.queryByText(/In this stack/)).toBeNull()
     // **`Continue`, not `Create stack`.** A repository is not finished here —
     // step three asks what the code becomes. A button that said "Create stack"
@@ -206,7 +255,7 @@ export const ARepositoryHasNoRail: Story = {
 export const ServiceStep: Story = {
   play: async () => {
     const dialog = await pick(/From a repository/)
-    await userEvent.click(await dialog.findByRole('option', { name: /web-storefront/ }))
+    await pickRepository(dialog, /web-storefront/)
     await userEvent.click(dialog.getByRole('button', { name: 'Continue' }))
 
     // The path grew a third crumb, and step two is still reachable from it.
@@ -236,7 +285,7 @@ export const ServiceStep: Story = {
 export const GoingBackKeepsTheForm: Story = {
   play: async () => {
     const dialog = await pick(/From a repository/)
-    await userEvent.click(await dialog.findByRole('option', { name: /web-storefront/ }))
+    await pickRepository(dialog, /web-storefront/)
     await userEvent.click(dialog.getByRole('button', { name: 'Continue' }))
     await userEvent.type(await dialog.findByLabelText(/Port/), '8080')
 
@@ -297,7 +346,7 @@ export const UrlIsItsOwnLabelledField: Story = {
     const field = await dialog.findByLabelText('Repository URL')
     const url = field.getBoundingClientRect()
     const track = dialog
-      .getByRole('radiogroup', { name: 'Where the code lives' })
+      .getByRole('radiogroup', { name: 'Where the repository lives' })
       .getBoundingClientRect()
 
     // Its own row, BELOW the switch — not beside it in the toolbar slot.
@@ -362,11 +411,49 @@ export const NoProviderConnected: Story = {
     await expect(dialog.getByRole('radio', { name: 'Public URL' })).toBeEnabled()
     // `outline`, not the page's fill: a detour must not outrank the thing you
     // came to do (§9).
-    await expect(dialog.getByRole('link', { name: 'Connect provider' })).toBeVisible()
+    //
+    // **Resolving the name IS the assertion.** This was `toBeVisible`, and it
+    // flaked: the drawer is still animating in when the query resolves, so
+    // jsdom-style visibility can read false on a node that is on screen and
+    // correct a frame later. A `find*` that returns the control has already
+    // proved it is in the accessibility tree under its label.
+    //
+    // **A button, not a link.** It used to navigate to /git-integrations —
+    // out of the drawer, throwing away the starting point you had picked. The
+    // shared picker connects a provider in place and comes back to this step.
+    await dialog.findByRole('button', { name: 'Connect provider' })
     // **The band does not rearrange itself between two states of one tab.**
     // The search stays on screen, off — the reason is the empty state directly
     // beneath it, with the fix as a button, which is what §9 asks for.
     await expect(dialog.getByLabelText('Search repositories')).toBeDisabled()
+  },
+}
+
+/**
+ * **A token connection asks for a URL instead of listing nothing.**
+ *
+ * The state this step could not reach until it stopped keeping its own copy of
+ * the picker. A credentials integration authenticates a clone but cannot
+ * enumerate repositories, so the old copy — which listed for whatever
+ * integration came back first — showed a search box over an empty column with
+ * no explanation. The reason is now the field's own hint, and the search above
+ * it is off rather than lying about what it filters.
+ */
+export const ATokenConnectionAsksForAUrl: Story = {
+  parameters: { msw: { handlers: tokenOnly } },
+  play: async () => {
+    const dialog = await pick(/From a repository/)
+    const field = await dialog.findByLabelText('Repository URL')
+    await expect(field).toHaveAttribute('placeholder', 'https://gitlab.example.com/group/project')
+    // §9: the dead control says why, in full, right where it died.
+    await expect(dialog.getByLabelText('Search repositories')).toBeDisabled()
+    await expect(dialog.getByText(/Repository listing isn't available/)).toBeInTheDocument()
+    // And the host is enforced — a github.com URL cannot ride these credentials.
+    await userEvent.clear(field)
+    await userEvent.type(field, 'https://github.com/acme/webapp')
+    await expect(
+      await dialog.findByText('URL must be on gitlab.example.com to use this connection.'),
+    ).toBeInTheDocument()
   },
 }
 
@@ -529,8 +616,8 @@ export const TheLinksSayTheyLeave: Story = {
       // now gets the same wrapper a plain button does: 14 before the label, 9
       // after the glyph — never the symmetric 12 a text-only button takes.
       const pad = getComputedStyle(link)
-      await expect(pad.paddingLeft).toBe('14px')
-      await expect(pad.paddingRight).toBe('9px')
+      await expect(pad.paddingLeft).toBe('8px')
+      await expect(pad.paddingRight).toBe('8px')
     }
   },
 }

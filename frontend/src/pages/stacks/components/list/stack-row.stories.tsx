@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import { makeStack } from '../../../../../.storybook/fixtures'
 import { ReleaseState } from '@/pages/stacks/components/editor/tabs/deployments/release-states'
 import type { Stack } from '@/api/stack-types'
@@ -171,10 +171,40 @@ export const HoverDoesNotShift: Story = {
     await expect(statusX(withAction)).toBe(statusX(withoutAction))
 
     // And the hidden control is hidden by OPACITY — it still occupies its track
-    // and it still holds its tab stop.
-    const kebab = canvas.getByLabelText('Actions for orders-api')
-    await expect(parseFloat(getComputedStyle(kebab).opacity)).toBe(0)
-    await expect(getComputedStyle(kebab).display).not.toBe('none')
-    await expect(kebab.getBoundingClientRect().width).toBeGreaterThan(0)
+    // and it still holds its tab stop. One action, so it is the button itself
+    // rather than a kebab opening a menu of one (§11).
+    const del = canvas.getByLabelText('Delete orders-api')
+    await expect(canvas.queryByLabelText('Actions for orders-api')).toBeNull()
+    const actions = del.closest('[data-slot="data-list-actions"]')!
+    await expect(parseFloat(getComputedStyle(actions).opacity)).toBe(0)
+    await expect(getComputedStyle(del).display).not.toBe('none')
+    await expect(del.getBoundingClientRect().width).toBeGreaterThan(0)
+  },
+}
+
+/**
+ * **A disabled row action still says why (§9).** While a stack is being deleted
+ * its `Delete` is off — and it used to be a disabled menu item with no reason
+ * attached at all, which is the one moment the reader most needs to be told the
+ * thing is already on its way out.
+ *
+ * The reason anchors to a focusable wrapper because a disabled control swallows
+ * pointer events, so it is reachable by keyboard and not by hover alone.
+ */
+export const DeletingSaysWhy: Story = {
+  args: {
+    stack: withSource({ lifecycle: 'deleting' }) as Stack,
+    onDelete: fn(),
+  },
+  play: async ({ canvas }) => {
+    const del = canvas.getByLabelText('Delete orders-api')
+    await expect(del).toBeDisabled()
+
+    // `All`, not one: Radix renders tooltip content twice — the visible copy
+    // and a visually-hidden one for screen readers.
+    del.parentElement!.focus()
+    await expect(
+      await within(document.body).findAllByText(/this stack is already being deleted/i),
+    ).not.toHaveLength(0)
   },
 }

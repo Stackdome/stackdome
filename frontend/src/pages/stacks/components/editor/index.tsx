@@ -1,4 +1,5 @@
 import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
+import { VersionChip, type CanvasViewMode } from "@/pages/stacks/components/editor/version-chip";
 import { getErrorMessage } from "@/api/client";
 import { parseApiError, type ParsedFieldError } from "@/api/errors";
 import { mapFieldErrors } from "@/pages/stacks/lib/map-field-errors";
@@ -31,7 +32,7 @@ import {
   resourceRenameFingerprint,
   volumeRenameFingerprint,
 } from "@/pages/stacks/lib/stack-diff";
-import { applyStackByName, getStackById, deleteStack, getStacksByOrg } from "@/api/stacks";
+import { applyStackByName, getStackById, deleteStack, getStacksByOrg, renameStack } from "@/api/stacks";
 import { stackNameConflictError } from "@/pages/stacks/lib/stack-name-conflict";
 import { createStackFetchGate } from "@/pages/stacks/lib/canvas/stack-fetch-gate";
 import { draftToSnapshot } from "@/pages/stacks/lib/draft-sync/draft-snapshot";
@@ -88,7 +89,7 @@ export default function CanvasEditorPage() {
   const [draftDeploying, setDraftDeploying] = useState(false);
   const [nameError, setNameError] = useState<string | undefined>();
 
-  const { setCustomLabel, setPathLoading } = useBreadcrumb();
+  const { setCustomLabel, setPathLoading, registerRename } = useBreadcrumb();
   const { toast } = useToast();
   const { projects, projectNameById, defaultProjectName } = useResourceProjects();
   const { canWrite } = useCurrentUser();
@@ -141,6 +142,7 @@ export default function CanvasEditorPage() {
   }, [currentStack, id, defaultProjectName, setCustomLabel, setPathLoading, isNewStack]);
 
   const savedStack = currentStack || fetchedStack;
+
 
   const draftStackView = useMemo(
     () =>
@@ -367,6 +369,47 @@ export default function CanvasEditorPage() {
     return true;
   }, [setStacks]);
 
+  /**
+   * **The title in the sheet header renames the stack.**
+   *
+   * Registered rather than rendered: the header is drawn once by `AppLayout`
+   * and does not know which page is under it, so a page that CAN be renamed
+   * says so by handing up a handler. Nothing registers on a draft — it has no
+   * server-side stack yet, and its name is the field on the canvas — and
+   * nothing registers for a viewer without write access, so the affordance is
+   * absent rather than present-and-refusing.
+   *
+   * Rejecting with a message is how a name is refused; `RenameableTitle` shows
+   * it under the field and keeps you in it.
+   */
+  useEffect(() => {
+    if (isNewStack || !id || !savedStack || !defaultProjectName || !canWriteStack) return;
+    const orgId = getCurrentOrganizationId();
+    if (!orgId) return;
+
+    return registerRename(`/stacks/${id}`, async (name: string) => {
+      const fresh = await renameStack(orgId, defaultProjectName, savedStack, name).catch((e) => {
+        // The server's own words — a name conflict and a broken name rule are
+        // different problems and only it knows which one this is.
+        throw new Error(getErrorMessage(e) || "That name could not be saved.");
+      });
+      lastAppliedStackRef.current = fresh;
+      setFetchedStack(fresh);
+      setStacks((prev) => prev.map((st) => (st.id === fresh.id ? fresh : st)));
+      // The crumb is the title, so it has to be the thing that changes.
+      setCustomLabel(`/stacks/${id}`, fresh.name || "Stack Details");
+    });
+  }, [
+    isNewStack,
+    id,
+    savedStack,
+    defaultProjectName,
+    canWriteStack,
+    registerRename,
+    setStacks,
+    setCustomLabel,
+  ]);
+
   /** Push-style writer for a stack payload the caller just received from its
    *  own mutation response (initial load). Fetch-then-apply flows must use
    *  fetchFreshStack instead — an arrival-time ticket would let a stale GET
@@ -412,6 +455,10 @@ export default function CanvasEditorPage() {
   const [deployFieldErrors, setDeployFieldErrors] = useState<ParsedFieldError[]>([]);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   // Bumped to ask the canvas to open a resource drawer (banner "jump to error").
+  // Which version the canvas shows. It lives HERE because the control that
+  // switches it — the header's version chip — and the canvas that obeys it are
+  // siblings, not parent and child.
+  const [canvasViewMode, setCanvasViewMode] = useState<CanvasViewMode>("draft");
   const [openResourceSignal, setOpenResourceSignal] = useState<
     { index: number; tab: EditSessionTab; nonce: number } | null
   >(null);
@@ -990,10 +1037,8 @@ export default function CanvasEditorPage() {
           setActiveTab(tab);
         }}
         isActive={session.isActive}
-        dirtyResourceCount={session.dirty.dirtyResourceIdx.size}
         dirtyTotal={changeCount}
         isStaged={lifecycle.phase === "staged"}
-        onViewChanges={() => setViewChangesOpen(true)}
         syncStatus={isNewStack ? SYNC_STATUS.idle : draftSync.status}
         deployBusy={deployBusy}
         canWrite={canWriteStack}
@@ -1001,17 +1046,27 @@ export default function CanvasEditorPage() {
         onDraftDeploy={() => void performDraftDeploy()}
         draftDeploying={draftDeploying}
         onDeploy={onDeploy}
-        canDiscardDraft={
-          // Keyed on "changes exist", not phase === "staged": every keystroke
-          // flips the phase to "editing" while autosave is pending, which
-          // unmounted and remounted the pill's ⋯ menu mid-typing. changeCount
-          // derives from the in-memory draft, so it holds steady while typing.
-          changeCount > 0 && !!liveSnapshot && canWriteStack
-        }
-        onDiscardDraft={() => void requestRevert()}
         canDeleteStack={canWriteStack}
         onDelete={() => void performDelete()}
         publicEndpoints={publicEndpoints}
+        versionChip={
+          // **A draft has no second version, so it has no version chip.** The
+          // header read `Stacks / Draft` on the left and `Draft · no changes`
+          // on the right — the same word twice on one row, 900px apart. There
+          // is nothing to switch to, nothing saved server-side to review and
+          // nothing to discard back to; the chip could only ever restate the
+          // breadcrumb.
+          isNewStack ? undefined : (
+            <VersionChip
+              mode={liveView ? canvasViewMode : "draft"}
+              onModeChange={setCanvasViewMode}
+              changeCount={changeCount}
+              canGoLive={!!liveView}
+              onReviewChanges={() => setViewChangesOpen(true)}
+              canDiscard={changeCount > 0 && !!liveSnapshot && canWriteStack}
+            />
+          )
+        }
         architecture={
           <>
             {!bannerDismissed && bannerItems.length > 0 && (
@@ -1047,6 +1102,8 @@ export default function CanvasEditorPage() {
               liveStatusResources={statusLiveStatus?.resources}
               publicEndpoints={publicEndpoints}
               liveView={liveView}
+              viewMode={canvasViewMode}
+              onViewModeChange={setCanvasViewMode}
             />
           </>
         }

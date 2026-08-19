@@ -1,3 +1,862 @@
+# 2026-08-16 (last) — Previews, in code: two pages become one, and four board calls lose to the running app
+
+The board was approved and the plan had eight slices. Seven of them went in as
+drawn. The eighth thing — the one nobody plans for — is that **four decisions
+that were right on a Figma frame were wrong the moment there was real data
+behind them**, and all four were caught by Jaseem opening the app rather than by
+anything in the plan.
+
+## What shipped
+
+`/previews` and `/previews/:configId` are **one screen**: a 241px repository rail
+(240 plus its seam) beside 64px preview rows on the shared `DataList`. The second
+route is **absorbed, not deleted** — people have it bookmarked — and it grows no
+crumb. `registerSelectionPath` in `breadcrumb-context.tsx` marks a path segment
+as an in-page selection and `SheetHeader` drops it from the trail.
+
+§12a already said such a selection may not rename the title. **A crumb is the
+same claim one band over**: it offers a way back to a screen you never left.
+
+Deleted: `config-detail.tsx` (370 lines), `config-list.tsx`,
+`preview-env-card.tsx`, `config-settings-modal.tsx` and their tests. New:
+`preview-row`, `repository-rail`, `repository-context-line`,
+`repository-settings-drawer`, `preview-drawer`.
+
+## Previews is the second full-bleed route, and the rail is why
+
+A rail is a **region of the sheet**: it meets the sheet's left edge, runs the
+full height, and draws its own boundary with a hairline. Inside the shell's
+standard 16px page inset it would float 16px off the edge with a strip of sheet
+showing beside it, and its hairline would stop short at both ends — a boundary
+that reaches neither side reads as a mistake.
+
+The page pays for the exception itself: the body column supplies the 16 the shell
+stopped supplying, so the rows land on the same left edge as the title above
+them. Measured: context line, column header and row name share **one ink edge**,
+and their boxes share a different one 8px outside it.
+
+## A chevron pair PICKS a value; a single chevron OPENS what is under it
+
+Jaseem's call, mid-build, and it reaches the whole product → §7.
+
+Two controls that behave differently were wearing the same mark. A select does
+not open the thing below it — it swaps one value for another. A disclosure
+genuinely does open what is under it. `chevrons-up-down` on every select, filter,
+sort, combobox and switcher; `chevron-down` stays on disclosures and scroll
+arrows.
+
+**It went in the primitives, not the call sites.** `SelectTrigger` draws its own;
+`DropdownMenuChevron` is new, for the triggers built out of a `Button`. Six list
+pages had hand-written `<ChevronDown className="h-3.5 w-3.5 flex-none
+text-fg-2" />` beside their Status and Sort controls — which is why changing one
+glyph was a nine-file edit instead of a two-file one.
+
+## The four the board got wrong, and what they have in common
+
+| The board | What happened live |
+|---|---|
+| Env-var rows are key ǀ value ǀ ✕ | So the `Plain ǀ Secret` source select was dropped. **Wrong** — without it you have to already know the `{{ secret.name }}` grammar. Restored, and paid for out of its own width: the chip went 110 → 88 and `Plain text` → `Plain`, and `KeyValueRows` now pins the KEY at 120 when a row carries a third control so the value takes the slack. Measured 120 ǀ 175 ǀ 88 ǀ 32, no truncation |
+| Frames 02 and 03 drop the toolbar | So it hid when a repository had nothing open. **Wrong** — the rail is a selector, so the tools appeared and vanished as you clicked down it and the body jumped 44px each time. They stay up wherever the rail does |
+| The toolbar is Search + Status | So Sort came off. **Wrong** — it answers a question the search field cannot. Three keys, and `pr_number` is a STRING on the wire, so it sorts as a number or #99 lands above #128 |
+| The status is a coloured dot | Replaced with a per-STATE glyph. **Stands** — a family dot repeats the colour and adds no fact (§7), and the Stacks row beside it already ships the glyphs |
+
+**They have one thing in common: the board was drawn for a case the product does
+not have.** A full column of repositories. A row wide enough for four controls.
+A list with something in it. Every one of them is true on an artboard with
+placeholder content and false the first time real data arrives.
+
+> **Judge the board against real data before building to it.** Not instead of the
+> board — the board settled the shape, and the shape was right. But a frame
+> cannot show you what happens when three of its four rows are missing.
+
+## The rail's add: two attempts, both reverted
+
+`+ Enable repository` is pinned at the foot of the rail, above a hairline, in
+`ghost` — exactly where the board put it. It got there by losing twice.
+
+The argument against it was measured and sound: with three repositories the
+control sat **~800px below the last one**, and an action that far from the list
+it extends reads as chrome that got stranded. `KeyValueRows` had settled the same
+question for `+ Add variable` — *full width and directly under the list, it reads
+as the next row, which is what it makes.*
+
+It was moved to the end of the list. *"not good."* It was moved under the group
+label as an `outline` button. *"lets go back to how it was, at the bottom, none
+of the new stuff is working."*
+
+**The rail is chrome, and chrome that moves as the data changes stops being
+somewhere you can look without thinking.** The 800px is real and it is not the
+thing that matters; the fixed point is. Written into the component so the next
+pass does not re-derive it.
+
+## A blanket rejection is not a verdict on every part of it
+
+That revert took three changes with it: the add's placement, the add's variant,
+and the row gear going `outline` **and** appearing on every row rather than only
+the selected one. Two of the three came straight back the next message.
+
+**Ask which part.** A revert is cheap; a wrong inference about which half was
+wrong is not.
+
+The gear settled at `outline` on every row. `ghost` is right for a row action on
+the **list**, which sits on the sheet's own white where a wash is enough to lift
+it. This one always lands on a row that is **already washed** — hovered, selected
+or both — so a transparent face has nothing left to change against. §7's *solve
+contrast against the worst ground*, one control down.
+
+Revealing it on the selected row alone made reaching a repository's settings cost
+a click to select it first: a step that produces nothing, in a rail whose whole
+job is to save you one.
+
+## Two board calls that did not survive the drawer
+
+**No `Cancel` in Repository settings.** The board drew one. It comes off for the
+reason the last five drawers' did — before the primary is pressed there is
+nothing for it to undo, and the ✕, Esc and the scrim are already exits. A
+`Dialog` and a `Confirm` keep theirs.
+
+**`Remove repository` is solid `destructive`, not `destructive-ghost`.** §10 put
+the red fill on the confirm's commit button and left the trigger quiet, on the
+reasoning that a trigger is not a commit. Jaseem's call: a red word inside a
+section already headed *Remove from previews* is the same thing said twice
+quietly, and the fill is what makes the act legible from across the form. The
+confirm behind it is what makes it safe — not the button's material.
+
+Consequence worth watching: the drawer now carries **two fills**, `Remove
+repository` and `Save changes`. §9's one-filled-button rule was written for a
+page, and this is the first surface in the product with two.
+
+## Measured, not eyeballed
+
+`.measure-previews.mjs` asserts the **gaps**, not only the positions:
+
+| | |
+|---|---|
+| Rail column | 241 = 240 + the seam. The board's own arithmetic (224 + 8 + 8) leaves no room for the hairline, so `w-60` gives a **223** item. The pixel comes out of the column, which nothing depends on |
+| Rail row | 224 × 32, pitch 33, radius 8 |
+| Body inset from the rail | 16 |
+| Context line → column header | 16. `DataListHeader`'s `-mt-2` is calibrated for a header sitting under the sheet's own 16px inset; here that inset is already spent on the context line, so the list carries `mt-2` to cancel it. Without it the two sat **8** apart |
+| Column header → first row | 0 |
+| One **ink** edge | Context line name, column header word, row name. Their **boxes** share a different edge, 8 outside it |
+
+Three of those were wrong on the first build and only measuring found them.
+
+## Where it stands
+
+Every board state is reachable in `dev:mock` (`web-storefront` = the ordinary
+case, `checkout-api` = at the cap via a limit of 1, `docs-site` = nothing open)
+and `dev:mock:empty` (first run). Eleven flows walked in the running app with no
+console errors. `Pages/Previews` carries nine states including error, no-match,
+a stale bookmark and read-only proven with a real Viewer user.
+
+# 2026-08-16 — Previews: the title stops moving, and the meter comes off
+
+Six frames and two drawers, off an artifact settled over six rounds. Most of it
+was reassembly — the rows are `List row`, the enable flow was already built, the
+sync and delete dialogs only needed copy. Two things were genuinely new: a
+repository **rail** inside the sheet, and a **preview drawer** for a row click
+that currently throws you onto `/stacks/<id>`.
+
+## The title is a landmark, not a readout
+
+The artifact had the header title following the rail selection — `web-storefront`
+when a repository was picked, `Previews` on *All previews*. It was drawn that way
+and it looked right in isolation.
+
+> **Jaseem, on the built frames:** *"the main section title should not change
+> depending on what I've selected, it will get confusing, makes sense?"*
+
+It does, and the reason is sharper than "confusing": the sheet header is the one
+piece of chrome that says which **section** you are in, and a landmark that moves
+as you click around the page has stopped being one. The rail is already naming
+the repository, permanently, in the same viewport — so the title was spending the
+product's most stable slot to repeat something two inches to its left.
+
+**What it cost, and where it went.** Losing the title meant the selection had
+nothing loud naming it, and his second note was that the context line read as
+subtext. So the container moved into the body and took a real tier: the
+repository name at `title/500` ink, the URL and branch behind it in muted mono —
+the row's own name-then-meta pattern laid horizontally. One rung above the rows
+it introduces, which is where a section title belongs (§6).
+
+The rule went into §12a rather than the previews doc, because it binds any page
+with a selector inside it, and previews is only the first one we have built.
+
+## The meter was the same fact twice
+
+The context line shipped `3 of 5 active` beside a 44×4 bar. He deleted the bar,
+I restored it on the grounds that frame 04 needs it to turn amber at the cap, and
+he deleted it again:
+
+> *"remove the item in the screenshot attached, its useless"*
+
+He is right and §7 already contained the argument one level up — *status says it
+once*. A sentence that states the number **exactly** does not also get a picture
+that states it **approximately**. The bar was carrying no fact the words weren't.
+What survives is the escalation: at the cap the number itself turns `state/warn`
+and a blocking banner appears. That is the tone channel doing its job, not a
+second channel.
+
+A bar earns its place where the **shape** is the fact and no sentence is on
+offer — a sparkline, a distribution, a bare progress bar. Written into §7.
+
+## The review, and the one finding that was rejected
+
+Frame 01 went through `better-interface`. Two HIGH, both cheap:
+
+| | |
+|---|---|
+| `building…` and `no URL` sat on `ink/fg-ghost` | **1.95:1** on the sheet, 1.81:1 under the hover wash, APCA Lc 37.6. §7 reserves ghost for *disabled* in exactly these words, and this was live text reporting an in-flight state — the one row where the reader is waiting for news |
+| Row actions were 16px bare glyphs, 2px apart, in a 56px track | §11 already specified two `ghost` `icon-sm` buttons in a **64px** track. The board had drawn the glyphs and dropped the buttons, which is how a 24×24 hit-target floor gets missed by a spec that was written correctly |
+
+Both were fixed **at the component**, so all six frames followed and none of them
+can drift apart later.
+
+The rejected one is the useful entry. The review found the header saying `New
+preview` while frame 02's empty state said `New preview from a branch` — one
+action, two labels — and proposed the longer form in both, on the artifact's own
+reasoning that the short label reads as a second way to do the automatic thing.
+
+> *"6 new preview is enough"*
+
+Consistency was the real finding; **which** label resolves it was never the
+review's call. The long label was written to disambiguate against a sentence that
+only exists in the empty state, and paying for that disambiguation in the header
+of every populated screen is the wrong trade.
+
+## Smaller, and worth keeping
+
+**A value you copy is a grey well.** His edit to the preview drawer put the
+preview URL in a `--control` well with `Copy` and `Open ↗` **inside** it. §9 had
+said a read-only field is *"a value, not a control"* and never said what a value
+looks like; it does now. The settings drawer's `Repository` followed.
+
+**A region seam takes the hairline.** Four rails on the board — previews' and
+three on new-stack — drew the same boundary on two rungs. `subtle` (6%) is the
+line *inside a control*; a rail meeting the body it filters is a region boundary
+and takes the 11% default. §4.
+
+**Two calls of his that overturned mine.** The rail chip went back to
+`Tone=secondary` after he tightened the 24px icon button to `sm`, and the rail
+ground went from a 2% grey to the sheet's own white with only the hairline
+separating it. Both judged live, both stand.
+
+**Left open:** the gear's concentric radius wants 4, which is not on the ladder —
+the clean fix is his rail-item padding going 4 → 2, and that padding is his.
+
+# 2026-08-16 — `Add image registry` comes off the dialog, and the phase test loses one
+
+`Connect git provider`'s twin, converted the day after it. Same copy-paste
+origin, same tells line for line: a `sr-only` `DialogTitle` over a hand-rolled
+band paying `pr-12` to dodge the absolute ✕, five `min-h-[76px]` `<button>`
+tiles in a `grid grid-cols-2 gap-2.5`, a centred `text-head` heading per phase,
+and `max-h-[80vh] min-h-[440px]` on a `DialogContent` — §13's cheapest tell, for
+the third and last time. `DrawerHeader`, `PickerRow` and the path own all of it.
+
+## The phase call, which went the other way
+
+The brief and the code both said two phases, and §13's test said one — loudly.
+Every registry shows the same four fields; the choice prefills `Host` and swaps
+the `Password` hint and does nothing else. And the fact neither the brief nor
+the rules had: **the provider is not in the record.** `RegistryCredential` is
+`{host, username, password, purpose}`. `registry-row.tsx` *derives* the provider
+back from the host to name the row.
+
+So the tile step gated a form on a value the API never receives — which is a
+stronger case for "mode, not phase" than the object store, where the provider at
+least picks which credential block gets sent.
+
+**It shipped as two phases anyway.**
+
+> **Jaseem, on the running screen:** *"for git integration we have to select the
+> service first, I think it has to be same here as well."*
+
+| | |
+|---|---|
+| **The test asks what a form needs** | And it cannot see the flow standing beside it. Image registries and git integrations are peers — same page shape, same job, reached minutes apart by anyone setting up a build |
+| **What matching costs** | One click on a five-row list |
+| **What NOT matching costs** | The same task learned twice, three screens apart |
+| **The mode rule stands** | The object store's provider has **no sibling** — nothing else in the product picks S3-or-Azure — so there was nothing beside it to match |
+
+A one-phase version was built first, with the `Registry` select bound both ways
+through `providerIdForHost` so it could not contradict the host. It measured
+clean and it is not what shipped. **A paper-clean rule reading is still
+provisional against a flow the user meets next to it.**
+
+## `WizardFooter` is deleted, and that was the last `Back`
+
+This dialog was its only caller. §13 made the path the back control on every
+journey in the product; a component whose entire job was `Back` + `Continue` had
+one screen left holding it out. `Add registry ›` is the way back now, and the
+footer holds the primary alone.
+
+## Three brand-art maps, one of which claimed to be alone
+
+`brand-icon-registry.ts` opens with *"Central brand-icon registry… One place to
+grow the icon set"*. Both `ProviderLogo`s sat beside it hand-rolling a `BRAND`
+map and a light/dark `<img>` pair, **importing the same GitHub and GitLab
+SVGs**. Same art, written three times.
+
+Both are wrappers over `BrandIcon` now. The one genuine mapping — `ghcr` draws
+GitHub's mark, `dockerhub` draws Docker's — lives on `REGISTRY_PROVIDERS` as
+`brandSlug`, with the rest of what the registry knows, rather than in the
+component that renders it.
+
+**`BrandIcon.size` lost its default on the way.** It wrote `style={{width, height}}`
+unconditionally, and an inline dimension beats any class a caller passes — so
+`className="size-4"` on it was a class that silently did nothing. The two
+number-sizing callers already passed a size; the two class-sizing ones now pass
+none.
+
+## And the small drift the brief listed, closed
+
+| | |
+|---|---|
+| The empty state offered **ECR** | Which `REGISTRY_PROVIDERS` has never held — while never naming GitLab or Quay, which it does. `namedRegistries()` builds the phrase off the catalogue. Fourth hand-written list beside a registry |
+| The primary was live on an empty form | Three required fields, reported one press later. `reasonList` names all of them, in the verb of the act |
+| `Purpose` had no `*` and no blank | Optional and unanswerable at once. Marked required, like object stores' `Retention` |
+| The label was resolved by `.find()` twice | `registryProvider(id)`, the `gitProvider(id)` precedent |
+| Five per-registry hints | Shortened to fit the `Username ǀ Password` pair's 212 column — §8's answer, and measured at two lines |
+
+## Measured, both previews
+
+| | Step one | Step two |
+|---|---|---|
+| Width | **480** | 480 |
+| Header | **95** | 73 — no description, and §13 says step two gets none |
+| Footer | **none** | **81** |
+| Body padding | 20 / 20 | 20 / 20 |
+| Rows | 56, pitch 58 | — |
+| Field gaps | — | label→control **4**, field→field **16**, pair gutter **16** |
+| Edges | — | **one** leading, **one** trailing, five controls at **32** |
+
+The first description ran two lines and took the header to **115** — §13's
+*"a two-line description costs 20 more"*, caught by measuring rather than
+reading. Cut to one line, it is 95.
+
+# 2026-08-16 (later still) — The toast, and a component the rules had described but nobody had built
+
+§13 has carried a paragraph called *"The toast carries its tone in the glyph"*
+for weeks. The code tinted its **border** per tone, had no glyph at all, and sat
+in the corner with a `font-semibold` title over a dimmed caption.
+
+> **A rule that describes a component nobody built is not a rule, it is a
+> wish.** The doc and the board agreed with each other and neither agreed with
+> the screen — and because §13 read as settled, nothing ever went looking.
+
+## Built to board `427:5102`
+
+| | |
+|---|---|
+| 380 · radius 12 · padding 16 · gaps 8 | measured, all four |
+| `elevation/lg` | a toast is a small overlay, not a modal — not `2xl` |
+| `body/400` at `ink/primary` | **one paragraph**, no second tier |
+| 16 glyph, tone-coloured | nudged 2 down to centre on a 20 line box, the inline alert's own nudge |
+| Close | 16 of glyph in a **24** target, and it had no accessible name at all |
+
+**`box-content` on the viewport, or the board's number is a lie.** A 380
+viewport at `p-4` hands its children **348**. The toast is sized on the content
+box so its 16 of inset sits outside it.
+
+## One paragraph, because there was no time for two
+
+The board draws every tone as a single run of 400, including the two-sentence
+ones. The code had a bold heading over a `text-meta` caption: **a two-tier
+hierarchy inside a 380px box that leaves after five seconds**, which is
+hierarchy nobody has time to read. `font-semibold` was also a weight §6 took off
+the scale.
+
+Titles across the product are written as **fragments** — `Addon created`,
+`Registry removed` — because they were written for a heading. Flowed into a
+sentence they need the stop they never carried, so the join supplies it. One
+place, rather than ninety-seven rewrites of copy that is otherwise correct.
+
+## It dismisses itself, and the clock is a function of the words
+
+**~1 second per three words over a 3 second base, clamped 4–10s** — the
+reading-time guideline behind WCAG 2.2.1's treatment of notifications.
+
+A fixed number is wrong at both ends: *"Secret created"* holds the screen long
+after it has been read, and a sentence naming three affected stacks is gone
+before it has been.
+
+| | |
+|---|---|
+| **An action stops the clock** | The clock clears a message that has been *read*. A control has to be **found** and pressed, and a timer racing the pointer is the failure 2.2.1 is about. No call site passes one today; the rule is in the primitive so the first one cannot ship the bug |
+| **Closing is not removing** | Marking a toast closed lets the exit run; the store must then drop it, or `TOAST_LIMIT` starts evicting **live** toasts to make room for dead ones |
+| **Why it looked like it never dismissed** | Radix pauses on hover, focus **and window blur** — which is the 2.2.1 accommodation, and also what happens the moment you click into devtools |
+
+## Top centre, for about an hour
+
+Moved there on the argument that a toast should land where you were looking: the
+sheet, a drawer's footer, a dialog's primary are all mid-screen, and the far
+corner is the one place your eye had no reason to be.
+
+**The render killed it.** At 16 from the top it lands on the **sheet header**,
+and in light the header and the toast are the same white — so the only thing
+separating them was a hairline, and the toast read as a piece of the chrome.
+
+> **A position argument that ignores what is already at that position is half an
+> argument.** *"Where you were looking"* was true. *"What is drawn there"* was
+> never checked.
+
+## And then the edge, which turned out to be the whole object
+
+Measured in the running app: **`surface vs ground` is 1.00.** The toast's white
+*is* the sheet's white, and unlike a dialog there is no scrim behind it. The
+hairline is not a detail on this component — it is the only thing that gives it
+a shape.
+
+The board draws `line/subtle` (0.06), chosen against **the board's grey frame**,
+which is not the ground it ships on.
+
+Jaseem's mechanic: *"maybe border hairline should be added, and add it on the
+outside, so it seems more dark due to the shadow."* Right, and worth measuring
+rather than assuming — so it was A/B'd on **rendered pixels**, not computed
+colour.
+
+| light / dark | left edge | bottom edge |
+|---|---|---|
+| `line/subtle` inside, as shipped | 1.24 / 1.26 | 1.24 / 1.26 |
+| `line` **outside** | 1.24 / 1.21 | 1.33 / 1.11 |
+| **`line/strong` outside** — taken | **1.43 / 1.44** | **1.54 / 1.32** |
+
+**Outside is the right mechanic and buys +0.09 on the bottom edge and nothing on
+the sides.** `elevation/lg`'s spreads (-22, -12) pull the entire shadow *under*
+the box, so three of the four sides have no shadow to darken against. Kept
+anyway — it is free, and §12a already calls an edge that must not move layout an
+outline rather than a border. **The alpha rung is what moved the number.**
+
+## Two things the measuring nearly got wrong
+
+**A truncated shadow reads as no shadow.** Tailwind v4 emits `shadow-*` as four
+transparent ring placeholders followed by the real layers. Reading the first 60
+characters of `boxShadow` reported a perfectly working `elevation/lg` as
+`rgba(0,0,0,0)` — and very nearly produced a fix for a bug that did not exist.
+
+**A "darkest pixel" probe is wrong in dark mode.** The edge is a dark line on a
+light ground and a **light** line on a dark one, so the probe has to take the
+pixel furthest from the ground in *either* direction. The first run reported
+dark as having almost no edge at all.
+
+## And then the contact layer, taken
+
+Put to Jaseem as a rendered pair rather than a number, and he took it.
+
+**All four rungs are soft pools with negative spread.** They blur out *below* a
+card and leave nothing at its own edge — which is right everywhere else, because
+every other floating surface has something behind it to borrow contrast from: a
+popover has its trigger, a dialog has a scrim. The toast has neither, and its
+fill is the ground's own white.
+
+`--shadow-toast` is `elevation/lg` **plus** the tight darkness where an object
+meets the surface it sits on. Light: **1.43 / 1.54 → 1.52 / 1.72**, and the
+rendered box-shadow goes from two painted layers to three.
+
+> **A fifth value is not a fifth rung.** It is `lg` with one more layer, named
+> for its one caller. §5's ladder still has four entries, and the exception is
+> the **surface** — anything that lands on its own fill with no scrim behind it
+> has the same problem — rather than the component.
+
+**Dark aliases `lg`, and that is a measurement rather than a shortcut.** A
+contact shadow works by darkening the ground at the edge; dark's ground is
+already near-black, so adding one moved the number by nothing at all — 1.44 /
+1.32, unchanged. Dark carries its edge on the hairline instead, which is what
+`line/strong` is doing there.
+
+# 2026-08-16 (later) — Connect git provider: five phases became three, and two of them were never steps
+
+The last add in the product with a drawer written into §13 and no drawer to show
+for it. §13 names it by name under *"Which container"*: it opens a GitHub popup
+and **polls while you authorise in another window**, which is the definition of
+leave-and-come-back.
+
+## The one decision, brought before building
+
+Jaseem's call, from two options that both had a live precedent:
+
+| | Precedent | |
+|---|---|---|
+| **A third step on the GitHub arm** | The repository journey — *"only the journey that needs it grows one"* | **Chosen** |
+| A mode field on step two | The object store's provider — *"a mode is a field, not a first phase"* | |
+
+The object-store test is what separates them: **can you start without it?** On
+the object store you can — `Name`, `Destination path` and `Retention` all sit
+above the provider. On the GitHub App arm you cannot: there is **no host, no
+username and no token**. A mode rewrites the fields under it; this one removes
+every one of them, and the two arms leave different records behind
+(`github_app` vs `git_credentials`).
+
+He also took the wait-and-receipt call: the wait in place, success closes and
+toasts.
+
+## Five phases, mapped
+
+| Was | Is | Why |
+|---|---|---|
+| `provider` | Step one | The catalogue |
+| `github` | Step two, GitHub only | A real question, asked of one of five providers |
+| `credentials` | The form | Step two for four, step three for GitHub-by-token |
+| `connecting` | **A state** | Asks nothing, so the path does not grow — but it stays visible, because it is why this is a drawer |
+| `done` | **A toast** | Every other add closes and reports; this was the one that did not |
+
+> **Neither was deleted.** "Not a step" is a statement about the **path**, not
+> about whether the screen exists. Demoting a step stops numbering it; deleting
+> one stops asking, and something starts guessing.
+
+## What came off the file
+
+455 lines of `Dialog`, and most of it was a copy of something that already
+exists:
+
+| Was | Is |
+|---|---|
+| A hand-rolled `Stepper` — three `h-[3px]` bars — plus `STEP_FOR_PHASE` to fake highlighting for the two phases it did not draw | The path (§12a). The map existed only because the stepper and the phases never agreed on how many steps there are |
+| Five `<button>`s at `min-h-[76px]`, `rounded-md border bg-card` | `PickerRow`, at the 56 rung the addon catalogue and both repository pickers already use |
+| A `bg-warn` pulse dot between a `CheckCircle2` and a `Circle` | Ticked `Checkbox`es. §13, in plain words: *"Progress is ink, never orange"* — broken three times in one list |
+| `sr-only` `DialogTitle` over a hand-rolled band with `pr-12` to dodge the absolute ✕ | `DrawerHeader`, which owns the close and needs no magic number |
+| `WizardFooter` with a `Back` button | The path is the back control. **`wizard-footer.tsx` was kept** — `add-registry-dialog.tsx` still uses it and is its own task |
+| `h-[480px] max-h-[80vh]` scroll box inside a dialog | The cheapest tell there is: a dialog's levels are made of air, and that only works because its body does not scroll |
+| Centred body copy and a second `text-head` heading per phase | Left-aligned on the grid; the phase name is in the path |
+| Off the ladder: `p-8`, `mb-7`, `gap-2.5`, `min-h-[76px]`, `py-3.5` | 20 / 16 / 12 |
+
+## The provider list existed twice, and had already drifted
+
+`PROVIDERS` in the wizard against `PROVIDER_DISPLAY_NAMES` in
+`lib/git-integrations.ts` — `other` was `Other` on a tile and `Git host` in the
+list that tile creates, and the lib file carried a comment admitting it
+(*"wizard tiles use their own copy"*).
+
+**Third time.** `Postgres`/`PostgreSQL` was the first, the secret `Type`
+select's three-of-six was the second. `GIT_PROVIDERS` is the registry now and
+`PROVIDER_DISPLAY_NAMES` is derived from it, so the names cannot part again. It
+also carries the two facts the flow branches on — `hasApp` and `basicAuth` —
+which were previously a literal `p.id === "github"` at three call sites and a
+sentence of prose respectively.
+
+## Two things the audit turned up on the way
+
+**`Username` said optional and required at once.** No `*`, over a hint reading
+*"Required for providers using basic auth (e.g. Bitbucket app passwords)."* The
+registry knows which host that is, so the `*`, the hint and the blocked primary
+now come off one fact: required on Bitbucket, optional everywhere else.
+
+**And there is no pair on this form.** `Username ǀ Access token` looks like the
+secret drawer's one pair and is not — a token *replaces* the username on four of
+the five hosts rather than completing it. Three full-width fields, chosen rather
+than defaulted into.
+
+## Two GitHub marks, one click apart
+
+The App row shipped with lucide's `Github` glyph while the catalogue step
+directly before it draws GitHub with the brand SVG. §7: a glyph earns its place
+by making a distinction the word cannot — and both rows on that step are GitHub,
+so the mark distinguishes nothing. The brand mark now, with `KeyRound` opposite
+it carrying the only distinction there is.
+
+## Then Jaseem opened it, and the wait lost its list
+
+*"This message has to go on top, before checkboxes. Also why do we have
+checkboxes there? It's not like I can do anything with them right?"*
+
+Two things, and the second was the bigger one.
+
+**The checkboxes were §13 read too literally.** *"A completed step is a ticked
+`Checkbox`, not a bespoke dot"* is written about a **journey's step pip**. This
+is a background process, and the rule does not reach it — so the conversion
+swapped an orange dot for three boxes that look operable and are not.
+
+**And underneath that, the list was fiction.** `useGithubConnect` has two states,
+`waiting` and `connected`. The three stages it drew — *opening authorization*,
+*authorizing the installation*, *fetching accessible repositories* — were never
+observed by anything: the middle line was lit by an `i === 1` literal, the third
+was permanently pending, and all three flipped at once on connect.
+
+> **The screen was more confident than the code.** A readout reports what is
+> known; three lines over two states is a picture of progress rather than a
+> report of it.
+
+Gone. What is left is the one instruction there is — *finish the installation in
+the GitHub popup, we'll pick it up here* — and `Check again`, which is the only
+thing on the screen the user can actually do.
+
+## And the error slot is the footer for a form, not for every band
+
+§13 puts the error in the footer band because a **form's** failure must not
+scroll away from the button that produced it. The wait has no primary and commits
+nothing, so the banner sat *under* the copy it contradicted — a footnote to a
+screen still promising to pick the installation up.
+
+It is the first thing in the body now, and *"Finish the installation in the
+GitHub popup"* steps aside when it appears rather than arguing with it. The
+failed state is one thing on the sheet: the banner, and its `Try again`.
+
+## Verified
+
+Measured in `dev:mock:empty` (5274) — the scenario that blanks the git
+integrations, which is what makes the no-provider state reachable at all.
+
+| | |
+|---|---|
+| Width | **480** on all three steps |
+| Header | **95** on step one with its one-line description, **73** on steps two and three |
+| Footer | **81** where there is one; **none** on step one and none on the GitHub question |
+| Rows | 56, pitch 2 |
+| Fields | gaps **16 / 16**, all three at **439** — one leading edge, one trailing edge |
+| The wait | two things in the body, **16** apart: the instruction, then `Check again`. **Zero checkboxes** |
+| The wait, failed | **one** thing in the body: the banner, first child, with its own `Try again` |
+| Orange | none, light or dark |
+| `Cancel` / `Back` | none, on any step |
+
+Nine stories and fifteen unit tests, replacing a 281-line test written against
+the phases that no longer exist. The flow had **no stories at all** before.
+
+# 2026-08-16 (thirteenth pass) — One width for every add
+
+Jaseem, reading the shipped drawers: *"adding a new addon is much bigger than the
+other ones, except adding stacks. Stacks can be an exception, so can we make
+everything the same width."*
+
+He is right, and it is the same failure the surface question had one pass
+earlier: **the number was inherited rather than decided.**
+
+## Where the 640 came from
+
+§13 justified it in one sentence — *"the two-phase journey is `work` and not
+`form`"* — resting on one measurement:
+
+> **The floor for two columns is 596** — 253 for the search placeholder, 243 for
+> the longest list line, and 240 before a description breaks to four lines.
+
+Every one of those numbers was taken on **new stack's step one**, and that step
+carries a **240 rail**. The sentence then applied to the two journeys that do
+not:
+
+| | Rail | Search | Was |
+|---|---|---|---|
+| New stack | **yes** | yes | 640 |
+| New addon | no | **no** — §13's own "a catalogue that fits one screen gets no search" | 640 |
+| Enable repository | no | yes | 640 |
+
+> **A width justified by one screen's rail became the width of every screen with
+> two steps.** Build order chose it, the same way build order chose the surface.
+
+## What was actually using the width
+
+Measured at 640, before changing anything:
+
+| | |
+|---|---|
+| Addon catalogue rows | ~200px of ink in a **599** column |
+| Widest text on step one | 497 — a region sentence, and it is copy |
+| The addon form at 480 | The **same two trailing edges** as at 640. Its pairs go 292 → 212, which is what secrets and object stores already ship |
+| Nothing clipped | Checked by `scrollWidth > clientWidth` across the whole body |
+
+## The control band, which was the one real risk
+
+§13 says the segmented switch and the search field cannot share a row *"at 640
+with a 240 rail — 162 + 8 leaves 170 for a field that needs 277."*
+
+Measured at the form rung, with no rail: **160 + 16 + 263 = 439, one row,
+nothing wrapped.** The 277 was the rail's arithmetic, and this is the **second**
+thing on that page the rail had quietly decided for drawers that do not have one.
+
+## The cost was two sentences
+
+Two hints broke badly at 480 — a last line at 19% and 14% of the first, which is
+§8's orphan.
+
+| ✗ | ✓ |
+|---|---|
+| `Lowercase letters, numbers and hyphens. Must start and end with a letter or number.` | `Lowercase letters, numbers and hyphens. Cannot start or end with a hyphen.` |
+| `Stackdome runs Postgres for you today. The rest you can still add to a stack as a container.` | `Stackdome manages Postgres. The others run as containers in a stack.` |
+
+The first is the **same constraint from the other side**: if the alphabet is
+letters, numbers and hyphens, "starts and ends with a letter or number" and
+"cannot start or end with a hyphen" are one sentence, and only one of them fits.
+The second lost `today` — the heading directly above it reads **Not managed
+yet**, so the word was that heading said twice, six words apart.
+
+### And a fix that was measured and thrown away
+
+`text-wrap: pretty` went onto `FieldShell`'s hint first, because avoiding orphans
+is exactly what the property is for. **Measured: it changed nothing** — 0.14 of a
+line before and after. Chromium's orphan avoidance is a hint and it declines to
+reflow a two-line paragraph. Removed rather than left in as a plausible-looking
+no-op, with the measurement written next to where it was.
+
+## The rung survives with one screen on it
+
+`work` now has exactly one user, and that is honest: the rung's question is *one
+column or two*, and new stack has a rail, so it has two.
+
+> **`work` is earned by a second column, not by a second step.**
+
+## Verified
+
+`tsc` clean · `lint` 0 errors · **277 test files, 2054 tests, 0 failures.**
+
+Five drawers measured at **480** in `dev:mock` and one at **640**; no orphaned
+last line anywhere, on any of them. Two stories had spelt the catalogue sentence
+out by hand and failed on the copy edit — they import `NOT_MANAGED_YET` now,
+which is the same second-copy problem the option lists had.
+
+**Board frames flagged, not swept**: every add drawer drawn at 640 —
+`533:5453` (`543:5556`, `535:5453`), all four of `597:6952`, all four of
+`483:5283`. `556:6373` (New stack) is still correct.
+
+# 2026-08-16 (twelfth pass) — Object stores: the surface, and a mode mistaken for a phase
+
+Audited in `dev:mock` before anything was touched, then two options put on the
+board and the rest built.
+
+## The surface: the code was wrong, not the table
+
+§13's own "Adding a thing" table names **object store** under *"None → drawer,
+one phase"*. The code shipped a `Dialog` at `work` (760). Two sentences in §13
+had to be weighed against each other:
+
+| Where | What it said |
+|---|---|
+| "Adding a thing" | **A dialog is never an add.** If the answer is an *object*, it is a drawer |
+| "Which container", four hundred lines above | *"Pick a provider, then fill a form is a form with a first page — **it stays a dialog**"* |
+
+The second one is the stale half, and it was stale in a specific way: it is
+answering the **phase** question and phrasing its answer as a **surface**. "This
+is not two phases" is right; "therefore it is a dialog" does not follow from it
+and contradicts the table twelve screens have already been built on. Corrected in
+place rather than deleted, because the phase half of the sentence is still the
+rule.
+
+## The provider is a mode, and that is the same question secrets parked
+
+The tab strip governs every credential field under it, which looks like *"one
+thing you choose before you can start"*. It is not, and the test says so:
+
+> **Can you start without it?** `Name`, `Destination path` and `Retention` are
+> all answerable above the provider, and none of them changes when it changes.
+
+A choice made *among* the fields is a **mode**. A choice that gates the form is a
+**phase**. So the table is not stale, and the entry stands.
+
+**Which makes it identical to the secret form's `Type`** — same shape, same
+position, directly above the fields it rewrites. The two are one question, so
+Option D (the kind becomes step one) now moves both or neither, and the task is
+widened rather than duplicated.
+
+What had to change either way is the **control**. `Tabs` appears three other
+places in the product and is real navigation in all of them; here it was a form
+field with no label, no required mark and no error slot. It is a `FieldShell` +
+`Select` now, with its options off `objectStoreProviderSchema.options` — the
+third time a hand-written list beside a schema has been found (`Postgres` /
+`PostgreSQL`, then the secret `Type` shipping three of six kinds).
+
+## What the field widths turned out to be
+
+Measured in `dev:mock` on the shipped dialog, after letting it settle:
+
+| | |
+|---|---|
+| The seven fields | 710 wide, ending at **1075** |
+| The credential picker's first select | **188**, ending at 553 |
+| Its second | **123**, ending at 847 |
+
+**Three trailing edges**, which is §8's addon-drawer failure in a single
+component. The cause is one line: `SecretKeyPicker` hand-rolled the whole shell —
+its own `<Label>`, its own help paragraph, three error paragraphs, its own
+asterisk — and `FieldShell` is the *one place* that makes a `SelectTrigger` fill.
+Built outside it, the rule never arrived. It is a `FieldShell` now and the form
+ends on **two** edges: the gutter and the far edge.
+
+### And a pair that was authored and never rendered
+
+`Region ǀ Endpoint URL` was written as a raw `grid grid-cols-2` with two
+`FieldShell` children. Both rendered at **710, stacked** — because `span`
+defaults to 2 since the addon pass, so each child took `col-span-2` and the grid
+had nothing to do. It had been broken for a whole pass and nothing caught it,
+because this form had **no stories at all**.
+
+> A pairing spelt anywhere other than `FieldGrid` + `span={1}` is a pairing the
+> default can silently undo.
+
+Left unpaired on purpose. A region is *which one of a provider's regions*; an
+endpoint URL replaces the host entirely, and setting one usually makes the other
+a formality. Pairing them was pairing by count — the `Branch ǀ Port` mistake.
+
+**The one real pair is `Access key ID ǀ Secret access key`**, the
+`Username ǀ Password` case exactly — and it is on the board rather than in the
+code, because each half is *two* selects. At 480 a pair of pairs is four boxes at
+98px. It only works if the picker collapses to one control, which is frame
+`Cred — 3`.
+
+## The asterisk, four times, in a weight that is off the scale
+
+```
+label={<>Access Key ID <span className="text-name font-semibold text-danger…">*</span></>}
+```
+
+`FieldShell` has `required`. This is a hand-rolled copy of a primitive's own
+feature, `font-semibold` is the weight §6 removed, and the hand-roll used a
+literal space where the primitive uses `ml-0.5` — so `Access Key ID  *` sat
+visibly wider than `Name*` four fields above it.
+
+## The banner told people to delete a backup destination
+
+> ✗ *"Editing Azure and GCS stores isn't supported yet. Delete this store and
+> create it again."*
+
+**It is false.** `fromObjectStore` reads Azure and GCS fine, and has since at
+least `f5f5151`. The branch fires only when a store carries **none** of the three
+credential blocks — a state the sentence never mentions.
+
+And it blanked the entire form, so a store whose name, path and retention all
+loaded showed nothing at all. Three separate failures, in six lines: a wrong
+cause, §9's *empty ≠ disabled* one level up, and §10 — a destructive act arriving
+as prose, with no confirmation, no blast radius and no gate, to someone who came
+to change a path. Rule written into §10.
+
+## Two things found on the way
+
+**Editing an S3 store showed empty credential boxes, 34px wide.** Two causes at
+once: the picker filters to `Generic` secrets, so a value with no matching option
+renders nothing — the secret `Type` failure again — and being `w-fit`, an empty
+trigger collapses to its chevron.
+
+**The preview fixtures could not reach it.** Every object store referenced
+`sec-aws`, `sec-minio`, `sec-azure`, `sec-gcs`; the secrets fixture held
+`sec-1`…`sec-5`, one of them Generic and none with a `data` array. So the edit
+form was unreviewable in `dev:mock` — which is where this pass is judged. The
+secrets now exist, carry keys, and a GCS store was added so all three arms open
+on a real record.
+
+## Verified
+
+`tsc` clean · `lint` 0 errors · **277 test files, 2054 tests, 0 failures.**
+
+**20 checks in `dev:mock`, all match**, taken after the drawer settled and
+written as gaps rather than positions: field→field 16 seven times, the credential
+pair's column gap 16, its two boxes on one `top`, every lone control on the far
+edge, and the whole form resolving to **two** trailing edges rather than three.
+The band heights are asserted against the shipped secret drawer, not against the
+doc — see below.
+
+Seven stories added, including the one that would have caught the tab strip's
+hand-written option list, and the one that pins the trailing edges.
+
+### The doc was 9px behind the code
+
+`Header 86 / Footer 80` in §13. Measured: **95 / 81**, identical on `New secret`
+and `New object store`, and the Figma `Drawer` (`466:5322`) draws 95 too. Board
+and code agreed; only the table did not, so the table moved. A shared primitive
+six screens sit on is not narrowed on one call site's evidence.
+
+### The flake was a `toBeVisible` on drawer content
+
+`new-stack-drawer > No Provider Connected`, logged last pass. The drawer is still
+animating when the query resolves, so visibility can read false on a node that is
+on screen and correct a frame later. `findByRole` now — resolving the name IS the
+assertion.
+
 # Product redesign — running log
 
 > ## This document is HISTORY, not instruction
@@ -3484,3 +4343,1360 @@ Audited, not changed — see `docs/tasks.md`.
 `tsc` clean · `lint` 0 errors · **275 test files, 2040 tests, 0 failures.**
 Measured in `dev:mock`: step one has no footer element at all and its body runs
 to the full viewport; step two's footer holds `Create addon` alone.
+
+# 2026-08-16 (tenth pass) — Secrets: a pair, a mode that shipped half its kinds, and the last Cancel
+
+## What the width question turned out to be
+
+Two screens in a row had field widths that were defaulted rather than decided,
+so this one was audited before it was touched. The measurement, taken in
+`dev:mock` after letting the drawer settle:
+
+> Four fields, all 439 in a 480 drawer. Gaps 16, label→control 4. **Consistent,
+> and undecided** — there is no `FieldGrid` on this form at all, so 439 is what
+> a `flex-col` does to a child, not an answer to a question.
+
+The question the board asked was **what shares a subject here** — and on the
+Generic form, honestly, nothing does. `Name` identifies, `Description`
+annotates, `Type` selects a mode, `Secret data` is the payload. Four questions,
+four rows. **Full width is the right answer; it just had never been the chosen
+one.**
+
+The pair only exists once the kind brings fields of its own:
+
+| Pair | Shared subject |
+|---|---|
+| **`Username ǀ Password`** | one credential, in two parts |
+
+`Registry URL` stays full — it is a URL, not half of anything. This is the
+seventh entry in the `span={1}` list and the same case as
+`CPU request ǀ CPU limit`.
+
+### And on Git credentials the pair does structural work
+
+That form is *either* a username and password *or* a token, with an `or`
+divider between the arms. Stacked, the first arm was two rows and the second was
+one, so the divider looked like it separated a field from a field. Paired, the
+arm **is** one row, and the divider now separates two things of the same shape.
+
+## The mode shipped three of its six kinds
+
+Found while checking whether `Type` reads as a mode. It does — it is directly
+above the fields it rewrites, which is the `Scheduled backups → Schedule`
+adjacency. What it does not do is offer the product's kinds:
+
+| Source | Kinds |
+|---|---|
+| `SecretType` in the OpenAPI schema | **6** |
+| `SecretTypeSchema` (zod) | **6** |
+| This form's own `switch` — every field, every validation, every blocked reason | **6** |
+| `SECRET_TYPES`, a hand-written array in the same file | **3** |
+
+So `Token`, `SSH key` and `Username / password` could not be created at all —
+and opening one that already existed showed an **empty** Type box over a form
+full of that kind's fields, because the value had no option to match. Confirmed
+in the running app on the `STRIPE_API_KEY` fixture before it was touched.
+
+> A hand-written option list beside a schema that already enumerates the same
+> thing is a second copy, and a second copy drifts. Postgres shipped as both
+> `Postgres` and `PostgreSQL` for exactly this reason.
+
+Values come off `SecretTypeSchema.options` now and words off
+`formatSecretType`, which is what the rows already read — so the select also
+stopped saying `Docker Registry` at the same moment the list said
+`Docker registry`. Two spellings of one type, in one feature, one of them
+breaking §6's sentence case.
+
+## The last `Cancel`, and why the journey's argument could not just be reused
+
+`New secret` was the last drawer footer with a `Cancel` in it. The journeys lost
+theirs on *"the path and the ✕ are the exits"* — and **a one-phase drawer has no
+path**, so that sentence does not carry across.
+
+Remade from the beginning, it lands the same way:
+
+> The question is not *how many exits are there*. It is **what is `Cancel`
+> offering to undo?** Nothing is committed until the primary is pressed, so the
+> answer is *nothing* — which is precisely what closing does.
+
+And the ✕ was never the only alternative: Esc and the scrim are the other two,
+and they are how people actually leave an overlay. Three exits before the footer
+offers a fourth.
+
+**`New preview environment` went with it** — the other one-phase drawer, same
+band, same reasoning. **Dialogs keep theirs**: a decision has two answers and
+both are the point, and `Confirm` has no ✕ at all, so its `Cancel` is genuinely
+the way out.
+
+Recorded in §13 as its own sub-rule rather than folded into the journey's,
+because the two reach the same place by different routes and a reader who only
+finds one of them should not have to guess.
+
+## Placeholders were labels, and "(optional)" was a third convention
+
+| ✗ | ✓ |
+|---|---|
+| `Enter secret name` | `stripe-api-key` |
+| `Enter username` | `acme-ci` |
+| `Enter secret description (optional)` | `Live key, billing service only` |
+| `Enter token (min 8 characters)` | *(nothing)* — the length is a **hint** now |
+| `Enter password`, `Enter personal access token` | *(nothing)* |
+
+Three separate rules fell out of it, and all three are in §6 now.
+
+**A placeholder shows a specimen.** Repeating the label spends a line of type to
+add no fact.
+
+**A constraint is a hint, not a placeholder.** "min 8 characters" is a rule
+about the answer, and it has to survive the first keystroke — which is the
+moment a placeholder disappears and the rule starts mattering.
+
+**A secret has no specimen.** There is no example password that is not either a
+lie or a hint at someone's real one, so those fields get nothing at all.
+
+And `(optional)`, which Jaseem's call settled for the previews env label at the
+same time: **the red `*` states required, and its absence states optional.** A
+second convention saying the same thing makes the reader stop and work out which
+one is authoritative, on every unmarked field on the page. Seven call sites
+across previews and secrets; all gone.
+
+## The list: a date where every other page has an age
+
+The rows themselves were conformant — 64px pitch, no rule, 20 column gap, 0 to
+the first row, all off `data-list.tsx`. One column was not:
+
+| Page | Shipped | |
+|---|---|---|
+| **Stacks** — `Last change` | `3d ago` | `relativeAge`, in a shared primitive |
+| Addons — `Created` | `19 days ago` | Its own `formatDistanceToNow` |
+| Secrets — `Created` | **`8/1/2026`** | `toLocaleDateString` |
+
+> A column you scan cannot be a value you have to subtract from today.
+
+Both off-pattern pages are on `relativeAge` now, with `absoluteAge` as the
+cell's `title` for the case where the exact date is the question. Two screens,
+so the sentence went into §11 first.
+
+**Left ragged deliberately.** The name drifts 8px between a row with a
+description and a row without — measured at 14 and 22 from the row top, on
+Secrets and on Object stores. Both readings were drawn on the board and Jaseem
+chose to leave it: pinning the name buys one baseline and spends it on a row
+that then has air hanging under it.
+
+## Verified
+
+`tsc` clean · `lint` 0 errors · **276 test files, 2046 tests, 0 failures.**
+
+Measured in `dev:mock` after letting the drawer settle — **21 checks, all
+match**, and they are gaps rather than positions: field→field 16 four times,
+label→control 4, the pair's column gap 16, its halves 211.5 and 211.5, and the
+whole form resolving to **two** trailing edges (1192.5, 1420) rather than three.
+The pair is asserted by its `top`, not its width — two fields on one row is a
+fact about position.
+
+Six stories added, including the one that would have caught the missing kinds:
+the option list is compared to the schema's, so a seventh kind cannot ship
+without appearing in the select.
+
+# 2026-08-16 (eleventh pass) — Row actions: the count decides, not the page
+
+Jaseem, reading the shipped pages: *"on object stores, all the row actions are
+visible on hover, but in other tables we are just showing a menu."*
+
+He is right, and the split was not two pages against six — it was three against
+three, with the two shapes landing on **identical rows**:
+
+| Page | Actions | Shape |
+|---|---|---|
+| Object stores | `Edit` `Delete` | **inline** |
+| Domains | `Delete` | **inline** |
+| **Secrets** | `Edit` `Delete` | **a kebab, for the same two actions** |
+| **Stacks** | `Delete` | **a kebab, for one** |
+| Image registries | `Verify` `Update credentials` `Remove` | a kebab |
+| Git integrations | + `Manage on GitHub ↗` | a kebab |
+
+## Why it is not "everything inline"
+
+The obvious reading of *make these consistent* is one shape everywhere, and it
+does not survive the last two rows. Their actions are `Verify repository
+access` and `Update credentials` — **phrases, not glyphs.** Inline they become
+a shield, a key and a bin, and the only place the words survive is a hover
+title.
+
+So the threshold is a property of the **row**, not of the page:
+
+> **One or two actions sit on the row. Three or more collapse into a kebab.**
+
+At two, a menu spends a click and a whole surface to hide what already fits. At
+one it is worse — a kebab that opens a menu of one. At three the arithmetic
+reverses: the actions that come in threes are exactly the ones that need words.
+
+A page that grows a third action moves to the kebab; one that drops to two moves
+back. Nothing is pinned to a page name.
+
+## Two things found on the way
+
+**Stacks had hand-rolled `DataListActions`.** Its own `div` with its own opacity
+classes — and it revealed on **`focus-visible` on the button** where the
+primitive reveals on **`focus-within` on the row**. So a keyboard user reached
+the Stacks delete one tab later than the same control on five other pages, and
+no test noticed because both end at opacity 1. It is on the primitive now.
+
+**Stacks' `Delete` was disabled with no reason at all.** `lifecycle ===
+"deleting"` greyed a menu item and said nothing — §9's rule broken in the one
+moment a user most needs to be told the thing they are looking at is already on
+its way out. It is a `BlockedAction` now: *"This stack is already being
+deleted."*
+
+And the deferral around Secrets' `Edit` went with the menu. The `setTimeout`
+existed only to let Radix's dropdown release its body pointer-events lock before
+a dialog mounted (radix-ui/primitives#1836); with no dropdown there is nothing
+to wait for.
+
+## Inline stays ghost, not destructive
+
+In the kebab, `Delete` was `variant="destructive"` — red. On the row it is a
+plain `ghost` trash, which is what Object stores has always done. A red bin on
+every hovered row makes deletion the loudest thing on the page; the escalation
+belongs to the `Confirm` that follows (§10), where it is proportional to the
+blast radius.
+
+## Verified
+
+`tsc` clean · `lint` 0 errors · **276 test files, 2047 tests, 0 failures.**
+
+**56 checks in `dev:mock` across all six pages with actions, all match** — and
+they are gaps and relationships, not just positions: the 4px between a pair of
+actions, every last action landing on the row's own 8px right inset, 28px
+controls throughout, opacity 0 at rest, 1 on hover, 1 on focus.
+
+**One near-miss in the harness rather than the code.** "Revealed on focus" first
+failed on all six pages, including the two that had not changed — because the
+check read the opacity in the same tick as the `focus()`, and the reveal is a
+*transition*. It was reading the value the row was leaving. Waiting 300ms after
+focusing made all six pass. **A check that fails everywhere, including where
+nothing changed, is measuring itself.**
+
+**Flaky, not broken:** `new-stack-drawer.stories.tsx > No Provider Connected`
+failed once in a full run and passed alone and on the next full run. Untouched
+by this pass. Logged in `docs/tasks.md`.
+
+# 2026-08-16 (twelfth pass) — The last two adds come off the dialog
+
+Jaseem's call: *no board for these two, they are small and the pattern is
+settled.* `Add cluster` (303 lines) and `Add domain` (136) were the two flows
+§13 still named by name as exceptions — *"still dialogs and governed by the
+dialog rule until they convert"*. This is the conversion, and the sentence is
+gone with them.
+
+## The cluster dialog had been telling us for a while
+
+Its `DialogContent` carried `max-h-[80vh] overflow-y-auto`.
+
+> §13's dialog is **one padded box whose levels are made of air**, and that
+> works only because its body does not scroll. A body that scrolls needs a fixed
+> edge to pass under — levels made of **lines** — which is the drawer, and it is
+> the only reason the drawer's two borders are permanent rather than appearing
+> on overflow.
+
+So the surface had already been decided by the content; the component had just
+not caught up. It is the cheapest tell in the whole section, and it is now
+written down as one: a `DialogContent` with `overflow-y-auto` on it is a drawer.
+
+## And the domain dialog was the opposite argument
+
+One field. That is the literal description of the `ask` rung — *"one question,
+one or two fields"* — and it is still a drawer.
+
+| | |
+|---|---|
+| The **rung** describes | the question |
+| The **rule** is about | the answer |
+
+A decision closes on either of two answers and leaves nothing behind. This
+leaves an **object**, which then appears in a list you can act on. §13 has no
+field-count escape and should not grow one: *"if the answer is an object, it is
+a drawer."*
+
+## What shares a subject on the cluster form: nothing
+
+Asked properly rather than counted, which is the failure mode the `Branch ǀ
+Port` pair was.
+
+| | |
+|---|---|
+| `Name` | Identifies the object |
+| `API server URL` | Where it is |
+| `CA certificate` | What verifies **the server to us** |
+| `Service account token` | What authenticates **us to it** |
+
+The last two are the tempting pair — adjacent, both credentials-shaped, and
+exactly two of them, which is how `Storage size ǀ Version` happened. They are
+not one answer in two boxes the way `Username ǀ Password` is: one is trust
+material for the far end, the other is our identity at it. And both are base64
+blobs, so halving them would buy 212px of box for a value with no short form.
+
+**Full width, chosen rather than defaulted.** `Backend storage size` fills too —
+§8's *"a short value does not earn a short box"*.
+
+## The switch row was a hand-rolled copy of a primitive
+
+`<Switch>` + `<Label>` + `<p>` in a flex, with `className="mt-0.5"` on the
+switch — the exact 2px nudge §8 removed when it settled that a switch centres on
+the **whole statement**, label and hint together, 24 off it. Pinned to the
+label's first line, a one-line row looks centred and a two-line one looks
+top-heavy on the same form. This hint is two lines at 480, so it was the second
+case.
+
+It is a `FieldShell inline` now. Measured in `dev:mock:empty`: gap 24, centres
+within 0.0px.
+
+**Three more things fell out of the same row.**
+
+| ✗ | ✓ | |
+|---|---|---|
+| `Enable Image Registry` | `Image registry` | A switch label names the **thing**. The verb was the control's own job written into its label, fighting the switch beside it which already says on or off |
+| `pl-11` on the field it reveals | the body's own column | A bespoke inset put one field 44px off the leading edge every other field sits on. **Adjacency** is what says "this belongs to that" |
+| `hint="e.g. 20Gi, 100Gi"` **and** `placeholder="20Gi"` | one hint, no placeholder | The same fact in the two slots §6 gives different jobs. The unit is a **constraint**, so it is the hint; the field opens on a real value, so there was never a specimen to show |
+
+## Title Case, three times
+
+`Add New Cluster`, `Enable Image Registry`, `Backend Storage Size` — plus
+`Cluster Name`, `CA Certificate Data`, `Service Account Token` and a
+`My Production Cluster` placeholder. §6 is sentence case.
+
+`New` came off with the capital. **Stackdome does not make the cluster** — it
+connects to one that already exists — and `Add cluster` is the verb the page
+header, the empty state and the success toast were all already using. `Cluster
+URL` became `API server URL`, which is what the field's own validation error has
+always called it; inside a drawer titled `Add cluster`, the first word was spent
+on the thing named directly above it and said nothing about *which* URL.
+
+## Both primaries were disabled with no reason at all
+
+`disabled={!isFormValid || isLoading}` and `disabled={!domainFqdn.trim() ||
+!!error || isLoading}`. §9 is not a rule about menus and rows: the user can see
+the cost is unavailable and cannot see what to do about it.
+
+`missingFields()` on both now, every empty field at once, phrased in the verb of
+the act — *Enter a name*, *Paste the CA certificate*. On the cluster form the
+registry's size is one of them **when the switch is on**, so emptying a field
+the switch revealed cannot quietly turn the button off.
+
+**Only emptiness blocks `Add domain`.** A malformed or duplicate value is
+answered by the field's own error, 4px under the box it is about. The same
+sentence in a tooltip on a control 200px away is the message twice, and the
+further copy is the one that has to be hovered to read.
+
+## Found on the way
+
+**The domain dialog blanked its own field on failure.** It reset `domainFqdn`
+immediately after handing the value to its parent — and the save is async, so a
+server error arrived to a banner explaining a value no longer on screen, with
+nothing to correct. Both drawers reset **on open** now, which is the shape both
+exemplars ship.
+
+**The clusters page kept a stale error across opens.** `createError` was only
+cleared when a new attempt started, so a failed add, closed and reopened, showed
+last time's failure in the footer of an empty form. Cleared on close, which is
+what the domains page already did.
+
+**`sync-env-dialog.tsx` has the same hand-rolled switch row**, `mt-0.5` and all,
+and its comment pointed at `add-cluster-dialog.tsx` as the precedent. The
+pointer is updated; the row is **not** converted — that screen is
+`Repository settings`, one of the three edit-dialogs still awaiting Jaseem's
+call in `docs/tasks.md`, and it should move once rather than twice.
+
+## Verified
+
+`tsc` clean · `lint` 0 errors · **278 test files, 2065 tests, 0 failures.**
+
+**31 checks in `dev:mock:empty`, all match** — the empty scenario and not the
+default one, because both pages allow exactly one row and the populated fixtures
+leave `Add cluster` and `Add domain` permanently blocked. Read after the 200ms
+slide-in has landed, and read as **gaps**: field→field 16 four times (including
+across the switch and into the field it reveals), label→control 4, the switch 24
+off its statement and centred on it to 0.0px, body padding 20 on both sides, and
+five fields resolving to **one** leading and **one** trailing edge. Bands 95 and
+81 with a hairline each, and the corner square.
+
+Thirteen stories added across the two — **`Add domain` had none at all**, and
+the cluster's three were written against the dialog that has now stopped
+existing. None of them asserts `toBeVisible` on drawer content: resolving the
+name is the assertion.
+
+
+---
+
+# 2026-08-17 — The canvas: what a ground can and cannot do
+
+## Two problems wearing one costume
+
+The canvas sat inside the sheet and had to satisfy two things at once, and every
+attempt at a single colour failed one of them.
+
+| Put the canvas on | The cards | The sheet |
+|---|---|---|
+| `surface/sheet` — white | **Vanish.** 1.00:1 against their ground | Reads as one white plane. Correct |
+| `surface/frame` — grey | Read | **Dissolves.** The sheet stops floating; §3's white-floats-grey-recedes inverts |
+
+The instinct is to hunt for a third grey. That is only half right, because the
+second problem is not a colour problem at all. **Measured:** to clear the 3:1 an
+edge needs, a hairline on white has to go to **49% ink** — a drawn outline, not
+our line. 11% reads 1.24:1; 18% reads 1.43:1. **No border weight on the ladder
+can separate a white card from a white ground.**
+
+So: two problems, two mechanisms.
+
+| Problem | Mechanism |
+|---|---|
+| The sheet must not dissolve into the frame | A ground of its own — **`surface/canvas`**, one step off both |
+| The node must not dissolve into the canvas | **Elevation.** `shadow-md` |
+
+**This needs one sentence in §5.** "Content is flat" has had exactly one
+exception, the selected segment. This is the second: **a canvas is a space, not
+a surface, so the objects in it are the one content that floats.** Both reference
+editors — OpenAI's Agent Builder and ElevenLabs' — do exactly this: their nodes
+carry a shadow and their canvas does not. Not yet written into the file; it is a
+call, not a fait accompli.
+
+**Jaseem set the light value himself** (`#fbfbf8`) after seeing `#FAF9F6`. Dark
+was derived rather than picked: his colour sits **59%** of the way from
+`surface/frame` to `surface/sheet`, so dark holds the same proportion —
+`#181715`. A ratio survives a palette change; a hand-picked pair does not.
+
+## The action cluster was ranked when it should have been sorted
+
+Two passes put five controls in the header's right cluster and then argued about
+which deserved to be there. Jaseem brought the ElevenLabs editor and the answer
+was structural, not editorial: **actions are not ranked into one place, they are
+sorted by kind into four.**
+
+| Zone | Holds | Because |
+|---|---|---|
+| Title row, left | Trail, then the version chip | Identity |
+| Title row, right | The status fact, `Deploy`, kebab | Leaving the editor |
+| Toolbar row | The four tabs — **nothing on the right** | Which view |
+| The canvas | Zoom, fit, layout, connections, `Add resource` | Working the graph |
+
+Five controls became three, and the toolbar row's right side emptied.
+
+**The chip did the heavy lifting.** `Draft ǀ Live` had been a segmented control
+fighting for space in an action cluster. It is a **version picker** — *which copy
+am I looking at* — so it belongs beside the title, carries the change count, and
+holds `Review changes` and `Discard draft changes` in its menu. That gave the
+homeless `Review 3 changes` button a home that is not a button, and the diff
+still meets you on the way out as the Deploy confirm.
+
+## A dot is only legal if something else says the word
+
+The previews pass settled that a status glyph must be **per state, never per
+family**, and the first node cards followed it. Jaseem took the glyph out and put
+a **6px dot after the name** instead.
+
+A dot alone is colour-only, which §7 and WCAG both ban. What makes it legal is
+the second line: **every state that asks you to act says its word** — `Pending`,
+`Failed`, `Unknown`, `Not deployed`. A Ready card shows its image and no word.
+Nothing is lost if you cannot read the green, because there is nothing to act on.
+
+That is not the previews rule reversed. It is the same rule with a different
+carrier: on a list row the word is already in the status column, so the glyph
+adds the distinction; on a canvas card there is no column, so the word has to be
+in the copy and the mark can drop to a dot.
+
+## The card is one surface
+
+The docked volume rows had been `surface/control`, which measured **1.01:1**
+against the canvas — so a chunk of the card read as a hole in it. Jaseem: **the
+card background has to be fully white**, find another way to separate.
+
+Four were drawn: a full-bleed hairline, space alone, a hairline inset to the text
+column, and indent alone. **Indent won**, and the hairline came off. A volume is
+not a second region of the card; it is a thing belonging to the service, and a
+full-width rule says otherwise. Same instruction removed **10 dividers** from the
+canvas tool group.
+
+The alignment bug it exposed was worth more than the fill. The summary had been
+indented 34 — under the *glyph* — while the name sat at 58. Three ragged edges.
+Everything now hangs off **two columns**: glyphs at 12/36, text at 36.
+
+## The hairline is an outline
+
+Recorded in `docs/tasks.md` as the audit, and in §12 already for the sheet: an
+inside border eats a pixel of the content box, so the drawn size and the spec'd
+size stop being the same number. `outline` paints outside, follows the radius,
+and costs the layout nothing.
+
+**Jaseem narrowed it on the spot:** this is for **elevated surfaces** — the
+sheet, dropdown menus, canvas cards, drawers, dialogs, toasts — **not every
+border in the product**. A field, an input, a select, a bordered row are not
+floating and keep theirs. And a **one-sided rule is a divider**, not an outline,
+and stays inside.
+
+40 strokes were flipped in the Figma canvas section. Two things in code already
+do it — `app-layout.tsx` and `ui/toast.tsx`. The rest is a **per-screen audit,
+explicitly not a sweep.**
+
+## The inspector: 640 was the brief, 480 is the answer
+
+The brief said **640, square, flush right, hairline seam**. Built at 640 and
+judged live, *Jaseem*: **"drawer size, it's big, we should use default."** 480.
+
+The number is not a preference — it is the same arithmetic §13 already ran on
+`New addon`. **`work` is earned by a second column, not by a second surface**,
+and the inspector has one column. What 480 buys back is visible in one frame:
+
+| | At 640 | At 480 |
+|---|---|---|
+| Canvas left of the seam | 546 | **706** |
+| Node columns that fit | One, the second sliced by the seam | **Both**, with **32** of air |
+| Field trailing edges | 292 ǀ 600 | **232 ǀ 460** |
+
+At 640 the graph had to be panned until half of it ran under the panel. At 480
+the whole stack sits beside the thing that is editing it — which is the only
+reason to make the inspector a region rather than an overlay in the first place.
+**The width was arguing against its own premise.**
+
+## Sections were already solved, on the addon drawer
+
+The first build gave the body a **mono marker on a hairline rule** — the ledger's
+own section header, carried over. *Jaseem*: **"accordion — we already have one
+implemented I think on addons."** He is right, and it is better:
+
+| | Ledger section | The addon drawer |
+|---|---|---|
+| Marker | `mono/label`, muted, with a rule beside it | **`body/500`, ink**, on a **full-bleed** rule above it |
+| Collapsing | Chevron at the far right | **Single chevron leading**, then the label, then a **state word** — `Backups on`, `Environment 4 variables` |
+| Content inset | Flush with the drawer | **44** — lines up with the label, not the edge |
+
+A mono marker says *machine value*; a section name is the form's own structure
+and §6 puts that in sans. Two shapes, both already shipped, and the inspector
+needed no third.
+
+**This also closed the sub-tab question without a study.** The drawer ships three
+sub-tabs — `Configuration ǀ Deployment ǀ Environment` — and a second tab strip
+95px under the sheet header's own was the thing to avoid. **Label-above halves
+the height of every row**, so what needed three tabs now fits one scroll as five
+sections: General, Source, Ports, Mounts, then Environment and Advanced as
+disclosures. Nothing was deleted; the fields are the same fields.
+
+## A pair has to be one subject, not one row
+
+*Jaseem*: **"only keep fields side by side if they have a direct relationship."**
+
+§8 says fields sit on a two-column grid and that the grid gives you **two
+trailing edges**. It does not say fill both columns. The first build paired
+`Name ǀ Depends on` and `Build from ǀ Branch` — two pairs that share a row and
+nothing else, which makes the eye look for a relationship that is not there.
+
+| Pair | One subject? | |
+|---|---|---|
+| `Port` ǀ `Protocol` | **Yes** | The protocol belongs to that port |
+| `Name` ǀ `Depends on` | No | What it is called, and what has to start first |
+| `Build from` ǀ `Branch` | No | The source kind, and a field that only exists for one of its values |
+| `Name` ǀ `Size` (volume) | No | Adjacent in the form, unrelated in the object |
+
+One pair survived. Everything else is **440 full width**, and the form still
+lands on the two edges §8 asks for — **232 and 460** — because a full-width field
+ends on the far one.
+
+## Measured, not eyeballed
+
+| | |
+|---|---|
+| Region | **480**, flush right — 0 to the sheet's edge |
+| Bands | **95 ǀ 592 ǀ 81** = 768, the sheet below its header |
+| Field gutter | **16** · stacked field gap **16** · across a section **72** |
+| Trailing edges | **two** — 232 and 460 |
+| Seam to the nearest node | **32** |
+
+## Two things the board had wrong, found on the way
+
+**Frames 01 and 02 had their Light and Dark modes swapped.** `01 draft · Light`
+was pinned to the Dark mode and `02 draft · Dark` had no override at all, so it
+inherited the page's Light. Nobody had noticed because each frame looked
+plausible on its own. Fixed.
+
+**And 01/02 still draw the pre-edit node card** — the per-state glyph, the text
+column at 58. The settled card lives on `node specimens` and every new frame
+clones from there.
+
+## Live, and what a disabled primary has to say
+
+The Live frame was the review's HIGH and it is drawn now. Four differences, all
+of them consequences of one fact — **Live is read-only**:
+
+| | |
+|---|---|
+| The version chip | `Live` · **`no changes`** — the picker still picks, and the count is what changed |
+| `Deploy` | **Disabled**, and the reason is the chip **immediately beside it**. §9 says nothing is disabled without saying why; here the why was already on screen and only needed to sit next to the button |
+| The canvas tool group | **`Add resource` comes off.** You cannot add to a deployed release |
+| The nodes | No draft stripe, and the degraded one **says its word** — `Degraded · 1 of 2 replicas` |
+
+## Add resource is the create-stack catalogue, literally
+
+Not a second catalogue and not a lookalike: the popover holds a **clone of
+`New stack › Building blocks`'s own catalogue frame** (`565:6840`) — the same
+`Picker row` instances, the same three groups, the same order, the same `×1`
+count on what the stack already has. The code already does this (`AddResourcePanel`
+imports `blockCatalog` and `BlockPicker`); the board now agrees.
+
+## The canvas picker is not the create-stack picker's twin, and the difference is one column
+
+*Jaseem*, on the frame: **"we don't need ×1 here, once I click on an item it gets
+added to the canvas, it's not like the one in create stack"** — then **"we don't
+have to show the plus button as well, and reduce the width of the menu max."**
+
+Same catalogue, different act. In create-stack the picker is **assembling a set**
+you can still take things out of, so a row has to report *how many of these are
+in it* — that is what the `×1` counts and what the rail holds. On the canvas a
+click **is** the add: the node lands, the graph is the record, and there is no
+set to report back to. **`Trailing=none` on every row.**
+
+The plus went for the same reason. A plus is an affordance on a row that also has
+a resting state worth reading; when the entire row does one thing and only one
+thing, the glyph is repeating the row.
+
+**And with the trailing slot gone, the width is decided by the ink.** Measured,
+not chosen:
+
+| | |
+|---|---|
+| Text column starts at | **56** — 8 inset, 34 chip, 14 gap |
+| Widest line in the catalogue | **180** — `your image · :80 · public`, mono 12 |
+| Right padding | **12** |
+| Column | **248** · popover **272** |
+
+The search placeholder had been the other constraint — `Search services and data
+stores…` measures **198** and would have set the floor on its own. §8 says
+shorten the copy before widening the field, so it is **`Search resources…`** (111)
+and the rows decide the width alone. 380 → **272, a 28% cut**, and nothing wraps.
+
+**First attempt was 264 and it was wrong by 8.** The probe measured the sub-line
+at `mono/label` (11) when the Picker row ships it at **12** — 165 against a real
+180. It wrapped, and the row grew a line. The lesson is the one already in this
+file: measure the node that renders, not a probe you built to look like it.
+
+## The inspector, unrolled — every field in one frame
+
+*Jaseem:* **"show me all the inputs that exist in configuration, deployment and
+environment, I don't see port, source section etc."** Fair — the panel frame
+showed the first 592px of a form that is **1952** tall, so two thirds of it was
+below the fold and nothing on the board said what was down there.
+
+`inspector — every field, unscrolled` (`761:31657`) is the whole form at its
+natural height. What it turned up:
+
+| Tab today | Sections | Fields |
+|---|---|---|
+| Configuration | General | Name, Depends on |
+| | Source | Build from · then **Repository, Revision, Branch name, Pin to commit** (git) or **Registry, Image reference** (image) · ▸Advanced: Dockerfile path, Build context, Push registry |
+| | Ports | per port: number, protocol, public switch, remove · `Add port` |
+| | Mounts | the volume row — read-only here, it **opens** the volume |
+| **Deployment** | Pre-deployment step | Init command, Init arguments |
+| | Main container step | Command, Arguments |
+| **Environment** | Environment | per row: From, Name, Value · `Add variable` · `paste .env` · `clear all` |
+
+**Deployment is four fields.** It has been a whole tab, at the same rung as a
+Configuration carrying fourteen. That is the strongest argument yet for sections
+over sub-tabs: as a tab it claims a third of the strip and pays it back with two
+commands and two argument strings; as two sections it costs 72px and reads.
+
+**The value column's shape follows `From`.** `Plain text` is one input;
+`Resource` and `Secret` are **two stacked selects** (the thing, then the key);
+`Addon` is one select inside a group box that carries the addon and database
+pickers. Drawn as four rows, and the columns were sized off measured ink —
+**103 ǀ 120 ǀ 201** at an 8 gap, which is 440 exactly.
+
+## Mono is for a URL, and that is the whole list
+
+*Jaseem*, on the environment block: **"how do I delete env variable, also you need
+to calm down with the use of mono text."** Then, when the first pass only trimmed
+the obvious offenders: **"like some places I can understand, in key value sure,
+but why everywhere? dev tool doesn't mean mono font everywhere."** Then the
+instruction, unambiguous: **"remove mono from everywhere in the last design you
+did except from url — this includes nodes etc, everything we just did in canvas."**
+
+**The canvas section held 134 mono text nodes. It now holds 15**, and every one
+of them is `ghcr.io/…`.
+
+What came off, and what it had been standing in for:
+
+| Was mono | What it actually is |
+|---|---|
+| `Web` · `Service` · `Postgres` · `Redis` · `volume` · `secret` (×45) | A **type name**. Sentence-case English |
+| `Pending` · `Failed` · `Unknown` · `Not deployed` · `Degraded · 1 of 2 replicas` | A **status word** — which §6 already names as the example of what mono is not, and which the previews pass already took off mono once |
+| `From` · `Name` · `Value` | **Column headers** |
+| `paste .env` · `clear all` | **Actions** |
+| `public` | A **switch label** |
+| `3 changes` · `no changes` | A **count**, in the version chip |
+| `uploads` · `tmp-cache` | **Object names**, and the resource name beside them was already sans |
+| Nine specimen-sheet annotations | **Prose**. Whole sentences |
+| `postgres:16 · 20Gi` · `redis:7` · `mysql:8` · `/var/uploads` · `git build · main · :3000` | Machine values — and **still off**, because the instruction was URLs, not machine values |
+
+**Two intermediate rules were tried and both were mine, not his.** First
+*"mono is for a machine value"*, which kept image tags and paths and left 53
+nodes. Then *"a string you could paste into a terminal"*, same answer. The line
+he actually drew is narrower and it is easier to hold: **a URL, nothing else.**
+A tag is not a URL. A path is not a URL. A branch name is not a URL.
+
+**This reached the `node specimens` sheet**, which is his own settled artefact —
+24 kind labels, 5 status words, 9 annotations. Said plainly here because a board
+sweep is normally not mine to make; the instruction named nodes explicitly.
+
+**And it made the menu smaller a second time.** Sans is narrower than mono at the
+same size, so re-fitting the Add resource popover to its own ink took it
+**248 → 222**. Against the 380 it started at, that is a **42% cut**, and every
+pixel of it came from measuring rather than choosing.
+
+| | Width |
+|---|---|
+| First build, create-stack's column | 380 |
+| Trailing slot removed, mono | 272 |
+| Mono removed | **222** |
+
+**Open, and now product-wide.** Create-stack's `Picker row` still ships a mono
+sub-line, and §6 still carries two mono rungs used across list pages, drawers and
+the previews section. The canvas is now the only surface holding this line, which
+makes it either the first screen of a sweep or an inconsistency. That is a call,
+not a cleanup.
+
+## An env row had no way to delete itself
+
+The first drawing of the environment block had From, Name and Value and nothing
+else — while `env-row.tsx` ships both a **remove** and a **reset to original**.
+The row is now four columns: `103 ǀ 120 ǀ 177` at an 8 gap plus a **16** remove
+on the far edge, which is 440 exactly, and the port row's own `✕` moved onto the
+same edge so the two rows share a trailing rail.
+
+## A record is left-packed — Jaseem drew it himself
+
+*"Ports does not feel like a unit, so is key value."* Then, on the first pass:
+**"it's just spread apart."** Four options went on the board — proximity, joined
+into one divided control, the collection as the box, and a record at rest that
+opens to edit. He answered by **drawing the row** (`773:41580`), which is faster
+than picking, and the answer was none of the four cleanly:
+
+| | |
+|---|---|
+| **Spacing** | Every control **4** apart. Not 8, not 16 |
+| **Nothing is pinned** | The old row used `ml-auto` to push the switch to the far edge, which put a **hole in the middle of the record**. The record now ends where its content ends |
+| **A two-way choice is a segmented** | `Public ǀ Internal`, not a switch with a floating word beside it. A switch needs a label to say what it toggles; a segmented **is** its own label |
+| **Remove is a 32 icon button** | Packed straight after the last control, not a bare glyph on the far edge |
+| **Width** | **The record fills the column.** First drawn packed at 350 and Jaseem stretched it: the two members holding arbitrary values `FILL`, the segmented and the remove stay their own size |
+
+**The diagnosis that was right, and the fix that was not.** The gap inside the
+record (8) equalling the gap around it (8) is a real defect and proximity does
+fix it — but tightening to 4 while leaving the switch pinned right keeps the
+hole, and the hole was doing more damage than the spacing. **Two causes, and
+only one of them was in the ladder.**
+
+**And it overturns "a field fills its cell" for this case.** §8 says a control in
+a form never sizes to its content, because seven controls found five trailing
+edges. That rule is about **fields**. A record is not a field — it is a row of
+values, and stretching it to a column edge is what created the hole. §8 needs the
+distinction written into it.
+
+`Build from` took the same segmented, because it is the same shape of question.
+
+## Everything is auto-layout now
+
+*Jaseem:* **"also use autolayout, now everything is just laid flat."** Correct —
+the whole inspector had been absolute `x`/`y`, which is unmaintainable the moment
+a field is added or a label gets longer.
+
+| Level | |
+|---|---|
+| The region | **VERTICAL** — Header `FIXED 95`, Body `FILL`, Footer `FIXED 81`. The seam is the one **`ABSOLUTE`** child, so it spans the whole height without joining the stack |
+| A section | VERTICAL, padding `16 / 20 / 24 / 20`, gap 12 — and its rule is the frame's own **`strokeTopWeight = 1`**, not a child rectangle |
+| A field | VERTICAL, gap **4** — label above control |
+| A pair | HORIZONTAL, gap **16**, both children `FILL` |
+| A record | HORIZONTAL, gap **4**, `HUG` — which is what makes left-packed a property rather than a set of coordinates |
+| A trailing item | A `FILL` spacer frame, so the mount row's chevron sits on the edge without being positioned there |
+
+**The section rule becoming a stroke is the load-bearing change.** As a child
+rectangle it had to be sized and placed, which is why every section carried an
+absolute height; as `strokeTopWeight` it costs the layout nothing and the section
+hugs its own content. That is the same argument §12a already made for the sheet's
+edge — an inside border eats a pixel, a stroke on the box does not.
+
+## Packed was the wrong half of the fix — the record fills, the hole was the bug
+
+Jaseem stretched the port row to 440 (`780:31978`) and it is better. The first
+reading — *"nothing is pinned, so the record ends where its content ends"* —
+took one true observation and drew the wrong conclusion from it.
+
+**The hole was never caused by the record being wide.** It was caused by
+`ml-auto` **pushing one member away from the others** while the rest stayed
+packed left. Remove the push and the width stops mattering; every member can then
+share the slack evenly and the row still reads as one thing.
+
+| Member | Sizing | Because |
+|---|---|---|
+| Port number | **FILL** | Holds an arbitrary value |
+| Protocol | **FILL** | ” |
+| `Public ǀ Internal` | **HUG**, 130 | A closed two-value enum — growing it buys nothing |
+| Remove | **FIXED**, 32 | An icon button |
+
+So **§8 stands after all**: a control in a form does not size to its content, and
+the record lands on the column's trailing edge like every field above it. What §8
+was missing is not an exception for records — it is the sentence that **a member
+of a record may be fixed when its content is a closed set.**
+
+The same reading gives the variable row for free: `From` is four short words from
+a closed list, so it is **FIXED at 116**; `Name` and `Value` hold arbitrary
+strings and **FILL** at 140 each; the remove is 32. 440 exactly.
+
+## Three treatments for one thing: the value
+
+*Jaseem:* **"why are some of the values medium and some regular font weight?"**
+Audited across the inspector, and it is a defect in the primitives, not in the
+layout:
+
+| Control | Shipped its value as | |
+|---|---|---|
+| `Field` | `body/400`, **`ink/fg-muted`** | It only has a **placeholder** state — so every filled input read as empty |
+| `Select` | `body/500`, **Medium**, ink | A value set in the label's weight |
+| `Segmented — label` | `meta/500`, Medium, **12** | A third size inside a row of 13s |
+
+**The rule, stated once:**
+
+> **A value is `body/400` at ink. A placeholder is the same size and the same
+> weight, and only the colour changes.** The label above it keeps `body/500` —
+> that is §6's binary doing its job: the label is *about* the value, so it is the
+> one line that gets the weight.
+
+70 text nodes corrected across the three inspector panels, with `Dockerfile` and
+`.` deliberately left muted because those two genuinely are placeholders — which
+is what makes the distinction visible on the frame rather than asserted.
+
+The segmented's selection is now carried by **colour alone**, which is what §11
+already says the mechanic is (*"Ink vs `fg-muted`, never opacity"*) — it had been
+carrying weight and a smaller size on top.
+
+**These are three shared primitives.** Fixed as instance overrides on the canvas
+frames so the intent is judgeable; the components themselves, and the ~40 files
+in code that use them, are a separate call.
+
+## Jaseem's final pass: two edits, and both are rules
+
+Diffed his version of the body (`779:32086`) against the copy in the shell —
+**251 nodes, 5 differences, 2 of them real.**
+
+**1. A segmented that is a FIELD fills and splits evenly.** `Build from`'s two
+segments had been `HUG` at 124 and 106, sized by their own labels. They are now
+both `FILL` at **220**. The port row's `Public ǀ Internal` stays `HUG` at 135.
+
+That is not an inconsistency, it is the same test as the record's members, one
+level down:
+
+| Where the segmented sits | Sizing | Because |
+|---|---|---|
+| As a **field**, alone in its cell | **FILL**, segments split evenly | It is the field, and §8 says a field fills its cell — including the halves inside it |
+| As a **member of a record**, beside other controls | **HUG** | It is one of several, and the ones holding arbitrary values are what should take the slack |
+
+An unevenly-split segmented also reads as a **result** rather than a choice —
+the wider half looks selected before you have read either label.
+
+**2. Inside a table-shaped section, the rhythm is 8, not 16.** The Environment
+section's content gap went **16 → 8** for the column headers, the variables list,
+the note and `Add variable`.
+
+16 is the ladder's default and it is right *between fields*, because two fields
+are two subjects. The environment block is **one** subject — a table and the
+things attached to it — so its parts sit at the tighter rung. The variables list
+was already at 8 internally; the change makes the block agree with itself instead
+of being a tight list inside a loose frame.
+
+**Everything else held**: section padding `16/20/24/20`, section gap 12, field
+gap 4, record gap 4, list gap 8, `From` fixed at 116, `Name` and `Value` filling
+at 140, remove 32.
+
+## Validation: enforced, never stated, and I deleted the one place it was said
+
+*Jaseem:* **"there are validations for some fields, like name can only be
+smallcase — how are we handling this? or are we handling this?"**
+
+Audited. Three separate defects, and one of them is mine:
+
+| | |
+|---|---|
+| **The regex reaches the user** | `input_rules.go:64` returns *"resource name 'Web API' must match `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$` and be at most 63 characters"*. `objectstore` and `postgresaddon` do the same |
+| **The browser checks nothing** | `form-schema.ts` requires the resource name to be **non-empty and nothing more**. The pattern is enforced only on the server, so a **round trip** is what tells you a capital letter is illegal |
+| **The rule is stated nowhere** | It used to be `LedgerRow`'s right-margin `meta` — *"lowercase · unique in stack"* — and **that came off with the mono hints.** The label-above field has a `hint` slot and it was left empty |
+
+**The pattern, drawn** (`791:32017`):
+
+> **A constraint is said under its field before it is broken, and the error
+> replaces the hint with the same rule in the imperative.**
+
+`Lowercase letters, numbers and hyphens.` at rest → `Use lowercase letters,
+numbers and hyphens.` on failure, with a `danger` border on the control. Same
+sentence, one in the indicative and one in the imperative — so the correction is
+recognisable as the rule you were already shown rather than new information
+arriving at the worst moment.
+
+**And the board cannot draw it.** `Field` ships `default / hover / focus /
+disabled` and `Select` the same — **neither has an error state**, which is why no
+frame in the whole product shows a failed field. That is a shared primitive, so
+it is an ask, not a build.
+
+**Killing the right-margin metas was correct and incomplete.** The mono hint at
+the far edge was the wrong carrier — it sat outside the field's own column, in a
+typeface reserved for machine values, saying an English rule. But deleting a
+carrier without moving what it carried is how a constraint becomes folklore.
+
+---
+
+## The editor's header was two headers, and one of them was a copy
+
+*2026-08-18* — frame `740:20191`, Shape + Hierarchy Pass.
+
+**The stack editor drew its own 108px band directly under the sheet header.**
+The trail lived in the top band; the version chip, the status, Deploy, the kebab
+and the four tabs lived in the second. That is not two headers' worth of
+content — it is one header split across two, and it cost two hairlines, two rows
+of chrome, and 108px of canvas.
+
+The tell was the status. `orders-api` was named in the top band and described in
+the bottom one, two rows apart, at the far right end of a 1200px bar. Read from
+there, `failed` has nothing to attach to.
+
+### What moved
+
+| | Was | Is |
+|---|---|---|
+| Bands | Two, each with its own hairline | **One** — `PageHeader` portals into the sheet header (§12a) |
+| Status | Right end of the second band | **Beside the name**, 12px after the trail |
+| Status shape | `rounded-full`, border, dot, mono caps, raw wire word (`failed`) | **`StatusChip`** — glyph + word on a tinted face, 22px, 6px rung, no border, humanised |
+| Tabs | Icons, 4px apart, bordered when active | **Words only, 2px apart**, the selected wash and nothing else |
+| Version chip | Ghost button, `Draft · 3 changes` in one muted string | **Control face + hairline**; `Draft` in ink, `3 changes` in muted, no separator |
+| Deploy | Rocket + label + ⌘⏎ | Label + ⌘⏎. The spinner stays — it reports what the word cannot |
+| Kebab | Faceless ghost | Same control face as the version chip |
+
+### The one fact is not always on the right
+
+§12a puts the page's one fact opposite the title, and that is right for a fact
+*about the page*: `20 stacks` counts what the list is showing and belongs with
+the tools that change the count. **A detail page's status is not that.**
+`Degraded` is a property of `orders-api` itself, and 1200px from the name it
+describes, the eye has to travel back to learn what is degraded.
+
+So `PageHeader` grew a second slot. `status` still portals right and every list
+page keeps it; `identity` portals 12px after the breadcrumb. The rule is not
+"status goes left" — it is **a fact about the object goes next to the object's
+name, a fact about the page goes opposite the page's title.**
+
+### Three status marks now, and each answers a different question
+
+| | Shape | Where |
+|---|---|---|
+| `StatusText` | the coloured word + glyph, no container | A list row, in a column of its peers |
+| `StatusChip` | glyph + word on a tinted face | Next to a title — nothing around it to make it read as data |
+| `StatusPill` | bordered full-round chip with a dot | Legacy, retired screen by screen |
+
+**Fill and ink; no border.** §4 gives every state three rungs and the pill spent
+all three, which is how one mark says one fact four times.
+
+**The glyph map moved to `status-glyph.ts` before the second reader existed.**
+`StatusText` owned it privately, and a copied map is how a stack ends up reading
+`Degraded` with a triangle in the list and `Degraded` with a cross in its own
+header — the same fork the list-page sweep spent a day undoing.
+
+**And the word itself is now the list's.** The header used to assemble its own:
+raw `headerHealth` when there was one, the literal `"Not deployed"` when there
+was not, `"Deleting"` over the top. That is `stackRollupState` written a second
+time, and it had already drifted — the list humanised its word and the header
+printed the wire's, so one stack read `Degraded` on the list and `degraded` in
+its own header. `rollupWord(lifecycle, health)` is the shared rule.
+
+### Two open questions the frame raises
+
+| | |
+|---|---|
+| **`Degraded` is amber on the board and red in the product** | `stack_rollup` maps it with `Unavailable` and `Failed`; `health` maps it with `Progressing`. Both mappings ship. The header now follows the list — red — so the two screens agree, but the frame says amber and one of the two is stale. Open |
+| **32px controls at the 6px rung** | §2 makes radius a function of height (28/6 · 32/8 · 40/12). The frame draws the version chip and the tabs at 6 on a 32px box while Deploy and the kebab take 8. Built as drawn. Either the ladder has an exception for things that are not buttons, or the frame is 2px out. Open |
+
+**Verified by measuring the running app**, not the stories: band 108 at 16/12/16,
+trail→chip 12, chip 22 high at 6 with no border, 6px through the whole right
+cluster, tabs 2px apart at 32 high, and no second band anywhere in the tree.
+`tsc` clean, 1553 unit tests and 593 story tests passing.
+
+### The round of feedback that followed, in the running app
+
+*Same day.* Judged live, which is what settled the two questions the entry above
+left open.
+
+| Feedback | What changed |
+|---|---|
+| *"border radius for tab items are incorrect, should be 8 right? considering height?"* | Yes. §2's ladder wins over the frame — tabs and the version chip go to **8**, so all four controls on the row carry one corner. The frame's 6 is stale |
+| *"selected one should always have the bg, on hover only change the text color"* | The hover wash is gone. It was a second, fainter box that read as the selection two rungs down, and mid-slide there were briefly **two** lit boxes and no way to tell which one you were on. Hover is the ink coming up to full, and nothing else |
+| *"use better interface to design transition animation here"* | The selection **travels** now — one absolutely-positioned face behind the row, `transform` + `width` only, 180ms, `cubic-bezier(0.2, 0, 0, 1)`. A CSS transition, never keyframes: tabs get clicked fast, and a transition retargets from wherever the face is instead of queueing a second run. Nothing animates on arrival, and the ink still changes, so motion is never the only signal |
+| *"this should be our primary button, create a variant that support shortcut, integrate shortcuts better"* | `shortcut="mod+enter"` on `Button`. **One string does three jobs** — draws the cap, fills `aria-keyshortcuts`, binds the listener. It replaced a hand-drawn `<kbd>` sitting next to a `window` listener only `DeployPill` knew about: the same fact written twice, with nothing keeping the two in step |
+| *"improve this button design using better interface using our guidelines"* | The cap was **a second button nested in the first** — 30% edge, 10% face, glyphs at full ink, 31×16 inside a 105px control. Border dropped (`better-ui` §3: it was drawing depth, not structure), face to 16%, ink to 65%, stroke 1.5 (§13), radius 3 (§1 — 16 inside 32 is an 8px inset, so concentric asks for ~0 and 3 is the smallest curve that still looks deliberate) |
+| *"border outline, border should be outside"* | The RESOURCE node was already `outline`; the **attachment** node beside it was not. Both now, so two cards on one canvas stop measuring their widths by different rules |
+
+**`Degraded` is amber.** The frame won: it is the one word in the vocabulary
+that means *serving, but not fully*, and red is for `Unavailable` and `Failed`,
+which mean nothing is being served. Flattening all three threw away the
+distinction that decides whether you page someone. The `health` domain had
+always mapped it this way — the two maps disagreed, so the same stack showed in
+two colours depending on which screen you were on.
+
+**A draft has no version chip.** `Stacks / Draft` on the left and
+`Draft · no changes` on the right — the same word twice on one row, and only
+visible once the two headers became one.
+
+### Two things the portal broke, and both are worth remembering
+
+| | |
+|---|---|
+| **A `useRef` cannot see a portalled node** | The tab row portals into the sheet header, and the portal target is only found after that header mounts — so on the shell's first layout pass the nav does not exist, the ref reads null, and **nothing re-runs the effect when it appears**. The indicator measured zero and never drew. A callback ref into state makes the node's arrival a dependency |
+| **Every header assertion started failing at once** | The shell renders no header of its own any more, so a test mounting it bare finds no status, no Deploy, no tabs — a failure the product does not have. `SheetHost` supplies the real header; the stories take `withSheetHeader` |
+
+**jsdom has no `ResizeObserver`**, and the tab row observes its own width so the
+face survives a font swap. Stubbed once in `test-support/jsdom-globals.ts`
+rather than guarded at the call site — a missing browser API is an environment
+fact, not a wiring seam, and the real thing runs in the story project's Chromium.
+
+---
+
+## A stack was the only thing you could not rename
+
+*2026-08-18*
+
+The trail's last segment IS the page title (§12a), and on a detail page that is
+already the object's name — so it is the one place a rename belongs. A dialog
+with one field, to change a word that is on screen the whole time, is friction
+with nothing to show for it.
+
+**The blocker was two rules deep, and both had outlived their reason.**
+
+| Where | The rule | Why it was there |
+|---|---|---|
+| `stack_validator.go:86` | `"stack name cannot be updated"` | Flat immutability guard |
+| `stack_service.go:371` | Same message again | *"the cluster Stack CR is keyed by it, so a rename would orphan the existing CR"* |
+| `models/stack.go` | `Name` tagged `<-:create` | GORM drops a create-only column from every UPDATE |
+
+The third was the quiet one. Even with both guards removed, the service would
+have accepted the new name, the store would have reported success, and the row
+would still have held the old one.
+
+### The namespace was never the problem, and the CR already had a solution
+
+`namespaceNameForStack` produces `<name>-<uuid>`. **The uuid is what makes it
+unique; the name is a readable prefix.** The namespace column stays `<-:create`
+and a rename touches no cluster object through it — the stack simply carries a
+namespace whose prefix is its old name, visible only to someone reading
+`kubectl`.
+
+The Stack CR was a real problem: a Kubernetes object's name cannot change, so
+the next apply would create one under the new name and leave the old one
+running, workload and all.
+
+**And that is exactly what `pruneStackResources` has always done one level
+down.** A renamed *resource* orphans a StackResource CR in the identical way,
+and the apply reconciler lists by `LabelStackID` and deletes whatever is no
+longer current. The Stack CR carries the same label. `pruneStackCRs` is the
+same sweep, running after the new CR is applied so the workload is never
+without one, and non-fatal like its sibling — an orphan is worse than tidy and
+far better than failing a release that has otherwise landed.
+
+### The rules that replaced it
+
+| | |
+|---|---|
+| **Format is checked only when the name CHANGED** | Load-bearing, not an optimisation: a stack created before the current name pattern would otherwise fail every unrelated update to a field it has nothing to do with. Grandfathering is saying nothing about a name nobody touched — the same reason `ValidateShell` skipped names entirely when they were immutable |
+| **Uniqueness is not the validator's job** | It is network-free by construction and cannot see the project's other stacks. The service checks it against the store; the `(project_id, name)` unique index backstops it |
+| **`ValidateShell` now takes `existing`** | The shell PUT is the path a rename actually arrives on, so it is the one that has to compare |
+
+### The interaction
+
+**At rest it is the title.** No box, no button — a control that is always
+visible would make every page look like a form. Hover is `--wash-hover` and a
+pencil, the same vocabulary a row uses.
+
+**Enter commits · clicking away commits · Escape reverts.** It shipped for an
+afternoon with a ✓ and a ✕ beside the field and blur doing nothing, on the
+reasoning that a name should not save by accident. Overruled the same day, and
+correctly: two buttons to confirm a single word puts a form in the header, and
+it makes the ordinary path — type, click away — do nothing at all, which reads
+as broken rather than careful. Escape is the undo, it is one keystroke, and it
+is the key people already reach for. Finder, Figma, Linear and Notion all do
+exactly this.
+
+**The trap is that Escape has to beat its own blur.** Leaving the field is what
+commits, and cancelling leaves the field — so without a latch Escape saves the
+thing it was asked to discard. One `settledRef` closes the door behind whichever
+exit ran first, which also stops Enter committing twice.
+
+**An empty name is the one thing blur does not swallow.** Clearing the field and
+clicking away says so, rather than quietly restoring the old name as though
+nothing was typed.
+
+**A refused name keeps its text and its focus**, with the server's own words
+under the field — a conflict and a broken pattern are different problems and
+only the server knows which one this is. The message is absolutely positioned so
+refusing a name does not shove the tab row down.
+
+**Registration is what makes a title renameable.** A page hands a handler up
+through the breadcrumb context; a list page registers nothing and gets a plain
+title, which is correct. The editor does not register on a draft (no
+server-side stack yet) or for a viewer without write access — so the affordance
+is *absent* rather than present-and-refusing.
+
+### Verified, and not verified
+
+The interaction is verified end to end in `dev:mock` — rename applies, the
+conflict message surfaces from the server's text, Escape abandons, and the
+stacks list agrees with the header afterwards without a refetch. 1553 unit and
+608 story tests pass.
+
+**The Go changes are written but not compiled: there is no Go toolchain on this
+machine.** The `pkg/validator/stack` package had no Ginkgo bootstrap, so the
+rename specs come with one. `make mocks` still needs to run — `ValidateShell`
+grew a parameter and its generated mock was hand-edited to match.
+
+### The shortcut cap took three goes, and the board won
+
+*2026-08-19* — frame `815:42868`.
+
+| Attempt | What it drew | Why it failed |
+|---|---|---|
+| 1 | 16 tall, 30% border, 10% face, glyphs at full ink | *"very ugly"* — a 31×16 box floating in the middle of a 105px button reads as **a button inside a button**, and the eye lands on the key before the verb |
+| 2 | Border off, face 16%, ink 65% | Treated the symptom. **No tint is quiet enough to stop a rectangle inside a rectangle looking like one** |
+| 3 | Bare glyphs, no cap | Cured the nesting by deleting the thing a cap is *for*. Two dim marks trailing a word do not say **key** |
+| **Board** | **24 tall, 4 from the edge** | Stops it floating. Flush beats inset — the same trick the segmented control's selected face uses |
+
+**The move is the asymmetric padding.** The label side keeps 12; the cap side
+drops to 4. At 24 tall in a 32 button the cap clears the edge by 4 on three
+sides, so it reads as *part of the button's right end* rather than as an object
+adrift in the middle of it. Nothing about the tint changed the answer; the
+position did.
+
+**Radius 4 is concentric here, and the earlier 3 was a guess.** The button is 8
+and the cap sits 4 inside it, so §1's `inner = outer − padding` lands exactly on
+4.
+
+**The glyphs stay lucide.** The board types `⌘↩` because Figma has no icon for
+either; the product has the real marks, and a typed `↩` is a different shape
+from `corner-down-left` at a different weight.
+
+**The margins do the padding, deliberately.** The size variants already own
+`px`, and a second rule competing for the same property at the same specificity
+is settled by stylesheet order rather than by intent — so `-mr-2` pulls the cap
+from the button's 12 to the board's 4 and cannot lose.
+
+Measured in the running app: button 32/8, cap 24/4 at 10%, insets 4·4·4, label
+gap 6, edge-to-label 12, glyphs 70%. Every number the board specifies.
+
+### The Figma Button set had ten variants stacked on top of each other
+
+**`destructive` had no column of its own**, so all ten of its variants sat
+pixel-on-pixel over `primary` — the dark primary was still there, underneath, on
+every shape and every state. Nothing had been overwritten and the component was
+never wrong: `Tone` already listed `destructive` as an option.
+
+Each shape group now runs `primary · destructive · secondary · ghost ·
+destructive-ghost` — the two FILLS first, then the quiet ones. 44 variants
+repositioned, set widened 856 → 1064, zero overlaps left.
+
+### The trail and the drawer's path were two implementations of one idea
+
+Five differences, none of them a decision: the trail ran **400** where the
+drawer's steps run 500, in **`fg-2`** against the drawer's `fg-muted`, its
+separator was knocked back a further **50%**, the steps sat **8px** apart
+instead of 6, and a hovered crumb changed colour with **no underline** while a
+hovered step got both.
+
+**The size stays different, and that one IS a decision.** A drawer step is
+`title/500` because it is the drawer's own title; a sheet crumb is `body` under
+a `name/500` title (§12a). The rung differs; the treatment should not.
+
+## The app shell tightened to an 8px mount, and the rail stopped moving vertically
+
+Two boards: `app shell with no` (357:3163) and the `Sidebar` component's two
+variants (50:2360). Measured off the boards, not read off the screenshots.
+
+| | Was | Now |
+|---|---|---|
+| Frame gutter | 12 | **8** — a mount, not a margin |
+| Brand band | 76 (12 gutter + 16 + 32 + 16) | **72** (8 + 16 + 32 + 16) |
+| Group label block | 32 (12 above, 4 below) | **24** (4/4) |
+| Account row | 48 | **40** |
+| Account inset | 7 / 12 | **8 / 12**, closing to 8 collapsed |
+| Page title | `name/500` | **`title/500`** |
+| Centreline, both columns | 44 | **40** |
+
+### The collapsed rail is the expanded one with the words taken out
+
+Every y in the two variants is **identical** — rows at 0·34·94·128·162·222·
+256·290·324, group blocks at 68 and 196, the footer at 802. Nothing moves
+vertically. The group label keeps its 24px box and the 16px rule lands on the
+label's own centreline, so the two crossfade in place.
+
+That is what the old code got wrong. `rail-y` collapsed the label's height and
+padding to zero and `rail-y-in` grew a 1px line in its place, so every group
+below slid upward while the rail was still travelling. **Two axes moving at
+once is what read as a jump.** Verified: all eleven gaps measure 2px in both
+states.
+
+### A width has to close to the real width
+
+`rail-x` animated `max-width: 12rem → 0`. A 42px label spends the first 78% of
+that transition above its own width with nothing visible happening, then
+vanishes in the last 44ms — the label snapped while the rail glided.
+
+A grid track sized **`1fr → 0fr`** interpolates the CONTENT's width. Sampled in
+the running app: at 40ms the rail is 36% closed and the label is 36% gone —
+**0pt of drift** through the first half, and the label is clear before the rail
+lands rather than being guillotined by it. `0fr` only reaches zero if the item's
+automatic minimum size is zero, which is what `overflow: hidden` on the child
+buys — so each `rail-x` takes exactly one child.
+
+One curve and one duration for the whole movement, `--rail-duration` and
+`--ease-rail` in `:root`, read by both the sidebar frame and everything
+travelling inside it. `linear` on a 200ms width reads mechanical;
+`cubic-bezier(0.32, 0.72, 0, 1)` leaves fast and lands soft, which is what makes
+the two edges feel attached to one another.
+
+### The shortcut cap was reading as a second label — then Jaseem took its face off
+
+14px glyphs beside a 13px word, and a 10px letter cap beside the 14px glyph —
+the two kinds of cap did not even match each other. **12px glyph, 11px letter**:
+one optical size, a rung under the label it annotates.
+
+**And then the face went entirely.** Pinning the box to the button's right end
+stopped it floating, but a second filled rectangle inside every button is still
+an edge the eye has to resolve, and across a screenful of them it reads as
+clutter — his call, and the right one. The glyphs alone say *key*: ⌘ and
+`corner-down-left` are marks that exist nowhere else in the product.
+
+The geometry follows from that. With no face the cap is **content**, not an
+object pinned to an edge, so it sits inside the button's own padding: **12 from
+the right edge** — the same inset the label has on the left — and **8 from the
+label**. The old `-mr-2` existed to pull a boxed cap out to the board's 4; a
+bare glyph that close reads as falling off the end.
+
+## Three things came out of the header and the frame, and none of them were decisions
+
+Jaseem's review of `/stacks`. All three are removals.
+
+### The count is gone from every list page
+
+`8 stacks · 2 need attention`, `3 addons`, `1 domain`, `4 environments · 3
+repositories` — nine pages, all deleted.
+
+The fact had a rule of its own (§12a, "the page's one fact, opposite the
+title") and it survived several passes on the strength of it. **The rows are
+the count.** A number above a list restates what is already on screen, and
+because it sat at the far right of a 1400px band it was the first thing the eye
+hit on entering every page in the product — a readout, ahead of the thing it
+was counting.
+
+`PageHeader` keeps its `status` prop: the Postgres detail page still uses it for
+a status pill, which is a fact about an *object* and out of scope here.
+
+**One test had to be rebuilt rather than deleted.** The stacks story
+`TwoLineRowsAreTheAttentionSet` read the number out of the header text and
+checked it against the number of two-line rows — a genuine invariant (only
+`needsAttention` rows get a reason line; a superseded release writes a message
+too and must not). With the header text gone it names the two rows instead.
+`HeaderFact` was likewise repurposed, not dropped: its second assertion was the
+real test that preview-created stacks stay out of the list.
+
+### There is no 14px button, and the header was making one
+
+```
+<div id="topnav-actions" className="… [&_button]:text-name" />
+```
+
+Every `Button` in the system is `text-body` — a size variant changes **height**,
+never type (§6). This one line put every button that portalled into the header
+at 14.
+
+Two things marked it as a mistake rather than a rule. Nothing in the design doc
+backed it; its only justification was its own comment. And because a container
+descendant rule outranks the button's own class, a call site could not opt out —
+the stack editor was carrying `[&_button]:!text-body` purely to force the
+documented 13 back onto its row. Both are gone. **The band sets no type.**
+
+### `SidebarRail` was an affordance for a feature that does not exist
+
+An empty 16px `<button>` straddling the sidebar's right edge: invisible at rest,
+`tabIndex={-1}`, a 2px line on hover, and `cursor-w-resize` — **a resize cursor
+on a control that only ever toggled.** No drag was ever implemented.
+
+It also gave screen readers a second control named "Toggle Sidebar", duplicating
+the real one in the header. Deleted, component and export: it contributed no
+layout (absolute, transparent, inside a `fixed` parent), nothing referenced it,
+and collapsing already had two working paths — the header toggle and ⌘B.
+
+## The drawer's animation, measured — and two of the three things were wrong
+
+`better-interface` (its `better-ui` motion module) is the animation consultant
+now. Its instruction is to slow motion down and walk it frame by frame rather
+than watch it at speed, so every number below came out of the running app.
+
+The drawer shipped with shadcn's default: `animate-in … slide-in-from-right …
+fade-in-0`, `duration-200`, on both the panel and the scrim.
+
+### It faded while it moved
+
+| t | panel x | panel opacity |
+|---|---|---|
+| 75ms | 1394 | 0.07 |
+| **100ms** | **1240** | **0.31** |
+| 150ms | 955 | 0.76 |
+
+A third of the way through the open, the stacks list was showing **through** an
+opaque white panel. Nothing solid becomes transparent while it travels. The
+scrim is a wash and fades; the panel only moves.
+
+### It could not be interrupted, and the jump was 208px
+
+Keyframes run on a fixed timeline and cannot start from wherever the last one
+reached. Pressing Esc 112ms into the open, with the panel at **x=1232**:
+
+```
+before   100ms:1232 → 112ms:800   ← 432px the WRONG WAY, in one frame
+after     87ms:1203 → 108ms:1038 → 121ms:1219 → 137ms:1377
+```
+
+Travel is a `transition` on `translate` now, which retargets from the current
+value. Two pieces make that work under Radix:
+
+- **`@keyframes drawer-present`** — Radix keeps an exiting node mounted only
+  while an *animation* is running on it, so a transition alone would be
+  unmounted before it could play. This is a no-op keyframe that holds the mount
+  for exactly the exit duration. **It animates `visibility`, not `opacity`** —
+  the first version held `opacity: 1 → 1`, and because a running animation
+  outranks a transition on the same property it pinned the scrim fully opaque
+  for its whole exit. The panel slid away and the wash cut out underneath it in
+  one frame.
+- **`@starting-style`** — Radix mounts the node with `data-state="open"`
+  already set, so there is no value to transition *from*. Where it is
+  unsupported the drawer arrives instantly: a degradation, not a break.
+
+### The easing accelerated into the movement
+
+`ease` is the tw-animate default and it eases IN — the panel crawled off the
+edge for the first 40ms and then rushed the landing. It now shares the rail's
+curve, renamed **`--ease-panel`**, because a rail changing width and a drawer
+changing position are the same job: a large surface moving. One curve, one
+token, two surfaces that cannot drift.
+
+### And two smaller ones
+
+**260 in, 180 out.** They were both 200. Arriving asks to be followed; leaving
+must not compete with whatever you turned to next.
+
+**`prefers-reduced-motion` was not honoured at all** — measured at 200ms in both
+modes. The panel still *arrives* under reduced motion, because a drawer that was
+not there a moment ago is a change of place rather than a flourish. It just
+skips the journey.
+
+### Left alone, deliberately
+
+`ui/sheet.tsx` carries the same default (`duration-500` in, `300` out, `transition
+ease-in-out`). It is the mobile off-canvas sidebar, not this drawer.

@@ -1,10 +1,10 @@
-import { useState, useCallback, useMemo, type ReactNode } from "react";
-import { Activity, ChevronDown, ChevronRight, History, LayoutGrid, MoreHorizontal, Pencil, ScrollText, Trash2 } from "lucide-react";
+import { type ReactNode } from "react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useSelectionSlide, SELECTION_SLIDE_TRANSITION } from "@/hooks/use-selection-slide";
 import { Button } from "@/components/ui/button";
-import { StatusPill } from "@/components/branded";
-import { statusVariant } from "@/components/branded/status-variant";
+import { PageHeader, StatusChip } from "@/components/branded";
 import type { StackLifecycle } from "@/api/stacks";
 import {
   DropdownMenu,
@@ -14,22 +14,30 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AutosaveStatus } from "./autosave-status";
 import { DeployPill } from "./deploy-pill";
-import { DrawerInsetContext } from "@/pages/stacks/lib/canvas/drawer-inset";
-import { HeaderCollapseContext } from "@/pages/stacks/lib/canvas/header-collapse";
+import { CanvasOverlayContext } from "@/pages/stacks/lib/canvas/canvas-overlay";
 import type { SyncStatus } from "@/pages/stacks/lib/draft-sync/constants";
 import { PublicEndpointRow, type PublicEndpoint } from "./public-endpoint-row";
 import { EDITOR_TABS, type EditorTabId } from "./editor-tabs";
+import { rollupWord } from "@/pages/stacks/components/list/status";
+import type { ReleaseHealth } from "./tabs/deployments/derive";
 
-const COLLAPSE_KEY_PREFIX = "stackdome.editor-header-collapsed.";
-const DRAFT_COLLAPSE_ID = "draft";
 
-/** The four editor modes, in display order. Icons per the design bundle. */
+/**
+ * The four editor modes, in display order.
+ *
+ * **No icons.** Each carried one, and not one of them made a distinction the
+ * word did not already make — a grid, a clock, a scroll and a wave beside four
+ * unambiguous nouns. They cost 22px each on a row that also has to hold a
+ * status and three controls, and the active tab ended up wearing a border to
+ * be found among them. Words alone, and the selection is the wash.
+ */
 const TAB_ITEMS = [
-  { id: EDITOR_TABS.architecture, label: "Architecture", Icon: LayoutGrid },
-  { id: EDITOR_TABS.deployments, label: "Deployments", Icon: History },
-  { id: EDITOR_TABS.logs, label: "Logs", Icon: ScrollText },
-  { id: EDITOR_TABS.metrics, label: "Metrics", Icon: Activity },
+  { id: EDITOR_TABS.architecture, label: "Architecture" },
+  { id: EDITOR_TABS.deployments, label: "Deployments" },
+  { id: EDITOR_TABS.logs, label: "Logs" },
+  { id: EDITOR_TABS.metrics, label: "Metrics" },
 ] as const;
+
 
 export interface CanvasEditorShellProps {
   stackName: string;
@@ -63,13 +71,11 @@ export interface CanvasEditorShellProps {
   /** An edit session is open. */
   isActive: boolean;
   /** Count of resources with pending changes — drives the Configuration tab badge. */
-  dirtyResourceCount: number;
   /** Total dirty entities (resources + volumes + addon links) — drives "View changes (N)". */
   dirtyTotal: number;
   /** A saved-but-undeployed diff exists (lifecycle.phase === "staged"). */
   isStaged: boolean;
   /** Open the review-and-discard modal for undeployed changes. */
-  onViewChanges: () => void;
   /** Autosave status for existing stacks (idle/saving/saved/error). */
   syncStatus: SyncStatus;
   deployBusy: boolean;
@@ -79,15 +85,19 @@ export interface CanvasEditorShellProps {
   draftDeploying?: boolean;
   onDeploy: () => void;
   /** Session-scope discard of server-persisted draft changes. */
-  onDiscardDraft?: () => void;
   /** Whether the "Discard draft changes" menu item should appear. */
-  canDiscardDraft: boolean;
   onDelete: () => void;
   /** Whether Delete is enabled. */
   canDeleteStack: boolean;
 
   /** Public endpoints to show in the expanded header (one row of chips). */
   publicEndpoints?: PublicEndpoint[];
+  /**
+   * Which copy of the stack is showing, and its menu. Built by the page (which
+   * owns the mode) rather than here, because the canvas has to obey the same
+   * state and the two are siblings.
+   */
+  versionChip?: ReactNode;
 
   // ── mode bodies (rendered by active tab) ──
   architecture: ReactNode;
@@ -110,7 +120,6 @@ export interface CanvasEditorShellProps {
  */
 export function CanvasEditorShell({
   stackName,
-  stackId,
   headerHealth,
   latestDeployFailed,
   lifecycle,
@@ -124,70 +133,40 @@ export function CanvasEditorShell({
   activeTab,
   onTabChange,
   isActive,
-  dirtyResourceCount,
   dirtyTotal,
   isStaged,
-  onViewChanges,
   syncStatus,
   deployBusy,
   canWrite,
   onDraftDeploy,
   draftDeploying,
   onDeploy,
-  onDiscardDraft,
-  canDiscardDraft,
   onDelete,
   canDeleteStack,
   publicEndpoints,
+  versionChip,
   architecture,
   deployments,
   logs,
   metrics,
 }: CanvasEditorShellProps) {
-  // Horizontal space (px from the viewport's right edge) claimed by the
-  // floating drawer stack; header rows and the canvas shift left by this much
-  // so the drawer pushes content instead of covering it.
-  const [drawerInset, setDrawerInset] = useState(0);
-  // Ops views overlay the (always-mounted) canvas, but the drawer stack renders
-  // position:fixed above that overlay — so on non-architecture tabs it must hide
-  // itself instead. The stored inset survives suppression, so switching back to
-  // Architecture restores both the drawer and the pushed-left chrome.
-  const drawerSuppressed = activeTab !== EDITOR_TABS.architecture;
-  const drawerInsetCtx = useMemo(
-    () => ({ setInset: setDrawerInset, suppressed: drawerSuppressed }),
-    [drawerSuppressed],
-  );
-  const effectiveDrawerInset = drawerSuppressed ? 0 : drawerInset;
+  // The inspector used to float over the canvas as a fixed-position panel, so
+  // the shell had to shift its own header rows out from under it and hide the
+  // panel on non-architecture tabs. It is now a region INSIDE the canvas body,
+  // taking width from the graph rather than from the sheet — so the header
+  // spans the full sheet at every panel state, and the ops-view overlay covers
+  // the panel the same way it covers everything else on the canvas.
 
-  // Header status pill: "Deleting" overrides everything, "Not deployed" covers a
-  // stack that has never completed a release, otherwise health drives the pill.
-  const isDeleting = lifecycle === ("deleting" satisfies StackLifecycle);
-  const pillLabel = isDeleting ? "Deleting" : headerHealth ?? "Not deployed";
-  const pillVariant = isDeleting ? "pending" : headerHealth ? statusVariant("health", headerHealth) : "neutral";
+  // **The same word the list row said.** It used to be assembled here — raw
+  // `headerHealth` when there was one, the string "Not deployed" when there was
+  // not, "Deleting" over the top — which is the stacks list's rollup rule
+  // written a second time, and it drifted: the list humanised its word and this
+  // printed the wire's, so a stack that read `Degraded` on the list read
+  // `degraded` in its own header. One function now, in the list that owns it.
+  const rollup = rollupWord(lifecycle, headerHealth as ReleaseHealth | undefined);
 
-  const collapseKey = `${COLLAPSE_KEY_PREFIX}${stackId ?? DRAFT_COLLAPSE_ID}`;
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(collapseKey) === "1";
-    } catch {
-      return false;
-    }
-  });
-  const applyCollapsed = useCallback((next: boolean) => {
-    setCollapsed(next);
-    try {
-      localStorage.setItem(collapseKey, next ? "1" : "0");
-    } catch {
-      /* storage unavailable — collapse stays session-local */
-    }
-  }, [collapseKey]);
-  const collapseCtx = useMemo(
-    () => ({ collapsed, setCollapsed: applyCollapsed }),
-    [collapsed, applyCollapsed],
-  );
-  // Header-only toggle (chevron). Zen (⌘. / canvas control) also folds the
-  // sidebar; this only trades the two header variants.
-  const toggleCollapsed = useCallback(() => applyCollapsed(!collapsed), [applyCollapsed, collapsed]);
+  const { trackRef: tabTrack, box, armed } = useSelectionSlide(activeTab, TAB_ITEMS.length);
+
 
   // The canvas (Configuration) stays mounted so its open drawer + node
   // selection survive tab switches; ops views render as an opaque overlay on
@@ -204,7 +183,11 @@ export function CanvasEditorShell({
   const actionsMenu = !isNewStack && (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button shape="flat" type="button" variant="ghost" size="icon" aria-label="Stack actions">
+        {/* A face, not a ghost. It is the last thing on a row of three
+            controls, and a ghost among two solid faces reads as absent until
+            you hover it — the same material as the version chip at the other
+            end of the cluster, which is what makes them read as one row. */}
+        <Button type="button" variant="outline" size="icon" aria-label="Stack actions">
           <MoreHorizontal className="size-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -227,214 +210,185 @@ export function CanvasEditorShell({
     </DropdownMenu>
   );
 
-  const chevron = (
-    <button
-      type="button"
-      onClick={toggleCollapsed}
-      aria-label={collapsed ? "Expand header" : "Collapse header"}
-      title={`${collapsed ? "Expand" : "Collapse"} header`}
-      className="flex size-6 flex-none items-center justify-center rounded text-fg-muted hover:bg-muted hover:text-foreground"
-    >
-      {collapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
-    </button>
-  );
-
   return (
-    <HeaderCollapseContext.Provider value={collapseCtx}>
-      <div className="flex h-full flex-col overflow-hidden bg-background">
-        {/* Both header variants stay mounted; a 1fr/0fr grid row transition
-            animates their heights in opposite directions like the sidebar's
-            width. The hidden one is inert so it can't take focus or clicks. */}
-        <div
-          className="grid flex-none transition-[grid-template-rows] duration-[260ms]"
-          style={{ gridTemplateRows: collapsed ? "1fr" : "0fr" }}
-          inert={!collapsed}
-          aria-hidden={!collapsed}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div
-              className="flex h-11 items-center gap-3 border-b border-border px-4 transition-[margin] duration-[260ms]"
-              style={{ marginRight: effectiveDrawerInset }}
-            >
-              <span className="truncate text-name font-medium text-foreground">{stackName}</span>
-              {pillLabel && (
-                <span
-                  aria-label={`status ${pillLabel}`}
+    <div className="flex h-full flex-col overflow-hidden bg-background">
+      {/* **One header — the sheet's own, not a second one under it.**
+          The editor drew its own 108px band directly beneath the sheet header,
+          so the screen opened with two hairlines, two rows of chrome and the
+          stack's name two rows above the status that described it. There was
+          never a second header's worth of content: the trail was in the top
+          band and everything else in the bottom one, which is one header split
+          across two.
+
+          It all portals into the real header now (§12a) — the status beside the
+          name it belongs to, the version and the actions on the right, the four
+          tabs in the toolbar row. The band the editor used to draw is gone, and
+          with it 108px of the canvas back. */}
+      <PageHeader
+        identity={
+          <>
+            {/* A draft has no name yet, so the field IS the title — it stands
+                where the breadcrumb's last segment would, rather than in a
+                band of its own. */}
+            {nameEditable && (
+              <div className="group flex min-w-0 items-center gap-2">
+                <Input
+                  aria-label="Stack name"
+                  aria-invalid={!!nameError}
+                  value={stackName}
+                  onChange={(e) => onNameChange?.(e.target.value)}
+                  placeholder="name-your-stack"
                   className={cn(
-                    "size-2 flex-none rounded-full",
-                    pillVariant === "ready"
-                      ? "bg-success"
-                      : pillVariant === "error"
-                        ? "bg-danger"
-                        : pillVariant === "neutral"
-                          ? "bg-fg-muted"
-                          : "bg-warn",
+                    "h-8 w-[22ch] rounded-md border-dashed bg-transparent",
+                    nameError
+                      ? "border-danger"
+                      : "border-border/60 hover:border-border focus-visible:border-foreground",
                   )}
                 />
-              )}
-              {latestDeployFailed && (
-                <span
-                  aria-label="Latest deploy failed"
-                  title="Latest deploy failed"
-                  className="size-2 flex-none rounded-full bg-danger"
-                />
-              )}
-              <div className="mx-2 flex items-center gap-1">
-                {TAB_ITEMS.map(({ id, label, Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => onTabChange(id)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md border px-2 py-1 text-meta font-medium transition-colors",
-                      activeTab === id
-                        ? "border-border-strong bg-foreground/[0.06] text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="size-3.5" />
-                    {label}
-                  </button>
-                ))}
+                <Pencil className="size-4 flex-none text-muted-foreground/60 transition-opacity group-focus-within:opacity-0" />
+                {/* The message was a line under the band. With no band left it
+                    sits where the fault is — beside the field, in the row that
+                    is already the width of the sheet. */}
+                {nameError && <span className="text-meta text-danger">{nameError}</span>}
               </div>
-              <div className="flex-1" />
-              <PublicEndpointRow endpoints={publicEndpoints ?? []} compact />
-              {actionsMenu}
-              {chevron}
-            </div>
+            )}
+            {!isNewStack && <StatusChip domain="stack_rollup" state={rollup} />}
+            {/* A SECOND fact, not a second reading of the first: the stack is
+                serving, and the newest attempt to change it did not land. The
+                rollup word cannot say it without lying about the live release.
+                It is a button because the thing you want next is the deploy it
+                came from. */}
+            {latestDeployFailed && (
+              <button
+                type="button"
+                onClick={() => onTabChange(EDITOR_TABS.deployments)}
+                aria-label="Latest deploy failed — view deployments"
+                className="focus-ring-edge rounded-sm transition-opacity hover:opacity-80"
+              >
+                {/* `release`, not `stack_rollup` — this reports one deploy
+                    attempt, and the rollup beside it reports the stack. */}
+                <StatusChip domain="release" state="Failed" />
+              </button>
+            )}
+          </>
+        }
+        actions={
+          // 6px through the whole cluster, and the cluster is one box so the
+          // slot's own 8px gap cannot reach inside it. The `[&_button]:!text-body`
+          // that used to sit here is gone with the reason for it: the bar ran
+          // its buttons at 14 and this row had to force the documented 13 back.
+          // The bar no longer sets type, so the Button's own size stands.
+          <div className="flex items-center gap-1.5">
+            {!isNewStack && <AutosaveStatus status={syncStatus} />}
+            {versionChip}
+            <DeployPill
+              isDraft={isNewStack}
+              hasResources={hasResources}
+              dirtyTotal={dirtyTotal}
+              isStaged={isStaged}
+              isActive={isActive}
+              deployBusy={deployBusy}
+              draftDeploying={draftDeploying}
+              canWrite={canWrite}
+              onDeploy={onDeploy}
+              onDraftDeploy={onDraftDeploy}
+            />
+            {actionsMenu}
           </div>
-        </div>
-        <div
-          className="grid flex-none transition-[grid-template-rows] duration-[260ms]"
-          style={{ gridTemplateRows: collapsed ? "0fr" : "1fr" }}
-          inert={collapsed}
-          aria-hidden={collapsed}
-        >
-          <div className="min-h-0 overflow-hidden">
-            {/* Stack-title header — identity only (fade/translate on expand per design sd-fade) */}
-            <div
-              className="px-7 pt-6 transition-[margin] duration-[260ms]"
-              style={{ marginRight: effectiveDrawerInset }}
-            >
-              <div className="flex items-center gap-3.5">
-                {nameEditable ? (
-                // Same type metrics as the post-create h1; the dashed underline +
-                // pencil signal that the name is still editable (it freezes at deploy).
-                  <div className="group flex min-w-0 items-center gap-2.5">
-                    <Input
-                      aria-label="Stack name"
-                      aria-invalid={!!nameError}
-                      value={stackName}
-                      onChange={(e) => onNameChange?.(e.target.value)}
-                      placeholder="name-your-stack"
-                      className={cn(
-                        "h-auto w-[22ch] rounded-none border-0 border-b border-dashed bg-transparent px-0 text-head font-medium tracking-[-0.02em] shadow-none md:text-head",
-                        nameError
-                          ? "border-danger"
-                          : "border-border/60 hover:border-border focus-visible:border-foreground",
-                      )}
-                    />
-                    <Pencil className="size-4 flex-none text-muted-foreground/60 transition-opacity group-focus-within:opacity-0" />
-                  </div>
-                ) : (
-                  <h1 className="truncate text-head font-medium tracking-[-0.02em] text-foreground">{stackName}</h1>
+        }
+        toolbar={
+          // 2px apart. The tabs used to sit 4px apart in bordered boxes, which
+          // made four navigation targets look like four controls; at 2px with
+          // no border they read as one group and the wash is the only mark.
+          <nav ref={tabTrack} aria-label="Editor sections" className="relative flex items-center gap-0.5">
+            {/* The travelling face. Behind the labels, so the ink on top never
+                cross-fades with it. */}
+            {box && (
+              <span
+                aria-hidden
+                data-slot="tab-indicator"
+                className={cn(
+                  "absolute left-0 top-0 h-8 rounded-md bg-[var(--wash-selected)]",
+                  armed && SELECTION_SLIDE_TRANSITION,
                 )}
-                {pillLabel && (
-                  <StatusPill variant={pillVariant} className="flex-none">
-                    {pillLabel}
-                  </StatusPill>
-                )}
-                {latestDeployFailed && (
-                  <button
-                    type="button"
-                    onClick={() => onTabChange(EDITOR_TABS.deployments)}
-                    className="flex-none"
-                    aria-label="Latest deploy failed — view deployments"
-                  >
-                    <StatusPill variant="error" pulse={false} className="cursor-pointer hover:opacity-80">
-                    Deploy failed
-                    </StatusPill>
-                  </button>
-                )}
-                <div className="flex-1" />
-              </div>
-              {nameEditable && nameError && (
-                <p className="mt-1 text-meta text-danger">{nameError}</p>
-              )}
-              <PublicEndpointRow endpoints={publicEndpoints ?? []} />
-              {notice}
-            </div>
+                style={{ transform: `translateX(${box.x}px)`, width: box.w }}
+              />
+            )}
+            {TAB_ITEMS.map(({ id, label }) => {
+              const active = activeTab === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  data-tab
+                  data-active={active}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => onTabChange(id)}
+                  className={cn(
+                    // 8, not 6. §2 makes radius a function of HEIGHT — 28/6 ·
+                    // 32/8 · 40/12 — and a tab is a 32px box like every other
+                    // control on the row. At 6 the three controls beside it
+                    // carried two different corners.
+                    "focus-ring-edge relative flex h-8 items-center rounded-md px-2.5 text-body font-medium",
+                    "transition-colors duration-150",
+                    // **The wash means selected, and nothing else.** Hover was
+                    // a second, fainter wash — so pointing at a tab drew a box
+                    // that looked like the selection two rungs down, and while
+                    // the face was mid-slide there were briefly two boxes lit
+                    // and no way to tell which one you were on.
+                    //
+                    // Hover is the ink coming up to full, and that is all. §7's
+                    // rule for the segmented control: selection is carried by
+                    // ink and by the raised face, never by a competing tint.
+                    active ? "text-foreground" : "text-fg-muted hover:text-foreground",
+                  )}
+                >
+                  {/* No count here. The version chip on the row above already
+                      states what is unsaved, and it counted a different thing —
+                      session dirt, against the chip's undeployed diff — so the
+                      header showed two numbers that disagreed. A tab is
+                      navigation; status belongs with the version. */}
+                  {label}
+                </button>
+              );
+            })}
+          </nav>
+        }
+      />
+      <div>
+        <PublicEndpointRow endpoints={publicEndpoints ?? []} />
+        {notice}
+      </div>
 
-            {/* Tab + action rail */}
-            <div
-              className="flex items-center gap-2 border-b border-border px-7 py-[18px] transition-[margin] duration-[260ms]"
-              style={{ marginRight: effectiveDrawerInset }}
-            >
-              {TAB_ITEMS.map(({ id, label, Icon }) => {
-                const active = activeTab === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => onTabChange(id)}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md border px-[15px] py-2 text-body font-medium transition-colors",
-                      active
-                        ? "border-border-strong bg-foreground/[0.06] text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="size-[15px]" />
-                    {label}
-                    {id === EDITOR_TABS.architecture && dirtyResourceCount > 0 && (
-                      <span className="ml-0.5 rounded-full bg-brand-bg px-1.5 py-px font-mono text-[9.5px] font-medium text-brand">
-                        {dirtyResourceCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-              <div className="flex-1" />
-              {!isNewStack && <AutosaveStatus status={syncStatus} />}
-              {actionsMenu}
-              {chevron}
-            </div>
-          </div>
-        </div>
-
-        {/* Mode body. The canvas is always mounted (keeps its drawer/selection);
+      {/* Mode body. The canvas is always mounted (keeps its drawer/selection);
           ops views overlay it. Ops views own their own max-width + padding. */}
-        <div className="relative min-h-0 flex-1 overflow-hidden">
-          <div className="absolute inset-y-0 left-0 transition-[right] duration-[260ms]" style={{ right: effectiveDrawerInset }}>
-            <DrawerInsetContext.Provider value={drawerInsetCtx}>{architecture}</DrawerInsetContext.Provider>
-            {activeTab === EDITOR_TABS.architecture && (
-              <>
-                {/* Resource/volume tally lives on the canvas (bottom-right) rather
-                    than the header, keeping the header a line shorter. */}
-                <span className="pointer-events-none absolute bottom-3 right-4 z-10 font-mono text-label text-fg-muted">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="absolute inset-0">
+          {/* Handed to the canvas rather than rendered here: the inspector
+                takes 480 off the right, and this chrome has to sit inside what
+                is left of the graph. See `CanvasOverlayContext`. */}
+          <CanvasOverlayContext.Provider
+            value={
+              activeTab === EDITOR_TABS.architecture ? (
+                // Resource/volume tally lives on the canvas (bottom-right)
+                // rather than the header, keeping the header a line shorter.
+                //
+                // **Not mono.** `4 resources · 1 volume` is a count, and a count
+                // is not a URL — it was the last mono left on this surface. And
+                // **16 from both edges**, not 12/16: the canvas had three
+                // overlays at three different insets (island 16, hint 18, tally
+                // 12/16), so nothing on it lined up with anything else.
+                <span className="pointer-events-none absolute bottom-4 right-4 z-10 text-label tabular-nums text-fg-muted">
                   {subtitle}
                 </span>
-                <DeployPill
-                  isDraft={isNewStack}
-                  hasResources={hasResources}
-                  dirtyTotal={dirtyTotal}
-                  isStaged={isStaged}
-                  isActive={isActive}
-                  deployBusy={deployBusy}
-                  draftDeploying={draftDeploying}
-                  canWrite={canWrite}
-                  onDeploy={onDeploy}
-                  onDraftDeploy={onDraftDeploy}
-                  onViewChanges={onViewChanges}
-                  canDiscardDraft={canDiscardDraft}
-                  onDiscardDraft={onDiscardDraft}
-                />
-              </>
-            )}
-          </div>
-          {opsBody && <div className="absolute inset-0 overflow-auto bg-background">{opsBody}</div>}
+              ) : null
+            }
+          >
+            {architecture}
+          </CanvasOverlayContext.Provider>
         </div>
+        {opsBody && <div className="absolute inset-0 overflow-auto bg-background">{opsBody}</div>}
       </div>
-    </HeaderCollapseContext.Provider>
+    </div>
   );
 }

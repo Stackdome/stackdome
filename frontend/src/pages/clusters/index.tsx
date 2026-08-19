@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { useClusters } from "./hooks/use-clusters";
 import { ClusterList, ClusterListSkeleton } from "./components/cluster-list";
-import AddClusterDialog from "./components/add-cluster-dialog";
+import AddClusterDrawer from "./components/add-cluster-drawer";
 import type { ClusterData } from "./hooks/use-clusters";
 import { Button } from "@/components/ui/button";
 import { PageHeader, EmptyState, BlockedAction } from "@/components/branded";
@@ -15,7 +15,7 @@ import { useBreadcrumb } from "@/hooks/use-breadcrumb";
 
 export default function ClustersPage() {
   const { clusters, loading, error, refetch } = useClusters();
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showAddDrawer, setShowAddDrawer] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -41,7 +41,7 @@ export default function ClustersPage() {
     try {
       await createCluster(orgId, clusterData);
       refetch();
-      setShowAddDialog(false);
+      setShowAddDrawer(false);
       toast({
         title: "Cluster added",
         description: "The cluster has been added successfully.",
@@ -59,7 +59,7 @@ export default function ClustersPage() {
     <BlockedAction
       reason={clusters.length >= 1 ? "Only one cluster is supported today." : null}
     >
-      <Button variant={variant} onClick={() => setShowAddDialog(true)}>
+      <Button variant={variant} onClick={() => setShowAddDrawer(true)}>
         <Plus />
         Add cluster
       </Button>
@@ -69,16 +69,6 @@ export default function ClustersPage() {
   return (
     <div className="flex flex-1 flex-col h-full">
       <PageHeader
-        // §12a's one fact. No eyebrow, no subtitle: the explanation belongs to
-        // the empty state, where it is actually needed. This page has no tools,
-        // so it passes no toolbar and the band collapses to 56px.
-        status={
-          !loading && !error && clusters.length > 0 ? (
-            <span className="text-name tabular-nums text-fg-muted">
-              {clusters.length} {clusters.length === 1 ? "cluster" : "clusters"}
-            </span>
-          ) : undefined
-        }
         actions={addCluster("default")}
       />
 
@@ -113,9 +103,14 @@ export default function ClustersPage() {
         <ClusterList clusters={clusters} />
       )}
 
-      <AddClusterDialog
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
+      <AddClusterDrawer
+        open={showAddDrawer}
+        // Clearing on close, so a failure from a previous attempt does not
+        // greet the next one from the footer of an empty form.
+        onOpenChange={(next) => {
+          if (!next) setCreateError(null);
+          setShowAddDrawer(next);
+        }}
         onAddCluster={handleAddCluster}
         isLoading={createLoading}
         error={createError}

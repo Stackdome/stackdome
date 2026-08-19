@@ -65,6 +65,9 @@ export function ConfigurePhase({ repo, onCreated }: ConfigurePhaseProps) {
     if (new Set(named.map((row) => row.name.trim())).size !== named.length) {
       missing.push("Give every environment variable a different name");
     }
+    // A half-written reference — `{{ secret. }}` with no name — would submit a
+    // variable pointing at nothing. It is now typed rather than picked, so the
+    // check matters more, not less.
     if (named.some((row) => /^\{\{\s*secret\.\s*\}\}$/.test(row.value))) {
       missing.push("Pick a secret for the Secret-sourced variable");
     }
@@ -198,9 +201,12 @@ export function ConfigurePhase({ repo, onCreated }: ConfigurePhaseProps) {
           />
         </FieldShell>
 
+        {/* The same rows as `Repository settings`, deliberately: this is where
+            the field is first filled in and that is where it is edited, minutes
+            apart. Two shapes for one field is how the two drift. */}
         <FieldShell
-          label="Environment variables (optional)"
-          hint="Applied to every preview. Reference saved secrets with the Secret source instead of pasting raw values."
+          label="Environment variables"
+          hint="Applied to every preview. Reference a saved secret with the Secret source rather than pasting the value here."
           error={fieldErrors.env}
         >
           <EnvVarsEditor

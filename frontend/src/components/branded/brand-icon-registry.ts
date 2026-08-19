@@ -7,6 +7,13 @@
 // enough to share one art; near-mono ones (mariadb navy, influxdb navy,
 // clickhouse yellow, minio's black wordmark) need a contrasting variant so
 // they stay legible on both surfaces.
+import dockerUrl from "@/assets/brand/docker.svg";
+import dockerLightUrl from "@/assets/brand/docker-light.svg";
+import githubUrl from "@/assets/brand/github.svg";
+import githubLightUrl from "@/assets/brand/github-light.svg";
+import gitlabUrl from "@/assets/brand/gitlab.svg";
+import bitbucketUrl from "@/assets/brand/bitbucket.svg";
+import giteaUrl from "@/assets/brand/gitea.svg";
 import postgresUrl from "@/assets/addons/postgresql.svg";
 import redisUrl from "@/assets/addons/redis.svg";
 import mysqlUrl from "@/assets/brand/mysql.svg";
@@ -28,6 +35,16 @@ import minioLightUrl from "@/assets/brand/minio-light.svg";
 import postgrestUrl from "@/assets/brand/postgrest.png";
 
 export const BRAND_ICONS: Record<string, { light: string; dark: string }> = {
+  // The hosts — git providers and image registries. They were TWO more maps
+  // (`branded/provider-logo.tsx` and the image-registries copy), both importing
+  // these same GitHub and GitLab files and both hand-rolling the light/dark
+  // `<img>` pair this file's `BrandIcon` already draws. Three registries, and
+  // this one's own comment claimed to be the only one.
+  docker: { light: dockerUrl, dark: dockerLightUrl },
+  github: { light: githubUrl, dark: githubLightUrl },
+  gitlab: { light: gitlabUrl, dark: gitlabUrl },
+  bitbucket: { light: bitbucketUrl, dark: bitbucketUrl },
+  gitea: { light: giteaUrl, dark: giteaUrl },
   postgres: { light: postgresUrl, dark: postgresUrl },
   redis: { light: redisUrl, dark: redisUrl },
   mysql: { light: mysqlUrl, dark: mysqlUrl },

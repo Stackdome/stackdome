@@ -22,9 +22,17 @@ async function bootstrap() {
   // Consumers fail closed, so the warm-up's own rejection is swallowed here.
   void getAppConfig().catch(() => {})
 
+  // Agentation's annotation toolbar: click anything in the running app to pin a
+  // note, which syncs back to the coding agent over MCP. Dynamic import for the
+  // same reason as the mocks above — it never reaches a production bundle.
+  const Agentation = import.meta.env.DEV
+    ? (await import('agentation')).Agentation
+    : null
+
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <App />
+      {Agentation && <Agentation />}
     </StrictMode>,
   )
 }

@@ -85,15 +85,15 @@ func (mr *MockStackValidatorMockRecorder) ValidateForUpdate(ctx, existing, spec 
 }
 
 // ValidateShell mocks base method.
-func (m *MockStackValidator) ValidateShell(ctx context.Context, spec *models.Stack) *errors.ServiceError {
+func (m *MockStackValidator) ValidateShell(ctx context.Context, existing, spec *models.Stack) *errors.ServiceError {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateShell", ctx, spec)
+	ret := m.ctrl.Call(m, "ValidateShell", ctx, existing, spec)
 	ret0, _ := ret[0].(*errors.ServiceError)
 	return ret0
 }
 
 // ValidateShell indicates an expected call of ValidateShell.
-func (mr *MockStackValidatorMockRecorder) ValidateShell(ctx, spec any) *gomock.Call {
+func (mr *MockStackValidatorMockRecorder) ValidateShell(ctx, existing, spec any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateShell", reflect.TypeOf((*MockStackValidator)(nil).ValidateShell), ctx, spec)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateShell", reflect.TypeOf((*MockStackValidator)(nil).ValidateShell), ctx, existing, spec)
 }

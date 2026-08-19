@@ -42,7 +42,7 @@ function Toolbar() {
     <>
       <div className="flex items-center gap-1.5">
         <div className="relative w-[300px]">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-muted" />
+          <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-fg-muted" />
           <Input placeholder="Filter stacks…" className="pl-8" />
         </div>
         <Button variant="outline" shape="flat">
@@ -90,19 +90,16 @@ function Shell({
   )
 }
 
-/** The page's one fact and its primary, in the title row's right slot. */
+/** The page's primary, in the title row's right slot. */
 function HeaderAction() {
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   useEffect(() => setSlot(document.getElementById('topnav-actions')), [])
   if (!slot) return null
   return createPortal(
-    <>
-      <span className="mr-1 text-name tabular-nums text-fg-muted">8 stacks</span>
-      <Button>
-        <Plus />
-        New stack
-      </Button>
-    </>,
+    <Button>
+      <Plus />
+      New stack
+    </Button>,
     slot,
   )
 }

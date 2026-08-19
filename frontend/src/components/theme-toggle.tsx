@@ -42,7 +42,9 @@ export function ThemeToggle({ variant = "secondary", presentation = "icon" }: Th
         {/* Collapsed there is no room for the word, and nothing clips it at
             this level — it would spill past the rail's edge. `rail-x` vacates
             the space and fades with the width rather than snapping. */}
-        <span className="rail-x truncate">Appearance</span>
+        <span className="rail-x">
+          <span className="truncate">Appearance</span>
+        </span>
       </button>
     );
   }

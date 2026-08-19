@@ -54,9 +54,11 @@ export function NavUser({
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            {/* 48px, so the two lines and the 28px avatar sit without crowding
+            {/* 40px, so the two lines and the 28px avatar sit without crowding
                 — the one row in the frame that is not on the 32px ladder,
-                because it carries two lines of type rather than one. */}
+                because it carries two lines of type rather than one. It ran at
+                48; the board closed it to 40 (20 + 16 of type in a 40 box),
+                which is what puts the whole footer block at 74px. */}
             <SidebarMenuButton
               size="lg"
               aria-label={`${user.name}${user.organisation ? `, ${user.organisation}` : ""} — account menu`}
@@ -66,10 +68,10 @@ export function NavUser({
               //
               // The primitive forces every collapsed row to a 32px square with
               // no padding (`size-8!` + the `lg` size's `p-0!`). That is right
-              // for a one-line nav row and wrong here — this row is 48px and
+              // for a one-line nav row and wrong here — this row is 40px and
               // carries a 28px avatar, so shrinking it moved the avatar and
               // changed the row's height in the same frame. These override it.
-              className="h-12 gap-2.5 px-2 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:h-12! group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:px-2!"
+              className="h-10 gap-2.5 px-1.5 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:h-10! group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:px-1.5!"
             >
               {/* A control's own fill and a hairline, not a photo well — the
                   avatar is a fallback monogram far more often than an image. */}
@@ -79,13 +81,19 @@ export function NavUser({
                   {initials(user.name)}
                 </AvatarFallback>
               </Avatar>
-              <div className="rail-x grid flex-1 overflow-hidden text-left">
-                <span className="truncate text-body font-medium leading-5">{user.name}</span>
-                <span className="truncate text-meta font-normal leading-4 text-fg-muted">
-                  {user.organisation || user.email}
-                </span>
+              {/* `rail-x` is a track that closes to zero — it clips exactly
+                  ONE child, so both of these carry a wrapper. */}
+              <div className="rail-x flex-1 text-left">
+                <div className="grid">
+                  <span className="truncate text-body font-medium leading-5">{user.name}</span>
+                  <span className="truncate text-meta font-normal leading-4 text-fg-muted">
+                    {user.organisation || user.email}
+                  </span>
+                </div>
               </div>
-              <ChevronsUpDown className="rail-x ml-auto size-4 shrink-0 text-fg-2" />
+              <span className="rail-x ml-auto">
+                <ChevronsUpDown className="size-4 shrink-0 text-fg-2" />
+              </span>
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent

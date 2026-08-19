@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { fn } from 'storybook/test'
 import { SYNC_STATUS } from '@/pages/stacks/lib/draft-sync/constants'
-import { withHeight } from '../../../../../.storybook/decorators'
+import { withHeight, withSheetHeader } from '../../../../../.storybook/decorators'
 import { EDITOR_TABS } from './editor-tabs'
 import { CanvasEditorShell, type CanvasEditorShellProps } from './canvas-editor-shell'
 
@@ -21,15 +21,12 @@ const defaultShellProps: CanvasEditorShellProps = {
   activeTab: EDITOR_TABS.architecture,
   onTabChange: fn(),
   isActive: false,
-  dirtyResourceCount: 0,
   dirtyTotal: 0,
   isStaged: false,
-  onViewChanges: fn(),
   syncStatus: SYNC_STATUS.idle,
   deployBusy: false,
   canWrite: true,
   onDeploy: fn(),
-  canDiscardDraft: false,
   onDelete: fn(),
   canDeleteStack: true,
   publicEndpoints: [{ service: 'web', url: 'https://web.example.com', port: 443, variant: 'ready' }],
@@ -43,7 +40,10 @@ const meta = {
   title: 'Features/EditorChrome/CanvasEditorShell',
   component: CanvasEditorShell,
   tags: ['ai-generated'],
-  decorators: [withHeight(560)],
+  // The shell draws no header of its own — status, version, Deploy, the kebab
+  // and the four tabs all portal into the sheet header (§12a). Mounted bare it
+  // is a canvas with no chrome, so the story has to supply the real header.
+  decorators: [withHeight(560), withSheetHeader],
   args: defaultShellProps,
 } satisfies Meta<typeof CanvasEditorShell>
 
@@ -63,7 +63,6 @@ export const DirtyDraft: Story = {
     onNameChange: fn(),
     onDraftDeploy: fn(),
     isActive: true,
-    dirtyResourceCount: 2,
     dirtyTotal: 3,
     publicEndpoints: [],
   },
@@ -89,7 +88,6 @@ export const ReadOnly: Story = {
     canWrite: false,
     canDeleteStack: false,
     isActive: true,
-    dirtyResourceCount: 1,
     dirtyTotal: 2,
     syncStatus: SYNC_STATUS.saved,
   },

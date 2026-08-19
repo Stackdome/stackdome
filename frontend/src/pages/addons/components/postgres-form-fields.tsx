@@ -178,7 +178,15 @@ export function PostgresFormFields({
             htmlFor="addon-name"
             required
             span={2}
-            hint="Lowercase letters, numbers and hyphens. Must start and end with a letter or number."
+            /* Shortened when the drawer came down to 480. §8: if a hint cannot
+               fit its column, change the copy before widening the field — and
+               `…must start and end with a letter or number.` broke to leave
+               `number.` alone on a second line, which is the case that rule
+               names. Same constraint stated from the other side: if the
+               alphabet is letters, numbers and hyphens, "starts and ends with a
+               letter or number" and "cannot start or end with a hyphen" are the
+               same sentence, and the second one fits. */
+            hint="Lowercase letters, numbers and hyphens. Cannot start or end with a hyphen."
             error={errors.name}
           >
             <Input

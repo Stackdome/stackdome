@@ -1,4 +1,4 @@
-import { Plus, AlertTriangle, Search, ChevronDown } from "lucide-react";
+import { Plus, AlertTriangle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -16,6 +16,7 @@ import { getErrorMessage } from "@/api/client";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
+  DropdownMenuChevron,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -156,11 +157,6 @@ export default function StacksPage() {
     [stacks, previewStackIds],
   );
 
-  const attentionCount = useMemo(
-    () => deployedStacks.filter(needsAttention).length,
-    [deployedStacks],
-  );
-
   // Every rollup state with its count (0 when absent), healthiest first — drives
   // the Status filter. Unknown states from the data still surface, appended
   // after the known set.
@@ -251,12 +247,12 @@ export default function StacksPage() {
   const toolbar = error ? undefined : (
     <>
       <div className="relative w-[300px]">
-        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-muted" />
+        <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-fg-muted" />
         <Input
           placeholder="Filter stacks…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="pl-[30px]"
+          className="pl-8"
           aria-label="Filter stacks"
         />
       </div>
@@ -266,7 +262,7 @@ export default function StacksPage() {
           <Button variant="outline" shape="flat">
             <span className="text-fg-2">Status:</span>{" "}
             <span>{statusFilter === ALL_STATUSES ? "All" : statusLabel(statusFilter)}</span>
-            <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
+            <DropdownMenuChevron />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-[200px]" onCloseAutoFocus={(e) => e.preventDefault()}>
@@ -293,7 +289,7 @@ export default function StacksPage() {
         <DropdownMenuTrigger asChild>
           <Button variant="outline" shape="flat">
             <span className="text-fg-2">Sort:</span> <span>{sortLabel}</span>
-            <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
+            <DropdownMenuChevron />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-[200px]" onCloseAutoFocus={(e) => e.preventDefault()}>
@@ -320,18 +316,6 @@ export default function StacksPage() {
   return (
     <div className="flex flex-1 flex-col h-full">
       <PageHeader
-        // §12a's one fact. It counts what is on screen — the old bar said
-        // "8 stacks" while six rendered, because it counted before the
-        // preview-created stacks were excluded. Attention is appended because
-        // the number that decides whether you keep reading is the second one.
-        status={
-          !loading && deployedStacks.length > 0 ? (
-            <span className="text-name tabular-nums text-fg-muted">
-              {deployedStacks.length} {deployedStacks.length === 1 ? "stack" : "stacks"}
-              {attentionCount > 0 && ` · ${attentionCount} need${attentionCount === 1 ? "s" : ""} attention`}
-            </span>
-          ) : undefined
-        }
         actions={
           canWriteAnyProject ? (
             <Button onClick={() => navigate(NEW_STACK_PATH)}>

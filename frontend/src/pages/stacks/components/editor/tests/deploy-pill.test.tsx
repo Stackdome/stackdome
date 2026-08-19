@@ -27,7 +27,9 @@ describe("DeployPill visibility", () => {
   it("shows on an existing stack with changes", () => {
     render(<DeployPill {...base} dirtyTotal={3} />);
     expect(screen.getByTestId("deploy-pill")).toBeInTheDocument();
-    expect(screen.getByText("Apply 3 changes")).toBeInTheDocument();
+    // The count and the diff moved to the version chip beside it; what is
+    // left is the commit.
+    expect(screen.getByRole("button", { name: /Deploy/ })).toBeInTheDocument();
   });
 
   it("stays visible while a deploy runs even when the count drops to zero", () => {
@@ -43,7 +45,7 @@ describe("DeployPill visibility", () => {
     expect(screen.getByTestId("deploy-pill")).toBeInTheDocument();
   });
 
-  it("draft pill has no count label, no Details, no menu", () => {
+  it("draft deploy is the same single action", () => {
     render(<DeployPill {...base} isDraft hasResources dirtyTotal={2} canDiscardDraft onDiscardDraft={() => {}} />);
     expect(screen.queryByText(/change/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
@@ -52,13 +54,6 @@ describe("DeployPill visibility", () => {
 });
 
 describe("DeployPill actions", () => {
-  it("Details opens the view-changes modal", () => {
-    const onViewChanges = vi.fn();
-    render(<DeployPill {...base} dirtyTotal={2} onViewChanges={onViewChanges} />);
-    fireEvent.click(screen.getByRole("button", { name: "Details" }));
-    expect(onViewChanges).toHaveBeenCalled();
-  });
-
   it("Deploy fires onDeploy for existing stacks, onDraftDeploy for drafts", () => {
     const onDeploy = vi.fn();
     const onDraftDeploy = vi.fn();
@@ -75,12 +70,6 @@ describe("DeployPill actions", () => {
     expect(screen.getByRole("button", { name: /deploy/i })).toBeDisabled();
   });
 
-  it("menu trigger renders only when discard applies", () => {
-    const { rerender } = render(<DeployPill {...base} dirtyTotal={1} />);
-    expect(screen.queryByLabelText("Change actions")).toBeNull();
-    rerender(<DeployPill {...base} dirtyTotal={1} canDiscardDraft onDiscardDraft={() => {}} />);
-    expect(screen.getByLabelText("Change actions")).toBeInTheDocument();
-  });
 });
 
 describe("DeployPill keyboard", () => {

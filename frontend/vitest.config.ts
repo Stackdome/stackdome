@@ -20,6 +20,9 @@ export default defineConfig({
           // Environment stays per-file via the @vitest-environment pragma the
           // existing suites already carry.
           include: ['src/**/*.{test,spec}.{ts,tsx}'],
+          // jsdom has no layout engine, so the geometry APIs it omits are
+          // stubbed here rather than guarded at every call site. See the file.
+          setupFiles: ['./src/test-support/jsdom-globals.ts'],
           sequence: { groupOrder: 0 },
         },
       },

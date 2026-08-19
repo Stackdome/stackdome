@@ -14,7 +14,7 @@ import { getErrorMessage } from "@/api/client";
 import { getCurrentOrganizationId } from "@/lib/common";
 import { RegistriesErrorState, RegistriesEmptyState } from "./components/page-states";
 import { RegistryRow, RegistryListHeader, RegistryListSkeleton } from "./components/registry-row";
-import { AddRegistryDialog } from "./components/add-registry-dialog";
+import { AddRegistryDrawer } from "./components/add-registry-drawer";
 import { UpdateCredentialsDialog } from "./components/update-credentials-dialog";
 import { VerifyRegistryDialog } from "./components/verify-registry-dialog";
 
@@ -103,15 +103,6 @@ export default function ImageRegistriesPage() {
   return (
     <div className="flex flex-1 flex-col h-full">
       <PageHeader
-        // §12a's one fact. No eyebrow, no subtitle: the explanation belongs to
-        // the empty state, where it is actually needed.
-        status={
-          !loading && !error && credentials.length > 0 ? (
-            <span className="text-name tabular-nums text-fg-muted">
-              {credentials.length} {credentials.length === 1 ? "registry" : "registries"}
-            </span>
-          ) : undefined
-        }
         actions={addButton}
       />
 
@@ -143,7 +134,7 @@ export default function ImageRegistriesPage() {
         </div>
       )}
 
-      <AddRegistryDialog open={adding} onOpenChange={setAdding} onCreated={() => void refresh()} />
+      <AddRegistryDrawer open={adding} onOpenChange={setAdding} onCreated={() => void refresh()} />
 
       <UpdateCredentialsDialog
         credential={editing}

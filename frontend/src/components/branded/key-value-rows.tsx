@@ -85,7 +85,27 @@ export function KeyValueRows<T extends KeyValueRow>({
                 placeholder={keyPlaceholder}
                 aria-label={keyLabel}
                 aria-invalid={!!err?.key}
-                className={cn("w-[36%] font-mono text-meta", err?.key && "border-danger")}
+                // **Both halves flex equally — unless the row carries a third
+                // control, and then the key gives way.**
+                //
+                // The key ran at a fixed 36%, which at a 480 drawer's 440 is
+                // 158 against a 218 value: a near-alignment rather than a ratio
+                // anyone chose (§8). Peers, so equal.
+                //
+                // A `trailing` control changes the arithmetic, not the
+                // principle. Measured on the previews env-var row: at 147/147
+                // the value truncated `https://staging.acme.dev` while the key
+                // had 4 characters of headroom nobody was using. An env-var
+                // NAME is short by convention and a value is a URL, a token or
+                // a connection string — so the fixed side is the key, and the
+                // slack goes where the length actually is.
+                //
+                // `min-w-0` is what lets a flex child truncate at all.
+                className={cn(
+                  "font-mono text-meta",
+                  trailing ? "w-[120px] flex-none" : "min-w-0 flex-1",
+                  err?.key && "border-danger",
+                )}
               />
               {renderValue ? (
                 renderValue(row, index, (patch) => update(index, patch))

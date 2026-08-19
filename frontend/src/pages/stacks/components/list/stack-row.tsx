@@ -1,14 +1,10 @@
-import { Ellipsis, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { BlockedAction } from "@/components/branded";
 import { StatusText } from "@/components/branded/status-text";
 import {
+  DataListActions,
   DataListCell,
   DataListHeader,
   DataListName,
@@ -79,7 +75,7 @@ export function DeployStackRow({
   const ref = sourceRef(stack);
   const changed = stateChangedAt(stack);
   const reason = statusReason(stack);
-  const menuDisabled = stack.lifecycle === "deleting";
+  const deleting = stack.lifecycle === "deleting";
 
   // region and author are NOT on the stack list payload — the API carries a
   // `user_id` UUID and no region at all, and a rendered UUID is worse than an
@@ -116,35 +112,49 @@ export function DeployStackRow({
         {relativeAge(changed)}
       </DataListCell>
 
-      {/* §11 — the row's actions appear on hover. A kebab on every row at rest is
-          eight pieces of chrome competing with eight names. Hidden by opacity so
-          the control keeps its tab stop and the row does not reflow. */}
-      <div className="flex justify-end">
-        {onDelete && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+      {/* §11 — one action, so it is ON the row rather than behind a kebab that
+          opens a menu of one. Actions appear on hover: a control on every row at
+          rest is eight pieces of chrome competing with eight names, and
+          `DataListActions` is the primitive that does the reveal — it was
+          hand-rolled here, which is why this row's version answered focus with
+          `focus-visible` on the button while every other list answered
+          `focus-within` on the row.
+
+          `stopPropagation`, because the row itself navigates. */}
+      <DataListActions>
+        {onDelete &&
+          (deleting ? (
+            /* Disabled and it says why (§9). It used to be a `disabled` menu
+               item with no reason attached at all — the one state where the
+               user most needs to know that the thing they are looking at is
+               already on its way out. */
+            <BlockedAction reason="This stack is already being deleted.">
               <Button
                 variant="ghost"
                 size="icon-sm"
                 shape="flat"
-                aria-label={`Actions for ${stack.name}`}
-                className="opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                aria-label={`Delete ${stack.name}`}
+                disabled
                 onClick={(e) => e.stopPropagation()}
               >
-                <Ellipsis />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[160px]" onClick={(e) => e.stopPropagation()}>
-              {/* No deferral needed: the confirm service defers its own open
-                  a tick past the menu close (radix-ui/primitives#1836). */}
-              <DropdownMenuItem variant="destructive" disabled={menuDisabled} onSelect={() => onDelete(stack)}>
                 <Trash2 />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+              </Button>
+            </BlockedAction>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              shape="flat"
+              aria-label={`Delete ${stack.name}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(stack);
+              }}
+            >
+              <Trash2 />
+            </Button>
+          ))}
+      </DataListActions>
     </DataListRow>
   );
 }

@@ -99,17 +99,23 @@ export function EnvVarsEditor({ value, onChange }: EnvVarsEditorProps) {
             update({ value: source === "secret" ? secretRef(genericSecrets[0]?.name ?? "") : "" })
           }
         >
-          {/* `!` because this row lives inside a `FieldShell`, whose fill rule
+          {/* **88, not 110.** The drawer came down from 640 to 480 and this
+              chip is the only thing on the row with a fixed width, so it is the
+              only thing that can give the value box its room back. `Plain` and
+              `Secret` say what `Plain text` and `Secret` said; the column is
+              headed by the field's own label either way.
+
+              `!` because this row lives inside a `FieldShell`, whose fill rule
               reaches every descendant select — correctly, for the ordinary field
               whose control sits in a wrapper. Here it is wrong: `w-full` on a
               `flex-none` chip made it eat the row and squeezed the name box to
               26px. A control with a width of its own has to say so louder than
               the field. */}
-          <SelectTrigger aria-label="Value source" className="w-[110px]! flex-none text-meta">
+          <SelectTrigger aria-label="Value source" className="w-[88px]! flex-none text-meta">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="plain">Plain text</SelectItem>
+            <SelectItem value="plain">Plain</SelectItem>
             <SelectItem value="secret">Secret</SelectItem>
           </SelectContent>
         </Select>

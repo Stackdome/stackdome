@@ -58,7 +58,7 @@ export function MountPathDialog({ volumeName, resources, resourceIdx, onCancel, 
               {resourceIdx == null && (
                 <FieldShell label="Service" htmlFor="attach-service" required error={errors.resource}>
                   <Select value={pickedIdx == null ? "" : String(pickedIdx)} onValueChange={(v) => setPickedIdx(Number(v))}>
-                    <SelectTrigger id="attach-service" className={errors.resource ? "border-danger" : ""}>
+                    <SelectTrigger id="attach-service" aria-invalid={!!errors.resource}>
                       <SelectValue placeholder="Select service" />
                     </SelectTrigger>
                     <SelectContent>
@@ -85,7 +85,6 @@ export function MountPathDialog({ volumeName, resources, resourceIdx, onCancel, 
                   value={targetPath}
                   onChange={(e) => setTargetPath(e.target.value)}
                   placeholder="/var/lib/data"
-                  className={`font-mono ${errors.targetPath ? "border-danger" : ""}`}
                   aria-invalid={!!errors.targetPath}
                   autoFocus
                 />

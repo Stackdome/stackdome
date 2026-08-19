@@ -2,7 +2,6 @@ import {
   ReactFlow,
   Background,
   BackgroundVariant,
-  Panel,
   type Edge,
   type OnNodesChange,
   type OnEdgesChange,
@@ -11,7 +10,6 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useState } from "react";
-import { Lock, Move } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { ResourceNode, type ResourceFlowNode } from "./nodes/resource-node";
@@ -124,16 +122,41 @@ export function CanvasEditor({
             dark) over the pane — pin it to the app token so the canvas
             matches the sidebar/chrome in both modes. Two dot layers give the
             grid a fine/bold tier from the dedicated canvas tokens instead of
-            xyflow's default dot color. */}
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="var(--grid)" bgColor="var(--background)" />
-        <Background variant={BackgroundVariant.Dots} gap={120} size={1.5} color="var(--grid-bold)" />
+            xyflow's default dot color.
+
+            **The fine grid is the SNAP grid.** It was 24 against a `snapGrid` of
+            16, so the dots you could see and the positions a node could actually
+            take were two different lattices — you aimed at a dot and the card
+            landed between two. At 16 they are the same lattice, which is both
+            the denser grid the canvas needed to read as a space and the honest
+            one. The bold tier stays every fifth dot: 120 was 5 × 24, 80 is
+            5 × 16.
+
+            **The second tier stayed a DOT.** A cross was built and judged in the
+            running app: legible, but it reads as a printed registration mark and
+            it made the canvas look ruled rather than open. Lines were rejected
+            earlier for the stronger reason — a line implies a cell, and the
+            things here are nodes in a graph, not entries in a table. Grain and a
+            vignette were both built and measured invisible at real scale. Dots
+            at two weights is the answer. */}
+        <Background
+          id="grid-fine"
+          variant={BackgroundVariant.Dots}
+          gap={16}
+          size={1}
+          color="var(--grid)"
+          bgColor="var(--surface-canvas)"
+        />
+        <Background id="grid-bold" variant={BackgroundVariant.Dots} gap={80} size={2} color="var(--grid-bold)" />
         <CanvasControls
           showConnections={showConnections}
           onToggleConnections={onToggleConnections}
           onAutoLayout={onAutoLayout}
-        />
-        {!readOnly && (
-          <Panel position="top-right">
+        >
+          {/* In the group, not alone in the opposite corner — it acts on the
+              same thing the five tools beside it act on. Off entirely in Live,
+              where there is nothing to add to a deployed release. */}
+          {!readOnly && (
             <AddResourcePopover
               addedIds={addedBlockIds}
               onAdd={onAddBlock}
@@ -143,25 +166,17 @@ export function CanvasEditor({
               canAddVolume={canAddVolume}
               onAddVolume={onAddVolume}
             />
-          </Panel>
-        )}
-        {nodes.length > 0 && (
-          <Panel position="bottom-center" className="pointer-events-none !mb-[18px]">
-            <div className="flex items-center gap-2 text-label text-fg-muted">
-              {readOnly ? (
-                <>
-                  <Lock className="size-[13px]" aria-hidden />
-                  viewing the live deployment · read-only · click a card to inspect
-                </>
-              ) : (
-                <>
-                  <Move className="size-[13px]" aria-hidden />
-                  drag to rearrange · click a card to configure · lines show stack connections
-                </>
-              )}
-            </div>
-          </Panel>
-        )}
+          )}
+        </CanvasControls>
+        {/* **The canvas teaches itself, so nothing narrates it.** A permanent
+            `drag to rearrange · click a card to configure · lines show stack
+            connections` sat here on every visit: three instructions for three
+            affordances the cards already carry — they look draggable, they look
+            clickable, and the wires are visibly wires. It also put a second
+            baseline 6px off the resource tally's, which is the kind of
+            near-alignment that reads as a mistake rather than a choice (§8).
+            Live's version said `read-only` a third time; the version chip and
+            the inspector's own header already say it. */}
       </ReactFlow>
       {paneMenuAt && (
         <Popover open onOpenChange={(o) => !o && setPaneMenuAt(null)}>
@@ -171,7 +186,10 @@ export function CanvasEditor({
               style={{ position: "fixed", left: paneMenuAt.x, top: paneMenuAt.y, width: 0, height: 0 }}
             />
           </PopoverAnchor>
-          <PopoverContent align="start" side="bottom" className="w-[560px] p-0">
+          {/* Same catalogue, same width as the toolbar's — it was left at 560
+            when the popover came down to 272, so right-clicking the canvas
+            opened a different-shaped copy of one panel. */}
+          <PopoverContent align="start" side="bottom" className="w-[272px] p-0">
             <AddResourcePanel
               addedIds={addedBlockIds}
               onAdd={onAddBlock}
@@ -188,8 +206,10 @@ export function CanvasEditor({
       {nodes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center text-center">
           <p className="text-body font-medium text-foreground">No resources yet</p>
-          <p className="mt-1 text-body text-muted-foreground">
-            Use <span className="font-medium text-foreground">+ Add resource</span> to start building your stack.
+          {/* `text-fg-muted`, not `text-muted-foreground` — the same token under
+              two names, and this was the last screen still using the shadcn one. */}
+          <p className="mt-1 text-body text-fg-muted">
+            Use <span className="font-medium text-foreground">Add resource</span> to start building your stack.
           </p>
         </div>
       )}
