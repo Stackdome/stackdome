@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { FieldShell, AlertBanner } from "@/components/branded";
+import { Button } from "@/components/ui/button";
+import { FieldShell, AlertBanner, BlockedAction, reasonList } from "@/components/branded";
+import { DrawerActions, DrawerBody, DrawerFooter } from "@/components/ui/drawer";
 import { BranchField } from "@/components/git-source-picker/branch-field";
-import { WizardFooter } from "@/components/wizard-footer";
 import { createPreviewConfig } from "@/api/preview-configs";
 import { getErrorMessage, isErrorStatus } from "@/api/client";
 import { getCurrentOrganizationId } from "@/lib/common";
@@ -16,10 +18,17 @@ import type { PickedRepo } from "./enable-repo-wizard";
 interface ConfigurePhaseProps {
   repo: PickedRepo;
   onCreated: (configId: string) => void;
-  onBack: () => void;
 }
 
-export function ConfigurePhase({ repo, onCreated, onBack }: ConfigurePhaseProps) {
+/**
+ * The second phase, as the drawer's **body and footer bands** rather than a
+ * panel with a footer inside it.
+ *
+ * It returns a fragment of two band elements so they land as direct children of
+ * `DrawerContent`'s grid — the drawer owns the three rows, and a wrapper here
+ * would collapse body and footer into one of them.
+ */
+export function ConfigurePhase({ repo, onCreated }: ConfigurePhaseProps) {
   const { defaultProjectName } = useResourceProjects();
   const [name, setName] = useState(repo.fullName.split("/").pop() ?? "");
   const [baseBranch, setBaseBranch] = useState(repo.defaultBranch);
@@ -29,6 +38,38 @@ export function ConfigurePhase({ repo, onCreated, onBack }: ConfigurePhaseProps)
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof ConfigurePhaseValues, string>>>({});
   const [saving, setSaving] = useState(false);
+  /** Which control `BranchField` settled on, so the reason names the right act. */
+  const [branchControl, setBranchControl] = useState<"select" | "input">("input");
+  const onBranchControlKind = useCallback((kind: "select" | "input") => setBranchControl(kind), []);
+
+  /**
+   * Everything standing between this form and the act, phrased in the act's own
+   * verb — the rule the whole product's disabled primaries follow.
+   *
+   * `maxActive` is absent on purpose: its own `onChange` clamps to a whole
+   * number ≥ 1, so it cannot reach here invalid and listing it would name a
+   * problem the user cannot see.
+   */
+  const missingFields = () => {
+    const missing: string[] = [];
+    if (!name.trim()) missing.push("Enter a name");
+    if (!baseBranch.trim()) {
+      missing.push(branchControl === "select" ? "Choose a base branch" : "Enter a base branch");
+    }
+    // A row with a value but no name would be silently dropped on submit, so it
+    // blocks instead. A wholly blank row is just an unused row and blocks nothing.
+    if (env.some((row) => !row.name.trim() && row.value.trim())) {
+      missing.push("Name every environment variable you gave a value");
+    }
+    const named = env.filter((row) => row.name.trim() !== "");
+    if (new Set(named.map((row) => row.name.trim())).size !== named.length) {
+      missing.push("Give every environment variable a different name");
+    }
+    if (named.some((row) => /^\{\{\s*secret\.\s*\}\}$/.test(row.value))) {
+      missing.push("Pick a secret for the Secret-sourced variable");
+    }
+    return missing;
+  };
 
   const submit = async () => {
     const envRows = env.filter((row) => row.name.trim() !== "");
@@ -73,16 +114,11 @@ export function ConfigurePhase({ repo, onCreated, onBack }: ConfigurePhaseProps)
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-5 overflow-y-auto p-6">
-        <div>
-          <h3 className="font-mono text-xs">{repo.fullName}</h3>
-          <p className="text-sm text-muted-foreground">
-            Every pull request on this repository can get its own preview
-            environment.
-          </p>
-        </div>
-
+    <>
+      {/* The body owns its 20 pad and its 16 gap. The repository name and the
+          sentence about it moved to the drawer's header, where the title says
+          what you are configuring — printed here as well, they said it twice. */}
+      <DrawerBody>
         <FieldShell
           label="Name"
           htmlFor="cfg-name"
@@ -117,6 +153,7 @@ export function ConfigurePhase({ repo, onCreated, onBack }: ConfigurePhaseProps)
             }}
             integrationId={repo.integrationId}
             repoFullName={repo.fullName}
+            onControlKindChange={onBranchControlKind}
           />
         </FieldShell>
 
@@ -137,7 +174,17 @@ export function ConfigurePhase({ repo, onCreated, onBack }: ConfigurePhaseProps)
           />
         </FieldShell>
 
-        <FieldShell label="Max active previews" htmlFor="cfg-max" error={fieldErrors.maxActive}>
+        <FieldShell
+          label="Max active previews"
+          htmlFor="cfg-max"
+          hint="Older environments stop being created once this many are live."
+          error={fieldErrors.maxActive}
+        >
+          {/* **It fills, like every other field.** It shipped `w-28`, which put
+              its trailing edge at 933 while the four fields around it ended at
+              1420 — the "control sizes to its content" failure `FieldShell`
+              exists to prevent (§8). A short value does not earn a short box:
+              create-stack's `Port` is a number too and runs the full width. */}
           <Input
             id="cfg-max"
             type="number"
@@ -148,7 +195,6 @@ export function ConfigurePhase({ repo, onCreated, onBack }: ConfigurePhaseProps)
               setMaxActive(Number.isNaN(n) ? 1 : Math.max(1, Math.floor(n)));
               setFieldErrors((prev) => ({ ...prev, maxActive: undefined }));
             }}
-            className="w-28 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
         </FieldShell>
 
@@ -166,14 +212,26 @@ export function ConfigurePhase({ repo, onCreated, onBack }: ConfigurePhaseProps)
           />
         </FieldShell>
 
+      </DrawerBody>
+
+      <DrawerFooter>
+        {/* In the footer band, not at the end of the body. Inside a band that
+            scrolls, a failure scrolls away from the button that produced it. */}
         {error && <AlertBanner>{error}</AlertBanner>}
-      </div>
-      <WizardFooter
-        onBack={onBack}
-        onContinue={() => void submit()}
-        continueLabel="Enable previews"
-        loading={saving}
-      />
-    </div>
+        {/* The primary alone — `Cancel` is off every step of this journey. The
+            path's first crumb goes back a phase and the ✕ leaves. */}
+        <DrawerActions>
+          {/* Disabled until the form can actually be sent, and it says why —
+              while saving the reason is suppressed, because "enter a name" is
+              not what a spinner is telling you. */}
+          <BlockedAction reason={saving ? null : reasonList(missingFields())}>
+            <Button onClick={() => void submit()} disabled={saving}>
+              {saving && <Loader2 className="animate-spin" />}
+              Enable previews
+            </Button>
+          </BlockedAction>
+        </DrawerActions>
+      </DrawerFooter>
+    </>
   );
 }

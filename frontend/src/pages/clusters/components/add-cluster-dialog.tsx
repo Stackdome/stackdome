@@ -144,7 +144,7 @@ export default function AddClusterDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-2xl mx-auto max-h-[80vh] overflow-y-auto">
+      <DialogContent size="form" className="mx-auto max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Cluster</DialogTitle>
           <DialogDescription>
@@ -256,10 +256,10 @@ export default function AddClusterDialog({
                   className="mt-0.5"
                 />
                 <div className="space-y-1">
-                  <Label htmlFor="enable-registry" className="text-[13px] font-medium text-foreground">
+                  <Label htmlFor="enable-registry" className="text-body font-medium text-foreground">
                     Enable Image Registry
                   </Label>
-                  <p className="text-[12px] text-muted-foreground leading-relaxed">
+                  <p className="text-meta text-muted-foreground leading-relaxed">
                     Provisions a private registry for build artifacts.
                   </p>
                 </div>
@@ -287,7 +287,7 @@ export default function AddClusterDialog({
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline" type="button">Cancel</Button>
+            <Button shape="flat" variant="outline" type="button">Cancel</Button>
           </DialogClose>
           <Button
             onClick={handleSubmit}

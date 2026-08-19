@@ -5,6 +5,8 @@ import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import GitIntegrationsPage from "../index";
 import { ConfirmProvider } from "@/components/branded/confirm";
+import { MemoryRouter } from "react-router-dom";
+import { SheetHost } from "@/test-support/sheet-host";
 import {
   GIT_INTEGRATION_TYPE_GITHUB_APP,
   GIT_INTEGRATION_TYPE_CREDENTIALS,
@@ -39,16 +41,32 @@ describe("GitIntegrationsPage", () => {
 
   it("renders branded empty state with a Connect provider action when list is empty", async () => {
     vi.mocked(listGitIntegrations).mockResolvedValue({ items: [] });
-    render(<ConfirmProvider><GitIntegrationsPage /></ConfirmProvider>);
-    await waitFor(() => expect(screen.getByText(/no git integrations yet/i)).toBeInTheDocument());
+    render(
+      <MemoryRouter initialEntries={["/git-integrations"]}>
+        <ConfirmProvider>
+          <SheetHost>
+            <GitIntegrationsPage />
+          </SheetHost>
+        </ConfirmProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText(/no git providers yet/i)).toBeInTheDocument());
     // Header + empty-state both expose a connect CTA.
     expect(screen.getAllByRole("button", { name: /connect provider/i }).length).toBeGreaterThanOrEqual(1);
   });
 
   it("opens the wizard from the empty-state action", async () => {
     vi.mocked(listGitIntegrations).mockResolvedValue({ items: [] });
-    render(<ConfirmProvider><GitIntegrationsPage /></ConfirmProvider>);
-    await waitFor(() => expect(screen.getByText(/no git integrations yet/i)).toBeInTheDocument());
+    render(
+      <MemoryRouter initialEntries={["/git-integrations"]}>
+        <ConfirmProvider>
+          <SheetHost>
+            <GitIntegrationsPage />
+          </SheetHost>
+        </ConfirmProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText(/no git providers yet/i)).toBeInTheDocument());
     const [, emptyStateButton] = screen.getAllByRole("button", { name: /connect provider/i });
     fireEvent.click(emptyStateButton);
     expect(screen.getByText(/GitLab/)).toBeInTheDocument(); // provider grid visible
@@ -61,25 +79,42 @@ describe("GitIntegrationsPage", () => {
         { id: "g2", host: "gitlab.com", type: GIT_INTEGRATION_TYPE_CREDENTIALS, status: STATUS_ACTIVE, credentials_configured: true },
       ],
     });
-    render(<ConfirmProvider><GitIntegrationsPage /></ConfirmProvider>);
+    render(
+      <MemoryRouter initialEntries={["/git-integrations"]}>
+        <ConfirmProvider>
+          <SheetHost>
+            <GitIntegrationsPage />
+          </SheetHost>
+        </ConfirmProvider>
+      </MemoryRouter>,
+    );
     await waitFor(() => expect(screen.getByText("gitlab.com")).toBeInTheDocument());
     expect(screen.getByText("github.com")).toBeInTheDocument();
-    expect(screen.getByText(/connected providers/i)).toBeInTheDocument();
+    // The list renders as a data list, with its columns labelled.
+    expect(screen.getByText("Access")).toBeInTheDocument();
     expect(screen.getAllByText("Connected").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("GitHub App").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows the error state and retries the fetch on Retry", async () => {
+  it("shows the error state and retries the fetch on Try again", async () => {
     vi.mocked(listGitIntegrations)
       .mockRejectedValueOnce(new Error("request failed with status 500"))
       .mockResolvedValueOnce({
         items: [{ id: "g1", host: "github.com", type: GIT_INTEGRATION_TYPE_GITHUB_APP, status: STATUS_INSTALLED, credentials_configured: true }],
       });
 
-    render(<ConfirmProvider><GitIntegrationsPage /></ConfirmProvider>);
-    await waitFor(() => expect(screen.getByText(/couldn't load integrations/i)).toBeInTheDocument());
+    render(
+      <MemoryRouter initialEntries={["/git-integrations"]}>
+        <ConfirmProvider>
+          <SheetHost>
+            <GitIntegrationsPage />
+          </SheetHost>
+        </ConfirmProvider>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText(/git providers could not be loaded/i)).toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole("button", { name: /retry/i }));
+    await userEvent.click(screen.getByRole("button", { name: /try again/i }));
 
     await waitFor(() => expect(screen.getByText("github.com")).toBeInTheDocument());
     expect(listGitIntegrations).toHaveBeenCalledTimes(2);
@@ -91,11 +126,19 @@ describe("GitIntegrationsPage", () => {
     });
     vi.mocked(verifyGitIntegration).mockResolvedValue(undefined);
 
-    render(<ConfirmProvider><GitIntegrationsPage /></ConfirmProvider>);
+    render(
+      <MemoryRouter initialEntries={["/git-integrations"]}>
+        <ConfirmProvider>
+          <SheetHost>
+            <GitIntegrationsPage />
+          </SheetHost>
+        </ConfirmProvider>
+      </MemoryRouter>,
+    );
     await waitFor(() => expect(screen.getByText("github.com")).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /open row menu/i }), { pointerEventsCheck: 0 });
+    await user.click(screen.getByRole("button", { name: /^actions for /i }), { pointerEventsCheck: 0 });
     await user.click(await screen.findByText(/verify repository access/i), { pointerEventsCheck: 0 });
 
     await userEvent.type(screen.getByLabelText(/repository url/i), "https://github.com/acme/webapp");
@@ -115,11 +158,19 @@ describe("GitIntegrationsPage", () => {
       .mockResolvedValueOnce({ items: [] });
     vi.mocked(deleteGitIntegration).mockResolvedValue(undefined);
 
-    render(<ConfirmProvider><GitIntegrationsPage /></ConfirmProvider>);
+    render(
+      <MemoryRouter initialEntries={["/git-integrations"]}>
+        <ConfirmProvider>
+          <SheetHost>
+            <GitIntegrationsPage />
+          </SheetHost>
+        </ConfirmProvider>
+      </MemoryRouter>,
+    );
     await waitFor(() => expect(screen.getByText("github.com")).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /open row menu/i }), { pointerEventsCheck: 0 });
+    await user.click(screen.getByRole("button", { name: /^actions for /i }), { pointerEventsCheck: 0 });
     await user.click(await screen.findByText(/remove integration/i), { pointerEventsCheck: 0 });
 
     expect(await screen.findByText(/remove this integration/i)).toBeInTheDocument();
@@ -137,10 +188,18 @@ describe("GitIntegrationsPage", () => {
     });
     vi.mocked(updateGitIntegration).mockResolvedValue({ id: "g2", host: "gitlab.com" });
     const user = userEvent.setup();
-    render(<ConfirmProvider><GitIntegrationsPage /></ConfirmProvider>);
+    render(
+      <MemoryRouter initialEntries={["/git-integrations"]}>
+        <ConfirmProvider>
+          <SheetHost>
+            <GitIntegrationsPage />
+          </SheetHost>
+        </ConfirmProvider>
+      </MemoryRouter>,
+    );
     await waitFor(() => expect(screen.getByText("gitlab.com")).toBeInTheDocument());
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
+    await user.click(screen.getByRole("button", { name: /^actions for /i }));
     await user.click(await screen.findByRole("menuitem", { name: /update credentials/i }));
 
     await user.type(await screen.findByLabelText(/access token/i), "glpat-new");
@@ -163,7 +222,15 @@ describe("GitIntegrationsPage", () => {
       ],
     });
     const user = userEvent.setup();
-    render(<ConfirmProvider><GitIntegrationsPage /></ConfirmProvider>);
+    render(
+      <MemoryRouter initialEntries={["/git-integrations"]}>
+        <ConfirmProvider>
+          <SheetHost>
+            <GitIntegrationsPage />
+          </SheetHost>
+        </ConfirmProvider>
+      </MemoryRouter>,
+    );
     await waitFor(() => expect(screen.getByText("gitlab.com")).toBeInTheDocument());
 
     await user.click(screen.getByRole("button", { name: /update credentials/i }));

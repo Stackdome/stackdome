@@ -21,7 +21,7 @@ export const AllTypes: Story = {
       {TYPES.map((type) => (
         <div key={type} className="flex items-center gap-2 rounded-md border bg-card px-3 py-2">
           <AddonTypeIcon type={type} size={20} />
-          <span className="font-mono text-[11px] text-muted-foreground">{type}</span>
+          <span className="font-mono text-label text-muted-foreground">{type}</span>
         </div>
       ))}
     </div>

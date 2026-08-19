@@ -53,15 +53,15 @@ describe("RegistryRow", () => {
     const user = userEvent.setup();
     renderRow({ onVerify, onUpdateCredentials, onRemove });
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
+    await user.click(screen.getByRole("button", { name: /^actions for /i }));
     await user.click(await screen.findByRole("menuitem", { name: /update credentials/i }));
     await waitFor(() => expect(onUpdateCredentials).toHaveBeenCalledWith(credential));
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
+    await user.click(screen.getByRole("button", { name: /^actions for /i }));
     await user.click(await screen.findByRole("menuitem", { name: /verify registry access/i }));
     await waitFor(() => expect(onVerify).toHaveBeenCalledWith(credential));
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
+    await user.click(screen.getByRole("button", { name: /^actions for /i }));
     await user.click(await screen.findByRole("menuitem", { name: /remove registry/i }));
     await waitFor(() => expect(onRemove).toHaveBeenCalledWith(credential));
   });

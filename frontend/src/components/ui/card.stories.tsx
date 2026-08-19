@@ -54,9 +54,10 @@ export const WithAction: Story = {
   ),
 }
 
-// D13/D14: content is flat at rest — a hairline border plus the inset --edge
-// highlight, never a drop shadow. Reads the token live so this stays honest
-// as the palette evolves.
+// §7 — a card is white fill, a 1px hairline, `rounded-lg`, and NO shadow.
+// Not even the inset `--edge` highlight this used to assert: that is a bevel,
+// and §6 rules bevels out at rest for the same reason. Content is flat; shadow
+// is for overlays only.
 export const FlatAtRest: Story = {
   render: () => (
     <Card className="w-[360px]">
@@ -71,8 +72,16 @@ export const FlatAtRest: Story = {
   play: async ({ canvas }) => {
     const card = canvas.getByText('Flat by default').closest('[data-slot="card"]') as HTMLElement
     const style = getComputedStyle(card)
-    // The --edge var resolves to an inset shadow only — no offset/blur drop shadow component.
-    await expect(style.boxShadow).not.toBe('none')
-    await expect(style.boxShadow).toContain('inset')
+    await expect(style.boxShadow).toBe('none')
+    // The hairline is the only edge, and 12px is the card rung of §2's ladder.
+    await expect(parseFloat(style.borderTopWidth)).toBe(1)
+    await expect(parseFloat(style.borderRadius)).toBe(12)
+    // White, same as the sheet — grey never means "a card" (§1).
+    const probe = document.createElement('div')
+    probe.className = 'bg-card'
+    document.body.appendChild(probe)
+    const sheet = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    await expect(style.backgroundColor).toBe(sheet)
   },
 }

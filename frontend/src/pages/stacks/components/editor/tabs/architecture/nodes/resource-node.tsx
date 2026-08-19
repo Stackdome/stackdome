@@ -38,7 +38,7 @@ function ResourceNodeImpl({ data, selected }: NodeProps<ResourceFlowNode>) {
   return (
     <div
       className={cn(
-        "relative w-[216px] cursor-grab overflow-hidden rounded-lg border bg-surface-node shadow-[var(--edge)] transition-colors",
+        "relative w-[216px] cursor-grab overflow-hidden rounded-lg border bg-surface-node transition-colors",
         borderClass,
         // Deliberate exception to "orange = wires only": a drop is about to
         // create a connection edge, so the transient drag-affordance borrows
@@ -57,12 +57,12 @@ function ResourceNodeImpl({ data, selected }: NodeProps<ResourceFlowNode>) {
         <div className="flex items-center gap-2.5">
           <span className={cn("size-2 shrink-0 rounded-full", DOT_CLASS[data.dotVariant])} aria-hidden />
           <NodeGlyph glyph={data.glyph} brandSlug={data.brandSlug} size={17} className="size-[17px] shrink-0 text-fg-2" />
-          <span className="flex-1 truncate text-sm font-medium text-foreground">{data.name}</span>
-          <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] text-fg-muted">
+          <span className="flex-1 truncate text-body font-medium text-foreground">{data.name}</span>
+          <span className="shrink-0 font-mono text-[9px] text-fg-muted">
             {data.kindLabel}
           </span>
         </div>
-        <div className="mt-1.5 pl-[18px] font-mono text-[11px] text-muted-foreground">
+        <div className="mt-1.5 pl-[18px] font-mono text-label text-muted-foreground">
           <div className="truncate">{data.summary}</div>
           {(data.details ?? []).length > 0 && (
             <div className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5">
@@ -110,7 +110,7 @@ function ResourceNodeImpl({ data, selected }: NodeProps<ResourceFlowNode>) {
           className="flex cursor-pointer items-center gap-2 border-t border-border bg-background px-[13px] py-2 transition-colors hover:bg-card"
         >
           <HardDrive className="size-[13px] shrink-0 text-fg-muted" aria-hidden />
-          <span className="truncate font-mono text-[10.5px] text-fg-2">{v.name}</span>
+          <span className="truncate font-mono text-label text-fg-2">{v.name}</span>
         </div>
       ))}
     </div>

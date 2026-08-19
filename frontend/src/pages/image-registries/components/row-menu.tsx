@@ -9,10 +9,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function RowMenu({
+  label,
   onVerify,
   onUpdateCredentials,
   onRemove,
 }: {
+  /** What the row is, so the trigger announces more than "row menu". */
+  label?: string;
   onVerify: () => void;
   onUpdateCredentials: () => void;
   onRemove: () => void;
@@ -21,29 +24,30 @@ export function RowMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
+          shape="flat"
           variant="ghost"
-          size="icon"
-          aria-label="Open row menu"
+          size="icon-sm"
+          aria-label={label ? `Actions for ${label}` : "Open row menu"}
         >
-          <Ellipsis className="h-4 w-4" />
+          <Ellipsis />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[200px]">
+      <DropdownMenuContent align="start" className="w-[200px]">
         {/* Items open dialogs; defer callbacks until the menu has fully closed.
             Radix's DropdownMenu→Dialog composition races the menu's close
             against the dialog's mount and can leave body pointer-events "none".
             See https://github.com/radix-ui/primitives/issues/1836 */}
         <DropdownMenuItem onSelect={() => setTimeout(() => onVerify(), 0)}>
-          <ShieldCheck className="h-4 w-4" />
+          <ShieldCheck />
           Verify registry access
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => setTimeout(() => onUpdateCredentials(), 0)}>
-          <KeyRound className="h-4 w-4" />
+          <KeyRound />
           Update credentials
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={() => setTimeout(() => onRemove(), 0)}>
-          <Trash2 className="h-4 w-4" />
+          <Trash2 />
           Remove registry
         </DropdownMenuItem>
       </DropdownMenuContent>

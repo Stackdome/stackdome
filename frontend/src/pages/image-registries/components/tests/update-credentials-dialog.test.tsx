@@ -74,7 +74,7 @@ describe("UpdateCredentialsDialog", () => {
     expect(updateRegistryCredential).not.toHaveBeenCalled();
   });
 
-  it("keeps the dialog open and toasts destructively on failure", async () => {
+  it("keeps the dialog open and shows the failure in it", async () => {
     vi.mocked(updateRegistryCredential).mockRejectedValue(new Error("boom"));
     const onOpenChange = vi.fn();
     const user = userEvent.setup();
@@ -83,9 +83,8 @@ describe("UpdateCredentialsDialog", () => {
     await user.type(screen.getByLabelText(/password/i), "n3w-secret");
     await user.click(screen.getByRole("button", { name: /update credentials/i }));
 
-    await waitFor(() => {
-      expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
-    });
+    expect(await screen.findByText(/boom/i)).toBeInTheDocument();
+    expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 

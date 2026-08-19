@@ -15,6 +15,12 @@ interface BranchFieldProps {
   /** "owner/name"; listing needs both parts */
   repoFullName?: string;
   placeholder?: string;
+  /**
+   * Reports which control ended up rendered, so a caller blocking its primary
+   * can name the right act: you CHOOSE from a list and you ENTER free text.
+   * Only this component knows which it is — listing can fail at runtime.
+   */
+  onControlKindChange?: (kind: "select" | "input") => void;
 }
 
 /** Branch picker: a Select of listed branches when the integration can list
@@ -22,8 +28,14 @@ interface BranchFieldProps {
     failure too — some hosts/tokens can't list branches. */
 export function BranchField({
   id, value, onChange, integrationId, repoFullName, placeholder = "main",
+  onControlKindChange,
 }: BranchFieldProps) {
   const [branches, setBranches] = useState<string[]>([]);
+  const listed = branches.length > 0;
+
+  useEffect(() => {
+    onControlKindChange?.(listed ? "select" : "input");
+  }, [listed, onControlKindChange]);
 
   useEffect(() => {
     setBranches([]);
@@ -41,7 +53,7 @@ export function BranchField({
     return () => { cancelled = true; };
   }, [integrationId, repoFullName]);
 
-  if (branches.length > 0) {
+  if (listed) {
     return (
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger id={id}>

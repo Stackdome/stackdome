@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { PlusCircle, AlertCircle, Loader2, Cloud } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useObjectStores } from "@/hooks/use-object-stores";
-import { ObjectStoreList } from "./components/object-store-list";
+import { ObjectStoreList, ObjectStoreListSkeleton } from "./components/object-store-list";
 import { ObjectStoreFormDialog } from "./components/object-store-form-dialog";
 import type { ObjectStore } from "./types";
 import { Button } from "@/components/ui/button";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { PageHeader, Panel, EmptyState } from "@/components/branded";
+import { PageHeader, EmptyState } from "@/components/branded";
+import { NoConnectionGlyph, NoSecretsGlyph } from "@/components/branded/empty-state";
 import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
 import { getErrorMessage } from "@/api/client";
@@ -16,7 +16,7 @@ import { useResourceProjects } from "@/hooks/use-resource-projects";
 import { useBreadcrumb } from "@/hooks/use-breadcrumb";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
-const IN_USE_FALLBACK = "This Object Store is in use by one or more Postgres add-ons.";
+const IN_USE_FALLBACK = "This object store is in use by one or more Postgres add-ons.";
 
 export default function ObjectStoresPage() {
   const { objectStores, loading, error, refetch } = useObjectStores();
@@ -48,7 +48,7 @@ export default function ObjectStoresPage() {
     const projectName = projectNameById(store.project_id);
     if (!orgId || !projectName) {
       toast({
-        title: "Could not delete Object Store",
+        title: "Could not delete object store",
         description: orgId
           ? "Could not resolve the project for this object store."
           : "No organization selected.",
@@ -72,99 +72,101 @@ export default function ObjectStoresPage() {
 
   useEffect(() => {
     const path = `/object-stores`;
-    setCustomLabel(path, "Object Stores");
+    setCustomLabel(path, "Object stores");
     setPathLoading(path, loading);
   }, [setCustomLabel, setPathLoading, loading]);
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-2 text-muted-foreground">Loading object stores...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8 text-center">
-        <AlertCircle className="mx-auto h-12 w-12 text-danger mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Error Loading Object Stores</h2>
-        <p className="text-muted-foreground mb-4">{error}</p>
-        <Button onClick={() => refetch()}>
-          Try Again
-        </Button>
-      </div>
-    );
-  }
+  const openNew = () => {
+    setEditingStore(null);
+    setShowAddDialog(true);
+  };
 
   return (
-    <TooltipProvider>
-      <div className="p-8 space-y-8">
-        <PageHeader
-          eyebrow="Platform"
-          title="Object Stores"
-          subtitle="Backup destinations for Postgres add-ons. Supports AWS S3, S3-compatible (e.g. MinIO), Azure, and GCS."
-          actions={
+    <div className="flex flex-1 flex-col h-full">
+      {/* §12a — the page's one fact and its one action live in the sheet
+          header, not in a band on the body. No `eyebrow`, no `subtitle`: the
+          component ignores both, and the explanation belongs to the empty
+          state, where it is actually needed. This page has no search, no filter
+          and no sort, so it passes no `toolbar` and the header's second row
+          collapses itself. */}
+      <PageHeader
+        status={
+          !loading && !error && objectStores.length > 0 ? (
+            <span className="text-name tabular-nums text-fg-muted">
+              {objectStores.length} object {objectStores.length === 1 ? "store" : "stores"}
+            </span>
+          ) : undefined
+        }
+        actions={
+          canWriteAnyProject ? (
+            <Button onClick={openNew}>
+              <Plus />
+              New object store
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {error ? (
+        /* The retry REFETCHES. Reloading the page was never a retry: it threw
+           away the router, the session and any dialog the user had open, to
+           re-run one request. */
+        <EmptyState
+          className="flex-1 gap-6"
+          icon={<NoConnectionGlyph />}
+          title="Object stores could not be loaded"
+          description={error}
+          action={
+            <Button variant="outline" onClick={() => refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      ) : loading ? (
+        <ObjectStoreListSkeleton />
+      ) : objectStores.length === 0 ? (
+        <EmptyState
+          className="flex-1 gap-6"
+          icon={<NoSecretsGlyph />}
+          title="No object stores yet"
+          description="An object store is where Postgres backups are written: an S3 bucket, an S3-compatible endpoint such as MinIO, an Azure container or a GCS bucket."
+          action={
+            /* Outline, never filled (§9). The header already carries this exact
+               action as the page's one fill, and two identical filled buttons
+               on one screen is two primaries. */
             canWriteAnyProject ? (
-              <Button
-                onClick={() => {
-                  setEditingStore(null);
-                  setShowAddDialog(true);
-                }}
-              >
-                <PlusCircle className="h-4 w-4" />
-                New Object Store
+              <Button variant="outline" onClick={openNew}>
+                <Plus />
+                New object store
               </Button>
             ) : undefined
           }
         />
-
-        {objectStores.length === 0 ? (
-          <EmptyState
-            icon={<Cloud className="h-8 w-8" />}
-            title="No Object Stores yet"
-            description="Add an S3-compatible bucket, Azure container, or GCS bucket to use as a backup destination."
-            action={
-              canWriteAnyProject ? (
-                <Button
-                  onClick={() => {
-                    setEditingStore(null);
-                    setShowAddDialog(true);
-                  }}
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  New Object Store
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <Panel title="Organization Object Stores" count={objectStores.length} bodyClassName="p-0">
-            <ObjectStoreList
-              objectStores={objectStores}
-              onEdit={(store) => {
-                setEditingStore(store);
-                setShowAddDialog(true);
-              }}
-              onDelete={(store) => void requestDelete(store)}
-              canWrite={(projectId?: string) => canWrite(projectId ?? "")}
-            />
-          </Panel>
-        )}
-
-        <ObjectStoreFormDialog
-          open={showAddDialog}
-          onOpenChange={(open) => {
-            setShowAddDialog(open);
-            if (!open) setEditingStore(null);
+      ) : (
+        /* Bare. No `Panel`, no box, no card per row (§11) — the rows and the
+           sheet edge are the only boundaries there are. */
+        <ObjectStoreList
+          objectStores={objectStores}
+          onEdit={(store) => {
+            setEditingStore(store);
+            setShowAddDialog(true);
           }}
-          editing={editingStore}
-          onSaved={() => {
-            refetch();
-          }}
+          onDelete={(store) => void requestDelete(store)}
+          canWrite={(projectId?: string) => canWrite(projectId ?? "")}
         />
-      </div>
-    </TooltipProvider>
+      )}
+
+      <ObjectStoreFormDialog
+        open={showAddDialog}
+        onOpenChange={(open) => {
+          setShowAddDialog(open);
+          if (!open) setEditingStore(null);
+        }}
+        editing={editingStore}
+        onSaved={() => {
+          refetch();
+        }}
+      />
+    </div>
   );
 }

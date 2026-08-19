@@ -57,12 +57,17 @@ describe("SecretsPage", () => {
     await waitFor(() => expect(screen.getByText("api-key")).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Secret actions" }), { pointerEventsCheck: 0 });
+    await user.click(screen.getByRole("button", { name: /^Actions for / }), { pointerEventsCheck: 0 });
     await user.click(await screen.findByText("Delete"), { pointerEventsCheck: 0 });
 
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent(/delete secret\?/i);
-    await user.click(screen.getByRole("button", { name: "Delete" }), { pointerEventsCheck: 0 });
+
+    // §6a level 2: Delete is rendered but disabled until the box is ticked.
+    const destructive = screen.getByRole("button", { name: "Delete" });
+    expect(destructive).toBeDisabled();
+    await user.click(screen.getByRole("checkbox"), { pointerEventsCheck: 0 });
+    await user.click(destructive, { pointerEventsCheck: 0 });
 
     await waitFor(() => expect(deleteSecret).toHaveBeenCalledWith("org-1", "default", "s1"));
     expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: "Secret deleted", variant: "success" }));
@@ -75,7 +80,7 @@ describe("SecretsPage", () => {
     await waitFor(() => expect(screen.getByText("api-key")).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Secret actions" }), { pointerEventsCheck: 0 });
+    await user.click(screen.getByRole("button", { name: /^Actions for / }), { pointerEventsCheck: 0 });
     await user.click(await screen.findByText("Delete"), { pointerEventsCheck: 0 });
 
     await screen.findByRole("alertdialog");

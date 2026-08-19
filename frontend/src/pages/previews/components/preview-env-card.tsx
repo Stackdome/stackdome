@@ -51,6 +51,8 @@ export function PreviewEnvCard({ env, onSync, onDelete }: PreviewEnvCardProps) {
   const age = relativeAge(env.updated_at || env.created_at);
   const clickable = Boolean(env.stack_id);
   const menuDisabled = phase === "Deleting";
+  /** Inline, because a menu cannot carry a tooltip (§"Disabled"). */
+  const menuReason = menuDisabled ? "Being deleted" : undefined;
 
   const goToStack = () => navigate(`/stacks/${env.stack_id}`);
 
@@ -68,7 +70,7 @@ export function PreviewEnvCard({ env, onSync, onDelete }: PreviewEnvCardProps) {
           : undefined
       }
       className={cn(
-        "group flex h-[210px] w-full flex-col gap-0 overflow-hidden p-0 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2",
+        "group flex h-[210px] w-full flex-col gap-0 overflow-hidden p-0 transition-colors duration-150 focus-ring-edge",
         clickable && "cursor-pointer hover:bg-foreground/[0.04]",
       )}
     >
@@ -81,7 +83,7 @@ export function PreviewEnvCard({ env, onSync, onDelete }: PreviewEnvCardProps) {
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
+              <Button shape="flat"
                 variant="ghost"
                 size="icon"
                 aria-label={`Actions for PR #${env.pr_number}`}
@@ -101,6 +103,7 @@ export function PreviewEnvCard({ env, onSync, onDelete }: PreviewEnvCardProps) {
               {onSync && (
                 <DropdownMenuItem
                   disabled={menuDisabled}
+                  reason={menuReason}
                   onSelect={() => setTimeout(() => onSync(env), 0)}
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -114,6 +117,7 @@ export function PreviewEnvCard({ env, onSync, onDelete }: PreviewEnvCardProps) {
                 <DropdownMenuItem
                   variant="destructive"
                   disabled={menuDisabled}
+                  reason={menuReason}
                   onSelect={() => onDelete(env)}
                 >
                   <Trash2 className="h-4 w-4" />

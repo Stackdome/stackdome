@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader, Panel } from "@/components/branded";
+import { PageHeader } from "@/components/branded";
+import { AlertBanner } from "@/components/branded/alert-banner";
 import { AddIntegrationWizard } from "@/components/git-source-picker/add-integration-wizard";
 import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
@@ -14,7 +15,11 @@ import { getCurrentOrganizationId } from "@/lib/common";
 import { useBreadcrumb } from "@/hooks/use-breadcrumb";
 import { GIT_INTEGRATION_TYPE_GITHUB_APP } from "@/lib/git-integrations";
 import { IntegrationsErrorState, IntegrationsEmptyState } from "./components/page-states";
-import { IntegrationRow } from "./components/integration-row";
+import {
+  IntegrationRow,
+  IntegrationListHeader,
+  IntegrationListSkeleton,
+} from "./components/integration-row";
 import { VerifyIntegrationDialog } from "./components/verify-integration-dialog";
 import { UpdateCredentialsDialog } from "./components/update-credentials-dialog";
 
@@ -27,11 +32,12 @@ export default function GitIntegrationsPage() {
   const [editing, setEditing] = useState<GitIntegration | null>(null);
   const confirm = useConfirm();
   const [wizardOpen, setWizardOpen] = useState(false);
-  const { setCustomLabel } = useBreadcrumb();
+  const { setCustomLabel, setPathLoading } = useBreadcrumb();
 
   useEffect(() => {
     setCustomLabel("/git-integrations", "Git providers");
-  }, [setCustomLabel]);
+    setPathLoading("/git-integrations", loading);
+  }, [setCustomLabel, setPathLoading, loading]);
 
   const refresh = useCallback(async () => {
     const orgId = getCurrentOrganizationId();
@@ -84,56 +90,52 @@ export default function GitIntegrationsPage() {
   const hasGithubApp = integrations.some((i) => i.type === GIT_INTEGRATION_TYPE_GITHUB_APP);
   const addButton = (
     <Button onClick={() => setWizardOpen(true)}>
-      <Plus className="h-4 w-4" />
+      <Plus />
       Connect provider
     </Button>
   );
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-2 text-muted-foreground">Loading git integrations...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 p-6">
+    <div className="flex flex-1 flex-col h-full">
       <PageHeader
-        eyebrow="Integrations"
-        title="Git providers"
-        subtitle="Grant Stackdome access to your repositories for clones, builds, and preview environments."
+        // §12a's one fact. No eyebrow, no subtitle: the explanation belongs to
+        // the empty state, where it is actually needed.
+        status={
+          !loading && !error && integrations.length > 0 ? (
+            <span className="text-name tabular-nums text-fg-muted">
+              {integrations.length} {integrations.length === 1 ? "provider" : "providers"}
+            </span>
+          ) : undefined
+        }
         actions={addButton}
       />
 
-      {/* Full-page error only when there's nothing to show; a failed re-fetch
-          keeps the already-loaded list visible with an inline error line. */}
-      {error && integrations.length === 0 && (
+      {/* Full-page error only when there is nothing to show; a failed RE-fetch
+          keeps the already-loaded list up and says so in a line above it. */}
+      {loading ? (
+        <IntegrationListSkeleton />
+      ) : error && integrations.length === 0 ? (
         <IntegrationsErrorState message={error} onRetry={() => void refresh()} />
-      )}
-
-      {!error && integrations.length === 0 && (
+      ) : integrations.length === 0 ? (
         <IntegrationsEmptyState onAdd={() => setWizardOpen(true)} />
-      )}
-
-      {integrations.length > 0 && (
-        <>
-          {error && <p className="text-sm text-destructive">Couldn&apos;t refresh integrations: {error}</p>}
-          <Panel title="Connected providers" count={integrations.length}>
-            <div className="divide-y divide-border">
-              {integrations.map((integration) => (
-                <IntegrationRow
-                  key={integration.id}
-                  integration={integration}
-                  onVerify={setVerifying}
-                  onRemove={(i) => void remove(i)}
-                  onUpdateCredentials={setEditing}
-                />
-              ))}
-            </div>
-          </Panel>
-        </>
+      ) : (
+        <div>
+          {error && (
+            <AlertBanner tone="info" className="mb-2">
+              These providers could not be refreshed: {error}
+            </AlertBanner>
+          )}
+          <IntegrationListHeader />
+          {integrations.map((integration) => (
+            <IntegrationRow
+              key={integration.id}
+              integration={integration}
+              onVerify={setVerifying}
+              onRemove={(i) => void remove(i)}
+              onUpdateCredentials={setEditing}
+            />
+          ))}
+        </div>
       )}
 
       <AddIntegrationWizard

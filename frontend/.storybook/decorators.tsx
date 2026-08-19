@@ -4,6 +4,8 @@ import { ReactFlow, ReactFlowProvider, type Edge } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { ConfirmProvider } from '../src/components/branded/confirm'
 import { CurrentUserProvider } from '../src/contexts/current-user-context'
+import { BreadcrumbProvider } from '../src/contexts/breadcrumb-context'
+import { SheetHeader } from '../src/components/sheet-header'
 import { StackProvider } from '../src/pages/stacks/contexts/stack-context'
 import {
   ReleaseDetailProvider,
@@ -24,6 +26,21 @@ export const withCurrentUser: Decorator = (Story) => (
   <CurrentUserProvider>
     <Story />
   </CurrentUserProvider>
+)
+
+/**
+ * Mounts the real sheet header (§8) above a page story.
+ *
+ * A page's title and its actions do not render where the page is — they portal
+ * into the header's `#topnav-actions` slot. Without the header a page story is
+ * half a page: no title, no buttons, and nothing for a `play` function to
+ * click. This gives it the header without the sidebar.
+ */
+export const withSheetHeader: Decorator = (Story) => (
+  <BreadcrumbProvider>
+    <SheetHeader />
+    <Story />
+  </BreadcrumbProvider>
 )
 
 export const withStack: Decorator = (Story) => (

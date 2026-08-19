@@ -33,7 +33,7 @@ export function Swatch({ token }: { token: string }) {
 export function SwatchGroup({ title, tokens }: { title: string; tokens: string[] }) {
   return (
     <div className="mb-6">
-      <div className="mb-2 font-mono text-[11px] uppercase tracking-[1.5px] text-muted-foreground">
+      <div className="mb-2 font-mono text-[11px] text-muted-foreground">
         {title}
       </div>
       <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:grid-cols-3">

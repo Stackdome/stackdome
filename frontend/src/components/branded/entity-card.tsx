@@ -37,7 +37,7 @@ export function StatusWord({ tone, children }: { tone: RailTone | "neutral"; chi
   return (
     <span
       className={cn(
-        "font-mono text-[10.5px] font-medium uppercase tracking-[1px] whitespace-nowrap",
+        "font-mono text-label font-medium whitespace-nowrap",
         toneTextClass(tone),
       )}
     >
@@ -56,7 +56,7 @@ export interface EndpointUrl {
 const MAX_VISIBLE_PILLS = 2;
 
 const pillClass =
-  "inline-flex items-center gap-1.5 rounded-sm border border-border px-2.5 py-1 font-mono text-xs text-fg-2 transition-colors duration-120 hover:text-foreground hover:border-border-strong focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2";
+  "inline-flex items-center gap-1.5 rounded-sm border border-border px-2.5 py-1 font-mono text-meta text-fg-2 transition-colors duration-120 hover:text-foreground hover:border-border-strong focus-ring-edge";
 
 function PillLink({ url }: { url: EndpointUrl }) {
   return (
@@ -122,8 +122,8 @@ export function CardMetaGrid({ rows }: { rows: Array<CardMetaRow | false | null 
     <div className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5">
       {present.map((r) => (
         <Fragment key={r.label}>
-          <span className="font-mono text-[9px] uppercase tracking-[1.2px] text-fg-muted">{r.label}</span>
-          <span className="truncate font-mono text-[11px] text-fg-2">{r.value}</span>
+          <span className="font-mono text-[9px] text-fg-muted">{r.label}</span>
+          <span className="truncate font-mono text-label text-fg-2">{r.value}</span>
         </Fragment>
       ))}
     </div>
@@ -150,7 +150,7 @@ export function CardFooterMeta({ tone, word, age, ageTitle, alert }: CardFooterM
       {age && (
         <span
           title={ageTitle ?? undefined}
-          className="flex-none font-mono text-[10.5px] uppercase tracking-[0.5px] text-fg-muted"
+          className="flex-none font-mono text-label text-fg-muted"
         >
           {age}
         </span>

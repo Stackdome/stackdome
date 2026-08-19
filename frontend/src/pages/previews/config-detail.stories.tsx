@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { Route, Routes, useNavigate } from 'react-router-dom'
 import { ORG_ID, DEFAULT_PROJECT } from '../../../.storybook/fixtures'
 import { baselineHandlers } from '../../../.storybook/msw-handlers'
-import { withConfirm, withCurrentUser } from '../../../.storybook/decorators'
+import { withConfirm, withCurrentUser, withSheetHeader } from '../../../.storybook/decorators'
 import type { StackPreviewConfig } from '@/api/preview-configs'
 import type { PreviewStack } from '@/api/preview-envs'
 import PreviewConfigDetailPage from './config-detail'
@@ -73,6 +73,7 @@ const meta = {
   decorators: [
     withConfirm,
     withCurrentUser,
+    withSheetHeader,
     (Story) => (
       <RouteHost>
         <Story />

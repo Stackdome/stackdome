@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader, Panel } from "@/components/branded";
+import { PageHeader } from "@/components/branded";
+import { AlertBanner } from "@/components/branded/alert-banner";
+import { useBreadcrumb } from "@/hooks/use-breadcrumb";
 import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -11,7 +13,7 @@ import {
 import { getErrorMessage } from "@/api/client";
 import { getCurrentOrganizationId } from "@/lib/common";
 import { RegistriesErrorState, RegistriesEmptyState } from "./components/page-states";
-import { RegistryRow } from "./components/registry-row";
+import { RegistryRow, RegistryListHeader, RegistryListSkeleton } from "./components/registry-row";
 import { AddRegistryDialog } from "./components/add-registry-dialog";
 import { UpdateCredentialsDialog } from "./components/update-credentials-dialog";
 import { VerifyRegistryDialog } from "./components/verify-registry-dialog";
@@ -25,6 +27,14 @@ export default function ImageRegistriesPage() {
   const [editing, setEditing] = useState<RegistryCredential | null>(null);
   const [verifying, setVerifying] = useState<RegistryCredential | null>(null);
   const confirm = useConfirm();
+  const { setCustomLabel, setPathLoading } = useBreadcrumb();
+
+  // Without this the sheet header takes its title from the URL slug and says
+  // "Image-registries".
+  useEffect(() => {
+    setCustomLabel("/image-registries", "Image registries");
+    setPathLoading("/image-registries", loading);
+  }, [setCustomLabel, setPathLoading, loading]);
 
   const refresh = useCallback(async () => {
     const orgId = getCurrentOrganizationId();
@@ -85,54 +95,52 @@ export default function ImageRegistriesPage() {
 
   const addButton = (
     <Button onClick={() => setAdding(true)}>
-      <Plus className="h-4 w-4" />
+      <Plus />
       Add registry
     </Button>
   );
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-2 text-muted-foreground">Loading image registries...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 p-6">
+    <div className="flex flex-1 flex-col h-full">
       <PageHeader
-        eyebrow="Integrations"
-        title="Image registries"
-        subtitle="Store registry credentials so builds can pull private images and push artifacts."
+        // §12a's one fact. No eyebrow, no subtitle: the explanation belongs to
+        // the empty state, where it is actually needed.
+        status={
+          !loading && !error && credentials.length > 0 ? (
+            <span className="text-name tabular-nums text-fg-muted">
+              {credentials.length} {credentials.length === 1 ? "registry" : "registries"}
+            </span>
+          ) : undefined
+        }
         actions={addButton}
       />
 
-      {/* Full-page error only when there's nothing to show; a failed re-fetch
-          keeps the already-loaded list visible with an inline error line. */}
-      {error && credentials.length === 0 && (
+      {/* Full-page error only when there is nothing to show; a failed RE-fetch
+          keeps the already-loaded list up and says so in a line above it. */}
+      {loading ? (
+        <RegistryListSkeleton />
+      ) : error && credentials.length === 0 ? (
         <RegistriesErrorState message={error} onRetry={() => void refresh()} />
-      )}
-
-      {!error && credentials.length === 0 && <RegistriesEmptyState onAdd={() => setAdding(true)} />}
-
-      {credentials.length > 0 && (
-        <>
-          {error && <p className="text-sm text-destructive">Couldn&apos;t refresh registries: {error}</p>}
-          <Panel title="Connected registries" count={credentials.length}>
-            <div className="divide-y divide-border">
-              {credentials.map((credential) => (
-                <RegistryRow
-                  key={credential.id}
-                  credential={credential}
-                  onVerify={setVerifying}
-                  onUpdateCredentials={setEditing}
-                  onRemove={(c) => void remove(c)}
-                />
-              ))}
-            </div>
-          </Panel>
-        </>
+      ) : credentials.length === 0 ? (
+        <RegistriesEmptyState onAdd={() => setAdding(true)} />
+      ) : (
+        <div>
+          {error && (
+            <AlertBanner tone="info" className="mb-2">
+              These registries could not be refreshed: {error}
+            </AlertBanner>
+          )}
+          <RegistryListHeader />
+          {credentials.map((credential) => (
+            <RegistryRow
+              key={credential.id}
+              credential={credential}
+              onVerify={setVerifying}
+              onUpdateCredentials={setEditing}
+              onRemove={(c) => void remove(c)}
+            />
+          ))}
+        </div>
       )}
 
       <AddRegistryDialog open={adding} onOpenChange={setAdding} onCreated={() => void refresh()} />

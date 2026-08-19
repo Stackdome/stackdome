@@ -1,3 +1,5 @@
+import { AlertBanner } from "@/components/branded";
+
 export interface DeployFailedBannerProps {
   message: string;
 }
@@ -5,11 +7,10 @@ export interface DeployFailedBannerProps {
 /** Red "Deploy failed" box in a failed node's detail card. Shared by live and historical bodies. */
 export function DeployFailedBanner({ message }: DeployFailedBannerProps) {
   return (
-    <div className="mt-4 rounded-md border border-danger-border bg-danger-bg p-3.5">
-      <div className="mb-1.5 flex items-center gap-2 font-sans text-[13px] font-semibold text-danger">
-        <span>⊘</span> Deploy failed
-      </div>
-      <div className="font-mono text-[11.5px] leading-relaxed text-foreground">{message}</div>
-    </div>
+    <AlertBanner className="mt-4">
+      <p>Deploy failed</p>
+      {/* The reason is machine output — mono, regular, and it keeps its own leading. */}
+      <p className="font-mono text-label font-normal leading-relaxed">{message}</p>
+    </AlertBanner>
   );
 }

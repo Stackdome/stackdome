@@ -54,9 +54,9 @@ export function ProjectSidebar({ sections }: ProjectSidebarProps) {
                 <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-md border border-brand-border bg-brand-bg">
                   <StackdomeMark size={18} />
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="grid flex-1 text-left text-body leading-tight">
                   <span className="truncate font-semibold lowercase" style={{ letterSpacing: "0.04em" }}>stackdome</span>
-                  <span className="truncate text-[10px] font-mono uppercase tracking-[0.5px] text-muted-foreground">{getCurrentUser()?.organisation}</span>
+                  <span className="truncate text-label font-mono text-muted-foreground">{getCurrentUser()?.organisation}</span>
                 </div>
               </Link>
             </SidebarMenuButton>

@@ -1,6 +1,6 @@
 import type React from "react";
 import { Mail } from "lucide-react";
-import { TableCell, TableRow } from "@/components/ui/table";
+import { TableCell, TableRow, TableRowActions } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ProjectChip } from "./project-chip";
 import type { PendingRow as PendingRowModel } from "../hooks/use-users";
@@ -36,10 +36,10 @@ export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-xs text-foreground truncate">{row.email}</span>
+              <span className="font-mono text-meta text-foreground truncate">{row.email}</span>
               <Badge variant="warning" className="shrink-0">invited</Badge>
             </div>
-            <div className="font-mono text-[11px] text-muted-foreground truncate mt-0.5">
+            <div className="text-meta text-fg-muted truncate mt-0.5">
               Invited by {row.invited_by ?? "—"} · {invitedAgo}
             </div>
           </div>
@@ -48,7 +48,7 @@ export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps
 
       {/* Org role — en dash for pending */}
       <TableCell className="py-3.5">
-        <span className="font-mono text-[11px] text-muted-foreground">–</span>
+        <span className="text-meta text-fg-muted">–</span>
       </TableCell>
 
       {/* Projects */}
@@ -59,16 +59,18 @@ export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps
             isDefault={defaultProjectName ? row.project_name === defaultProjectName : undefined}
           />
         ) : (
-          <span className="font-mono text-[11px] text-muted-foreground">–</span>
+          <span className="text-meta text-fg-muted">–</span>
         )}
       </TableCell>
 
       {/* Last active */}
       <TableCell className="py-3.5">
-        <span className="font-mono text-[11px] text-muted-foreground">–</span>
+        <span className="text-meta text-fg-muted">–</span>
       </TableCell>
 
-      <TableCell className="py-3.5 text-right">{actions}</TableCell>
+      <TableCell className="py-3.5 text-right">
+        <TableRowActions>{actions}</TableRowActions>
+      </TableCell>
     </TableRow>
   );
 }

@@ -41,12 +41,14 @@ export const Default: Story = {
     ],
   },
   play: async ({ canvas }) => {
-    const trigger = canvas.getAllByRole('button', { name: 'Secret actions' })[0]
+    const trigger = canvas.getAllByRole('button', { name: /^Actions for / })[0]
     // One control height (rubric #9): the row menu trigger reads from the
-    // Button `icon` size, never a hand-set h-8/w-8 override.
-    await expect(trigger.className).toContain('size-10')
+    // Button `icon-sm` (28px), the same size the Stacks row menu uses —
+    // never a hand-set h-8/w-8 override. That size is 32px
+    // since the control-height ladder landed (was 40px).
+    await expect(trigger.className).toContain('size-7')
     await expect(trigger.className).not.toMatch(/\bh-8\b/)
-    await expect(trigger.className).toContain('focus-visible:outline-2')
+    await expect(trigger.className).toContain('focus-ring')
   },
 }
 

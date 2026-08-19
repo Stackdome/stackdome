@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FieldShell } from "@/components/branded";
+import { AlertBanner, FieldShell } from "@/components/branded";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -68,15 +68,13 @@ export function RenameProjectDialog({ open, onOpenChange, currentName, onRename 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="ask">
         <DialogHeader>
           <DialogTitle>Rename project</DialogTitle>
         </DialogHeader>
 
         {error && (
-          <div className="rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-sm text-danger">
-            {error}
-          </div>
+          <AlertBanner>{error}</AlertBanner>
         )}
 
         <div className="space-y-4">
@@ -97,14 +95,14 @@ export function RenameProjectDialog({ open, onOpenChange, currentName, onRename 
           </FieldShell>
 
           {slug && (
-            <p className="font-mono text-xs text-muted-foreground">
+            <p className="font-mono text-meta text-muted-foreground">
               Slug: <span className="text-foreground">{slug}</span>
             </p>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>
+          <Button shape="flat" variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
           <Button onClick={() => void handleSubmit()} disabled={!canSubmit}>

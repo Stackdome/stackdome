@@ -65,7 +65,7 @@ describe("VerifyRegistryDialog", () => {
     });
   });
 
-  it("toasts destructively and stays open on failure", async () => {
+  it("shows the failure in the dialog and stays open", async () => {
     vi.mocked(verifyRegistryCredential).mockRejectedValue(new Error("denied"));
     const onOpenChange = vi.fn();
     const user = userEvent.setup();
@@ -74,9 +74,8 @@ describe("VerifyRegistryDialog", () => {
     await user.type(screen.getByLabelText(/repository/i), "acme/app");
     await user.click(screen.getByRole("button", { name: /^verify$/i }));
 
-    await waitFor(() => {
-      expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
-    });
+    expect(await screen.findByText(/denied/i)).toBeInTheDocument();
+    expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 });

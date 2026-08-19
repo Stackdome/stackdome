@@ -57,7 +57,9 @@ export const KeyboardFocusOutline: Story = {
     await userEvent.tab()
     await expect(root).toHaveFocus()
     const style = getComputedStyle(root)
-    await expect(style.outlineStyle).not.toBe('none')
-    await expect(style.outlineWidth).toBe('2px')
+    // The ring is a box-shadow now, not an outline — asserted as the class
+    // contract for the reason spelled out in Button's KeyboardFocusOutline.
+    await expect(style.outlineStyle).toBe('none')
+    await expect(root.className).toMatch(/(?:^|\s)focus-ring(?:-edge|-inset)?(?:\s|$)/)
   },
 }

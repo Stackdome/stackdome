@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Boxes, PlusCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useClusters } from "./hooks/use-clusters";
-import { ClusterList } from "./components/cluster-list";
+import { ClusterList, ClusterListSkeleton } from "./components/cluster-list";
 import AddClusterDialog from "./components/add-cluster-dialog";
-import type { Cluster } from "./types";
 import type { ClusterData } from "./hooks/use-clusters";
 import { Button } from "@/components/ui/button";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { PageHeader, Panel, EmptyState, LimitedAction } from "@/components/branded";
+import { PageHeader, EmptyState, BlockedAction } from "@/components/branded";
+import { NoConnectionGlyph, NoSecretsGlyph } from "@/components/branded/empty-state";
 import { useToast } from "@/components/ui/use-toast";
 import { createCluster } from "@/api/clusters";
 import { getCurrentOrganizationId } from "@/lib/common";
@@ -20,7 +18,6 @@ export default function ClustersPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const navigate = useNavigate();
   const { toast } = useToast();
   const { setCustomLabel, setPathLoading } = useBreadcrumb();
 
@@ -30,10 +27,6 @@ export default function ClustersPage() {
     setCustomLabel(currentPath, "Clusters");
     setPathLoading(currentPath, loading);
   }, [setCustomLabel, setPathLoading, loading]);
-
-  function handleOpen(cluster: Cluster) {
-    navigate(`/clusters/${cluster.id}`);
-  }
 
   async function handleAddCluster(clusterData: ClusterData) {
     const orgId = getCurrentOrganizationId();
@@ -62,74 +55,71 @@ export default function ClustersPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-2 text-muted-foreground">Loading clusters...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8 text-center">
-        <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Error Loading Clusters</h2>
-        <p className="text-muted-foreground mb-4">{error}</p>
-        <Button onClick={() => window.location.reload()}>
-          Try Again
-        </Button>
-      </div>
-    );
-  }
+  const addCluster = (variant: "default" | "outline") => (
+    <BlockedAction
+      reason={clusters.length >= 1 ? "Only one cluster is supported today." : null}
+    >
+      <Button variant={variant} onClick={() => setShowAddDialog(true)}>
+        <Plus />
+        Add cluster
+      </Button>
+    </BlockedAction>
+  );
 
   return (
-    <TooltipProvider>
-      <div className="p-8 space-y-8">
-        <PageHeader
-          eyebrow="Platform"
-          title="Clusters"
-          subtitle="Compute targets for your stacks"
-          actions={
-            <LimitedAction
-              limitReached={clusters.length >= 1}
-              limitMessage="Currently only one cluster is supported."
-            >
-              <Button onClick={() => setShowAddDialog(true)}>
-                <PlusCircle className="h-4 w-4" />
-                Add Cluster
-              </Button>
-            </LimitedAction>
+    <div className="flex flex-1 flex-col h-full">
+      <PageHeader
+        // §12a's one fact. No eyebrow, no subtitle: the explanation belongs to
+        // the empty state, where it is actually needed. This page has no tools,
+        // so it passes no toolbar and the band collapses to 56px.
+        status={
+          !loading && !error && clusters.length > 0 ? (
+            <span className="text-name tabular-nums text-fg-muted">
+              {clusters.length} {clusters.length === 1 ? "cluster" : "clusters"}
+            </span>
+          ) : undefined
+        }
+        actions={addCluster("default")}
+      />
+
+      {error ? (
+        /* The retry REFETCHES. Reloading the page was never a retry: it threw
+           away the router, the session and any dialog the user had open, to
+           re-run one request. */
+        <EmptyState
+          className="flex-1 gap-6"
+          icon={<NoConnectionGlyph />}
+          title="Clusters could not be loaded"
+          description={error}
+          action={
+            <Button variant="outline" onClick={() => refetch()}>
+              Try again
+            </Button>
           }
         />
-
-        {clusters.length === 0 ? (
-          <EmptyState
-            icon={<Boxes className="h-8 w-8" />}
-            title="No clusters configured"
-            description="Link to your cluster to get started."
-            action={
-              <Button onClick={() => setShowAddDialog(true)}>
-                <PlusCircle className="h-4 w-4" />
-                Add Cluster
-              </Button>
-            }
-          />
-        ) : (
-          <Panel title="All Clusters" count={clusters.length} bodyClassName="p-0">
-            <ClusterList clusters={clusters} onOpen={handleOpen} />
-          </Panel>
-        )}
-
-        <AddClusterDialog
-          open={showAddDialog}
-          onOpenChange={setShowAddDialog}
-          onAddCluster={handleAddCluster}
-          isLoading={createLoading}
-          error={createError}
+      ) : loading ? (
+        <ClusterListSkeleton />
+      ) : clusters.length === 0 ? (
+        <EmptyState
+          className="flex-1 gap-6"
+          icon={<NoSecretsGlyph />}
+          title="No clusters yet"
+          description="A cluster is where your stacks actually run. Connect one with a kubeconfig and Stackdome installs its agent, then deploys to it."
+          /* Outline, never filled (§9). The header already carries this exact
+             action as the page's one fill. */
+          action={addCluster("outline")}
         />
-      </div>
-    </TooltipProvider>
+      ) : (
+        <ClusterList clusters={clusters} />
+      )}
+
+      <AddClusterDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onAddCluster={handleAddCluster}
+        isLoading={createLoading}
+        error={createError}
+      />
+    </div>
   );
 }

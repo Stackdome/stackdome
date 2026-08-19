@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { HardDrive } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogSection, DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -57,65 +59,69 @@ export function AddVolumeDialog({ open, onOpenChange, resources, volumes, initia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <HardDrive className="size-[18px] text-brand" /> Add volume
-          </DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <FieldShell label="Name" htmlFor="add-volume-name" required error={errors.name}>
-              <Input
-                id="add-volume-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={`font-mono ${errors.name ? "border-danger" : ""}`}
-                aria-invalid={!!errors.name}
-              />
-            </FieldShell>
-            <FieldShell label="Size" htmlFor="add-volume-size" hint="e.g., 1Gi, 500Mi.">
-              <Input id="add-volume-size" value={size} onChange={(e) => setSize(e.target.value)} className="font-mono" />
-            </FieldShell>
-          </div>
-          <FieldShell label="Attach to service" htmlFor="add-volume-service" required error={errors.resource}>
-            <Select
-              value={resourceIdx == null ? "" : String(resourceIdx)}
-              onValueChange={(v) => setResourceIdx(Number(v))}
-            >
-              <SelectTrigger id="add-volume-service" className={errors.resource ? "border-danger" : ""}>
-                <SelectValue placeholder="Select service" />
-              </SelectTrigger>
-              <SelectContent>
-                {resources.map((r, i) =>
-                  r.name ? (
-                    <SelectItem key={r.name} value={String(i)}>
-                      {r.name}
-                    </SelectItem>
-                  ) : null,
-                )}
-              </SelectContent>
-            </Select>
-          </FieldShell>
-          <FieldShell
-            label="Mount path"
-            htmlFor="add-volume-path"
-            required
-            hint="Path inside the service, starting with /, e.g., /var/lib/data."
-            error={errors.targetPath}
-          >
-            <Input
-              id="add-volume-path"
-              value={targetPath}
-              onChange={(e) => setTargetPath(e.target.value)}
-              placeholder="/var/lib/data"
-              className={`font-mono ${errors.targetPath ? "border-danger" : ""}`}
-              aria-invalid={!!errors.targetPath}
-            />
-          </FieldShell>
-        </div>
+      <DialogContent size="ask">
+        <DialogBody>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HardDrive className="size-[18px] text-brand" /> Add volume
+            </DialogTitle>
+          </DialogHeader>
+          <DialogSection>
+            <div className="grid gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FieldShell label="Name" htmlFor="add-volume-name" required error={errors.name}>
+                  <Input
+                    id="add-volume-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className={`font-mono ${errors.name ? "border-danger" : ""}`}
+                    aria-invalid={!!errors.name}
+                  />
+                </FieldShell>
+                <FieldShell label="Size" htmlFor="add-volume-size" hint="e.g., 1Gi, 500Mi.">
+                  <Input id="add-volume-size" value={size} onChange={(e) => setSize(e.target.value)} className="font-mono" />
+                </FieldShell>
+              </div>
+              <FieldShell label="Attach to service" htmlFor="add-volume-service" required error={errors.resource}>
+                <Select
+                  value={resourceIdx == null ? "" : String(resourceIdx)}
+                  onValueChange={(v) => setResourceIdx(Number(v))}
+                >
+                  <SelectTrigger id="add-volume-service" className={errors.resource ? "border-danger" : ""}>
+                    <SelectValue placeholder="Select service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {resources.map((r, i) =>
+                      r.name ? (
+                        <SelectItem key={r.name} value={String(i)}>
+                          {r.name}
+                        </SelectItem>
+                      ) : null,
+                    )}
+                  </SelectContent>
+                </Select>
+              </FieldShell>
+              <FieldShell
+                label="Mount path"
+                htmlFor="add-volume-path"
+                required
+                hint="Path inside the service, starting with /, e.g., /var/lib/data."
+                error={errors.targetPath}
+              >
+                <Input
+                  id="add-volume-path"
+                  value={targetPath}
+                  onChange={(e) => setTargetPath(e.target.value)}
+                  placeholder="/var/lib/data"
+                  className={`font-mono ${errors.targetPath ? "border-danger" : ""}`}
+                  aria-invalid={!!errors.targetPath}
+                />
+              </FieldShell>
+            </div>
+          </DialogSection>
+        </DialogBody>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button shape="flat" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={submit}>Add volume</Button>

@@ -12,7 +12,7 @@ interface LiveViewToggleProps {
 
 // deliberate off-scale: rounded-sm (9px) reads too round on this ~22px segment
 const SEGMENT_BASE =
-  "flex items-center gap-1.5 rounded-[5px] px-2.5 py-1 text-[12px] font-medium transition-colors";
+  "flex items-center gap-1.5 rounded-[5px] px-2.5 py-1 text-meta font-medium transition-colors";
 
 /**
  * Draft/Live segmented control overlaid on the canvas. "Live" switches the
@@ -37,7 +37,7 @@ export function LiveViewToggle({ mode, onModeChange, draftDirty }: LiveViewToggl
     <div
       role="group"
       aria-label="Canvas view"
-      className="flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5 shadow-[var(--edge)]"
+      className="flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5"
     >
       {segment(
         "draft",

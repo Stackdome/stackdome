@@ -1,6 +1,7 @@
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
@@ -22,23 +23,48 @@ function SelectValue({
   return <SelectPrimitive.Value data-slot="select-value" {...props} />
 }
 
+// Same ladder as Button and Input — §2 makes radius a function of HEIGHT, so a
+// 28px select takes 6px and a 32px select takes 8px. The trigger previously ran
+// a single `rounded-md` across both heights, which put a 28px select in a
+// toolbar with corners 2px rounder than the 28px button beside it.
+//
+// The inset matches the Button/Input base for the same height (10 / 12 / 15).
+const selectTriggerVariants = cva(
+  // A select is a control with its OWN FACE, so §4 sends it to its own fill —
+  // `control-hover` on hover, exactly as `secondary` Button does. It never
+  // borrows the wash ladder; that is for faces transparent at rest.
+  //
+  // `open` is a derivation rather than a rung the rules already carry: the
+  // trigger stays engaged for as long as the menu is out, so it takes the
+  // hover fill AND the stronger line. Not the press inset — you are not still
+  // pushing it.
+  "border-border data-[placeholder]:text-fg-muted [&_svg:not([class*='text-'])]:text-muted-foreground aria-invalid:border-danger bg-control flex w-fit items-center justify-between gap-2 border py-0 text-body font-normal whitespace-nowrap transition-[color,box-shadow,background-color,border-color] hover:bg-control-hover data-[state=open]:bg-control-hover data-[state=open]:border-border-strong disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-control *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus-ring-edge",
+  {
+    variants: {
+      size: {
+        sm: "h-7 rounded-sm px-2.5",
+        default: "h-8 rounded-md px-3",
+        lg: "h-10 rounded-lg px-[15px]",
+      },
+    },
+    defaultVariants: {
+      size: "default",
+    },
+  }
+)
+
 function SelectTrigger({
   className,
   size = "default",
   children,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
-  size?: "sm" | "default"
-}) {
+}: React.ComponentProps<typeof SelectPrimitive.Trigger> &
+  VariantProps<typeof selectTriggerVariants>) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
-      className={cn(
-        "border-border data-[placeholder]:text-fg-ghost [&_svg:not([class*='text-'])]:text-muted-foreground aria-invalid:border-danger bg-input flex w-fit items-center justify-between gap-2 rounded-full border px-[15px] py-2 text-[13px] font-normal whitespace-nowrap transition-[color,box-shadow] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-10 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        "focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2",
-        className
-      )}
+      className={cn(selectTriggerVariants({ size, className }))}
       {...props}
     >
       {children}
@@ -60,7 +86,7 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-lg",
+          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border shadow-lg",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
           className
@@ -91,7 +117,7 @@ function SelectLabel({
   return (
     <SelectPrimitive.Label
       data-slot="select-label"
-      className={cn("text-muted-foreground px-2 py-1.5 text-xs", className)}
+      className={cn("text-muted-foreground px-2 py-1.5 text-meta", className)}
       {...props}
     />
   )
@@ -100,13 +126,29 @@ function SelectLabel({
 function SelectItem({
   className,
   children,
+  reason,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+}: React.ComponentProps<typeof SelectPrimitive.Item> & {
+  /**
+   * Why this option cannot be chosen, shown as a second line while it is
+   * disabled. It sits OUTSIDE `ItemText` on purpose — `ItemText` is what the
+   * closed trigger echoes, so a reason inside it would print on the trigger
+   * once some other option was picked.
+   */
+  reason?: React.ReactNode
+}) {
+  const explained = Boolean(reason) && Boolean(props.disabled)
+
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default rounded-md py-1.5 pr-8 pl-2 text-body outline-hidden select-none data-[disabled]:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        // The dim moves onto the label when there is a reason, so the reason
+        // itself stays readable. See DropdownMenuItem for the same mechanic.
+        explained
+          ? "flex-col items-start gap-0.5"
+          : "items-center gap-2 data-[disabled]:opacity-50 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className
       )}
       {...props}
@@ -116,7 +158,16 @@ function SelectItem({
           <CheckIcon className="size-4" />
         </SelectPrimitive.ItemIndicator>
       </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      {explained ? (
+        <>
+          <SelectPrimitive.ItemText>
+            <span className="flex items-center gap-2 opacity-50">{children}</span>
+          </SelectPrimitive.ItemText>
+          <span className="text-meta text-fg-muted leading-rel">{reason}</span>
+        </>
+      ) : (
+        <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      )}
     </SelectPrimitive.Item>
   )
 }

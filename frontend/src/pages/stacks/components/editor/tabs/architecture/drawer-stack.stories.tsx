@@ -30,7 +30,7 @@ const front = (
       <HardDrive className="size-[19px] shrink-0 text-brand" />
       <span className="text-base font-medium text-foreground">web-data</span>
     </div>
-    <div className="p-4 text-sm text-muted-foreground">Front panel body</div>
+    <div className="p-4 text-body text-muted-foreground">Front panel body</div>
   </>
 )
 

@@ -1,5 +1,22 @@
 # OpenAI Platform — design study
 
+> ## This document is EVIDENCE, not instruction
+>
+> **`DESIGN-PRODUCT.md` is the only authority.** Nothing here is a rule. These
+> are measured findings; where they were considered and *rejected*, the
+> rejection is recorded below and this file does not get to argue back.
+>
+> **Points overruled by `DESIGN-PRODUCT.md` — do not act on these:**
+>
+> | This file says | The rule says | Why |
+> |---|---|---|
+> | §1, §9 — "Keep **pill** as the default; add `flat`" | **`flat` is the default** | This recommendation is what shipped 166 of 219 buttons as pills against a rule of one per screen |
+> | §7, §9 — "Adopt **uppercase** column headers" | **No uppercase, anywhere** | Caps strip the word-shape the eye reads by. Size and the muted tier already say "this is a label" |
+> | §9 — "consider whether inputs should be taller than buttons" | **Inputs match their buttons** | Considered and closed. A 40px field pairs with a 40px button |
+> | §3 — "our frame is lighter than the console's 4.7%" | Ours measured **5.0%** | The comparison was inverted. Grounds are being retuned into the 2–4% band |
+>
+> Everything else here stands as evidence and was folded into the rules.
+
 **Source:** 417 screens of the OpenAI Platform console (web, Apr 2026), captured
 via Mobbin. Every screen was reviewed; the numbers below were **measured off the
 pixels**, not estimated.

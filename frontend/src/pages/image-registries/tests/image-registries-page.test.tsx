@@ -36,7 +36,7 @@ describe("ImageRegistriesPage", () => {
   it("shows the empty state with an add action when list is empty", async () => {
     vi.mocked(listRegistryCredentials).mockResolvedValue({ items: [] });
     render(<ConfirmProvider><ImageRegistriesPage /></ConfirmProvider>);
-    await waitFor(() => expect(screen.getByText(/no image registries yet/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/no registries yet/i)).toBeInTheDocument());
     expect(screen.getAllByRole("button", { name: /add registry/i }).length).toBeGreaterThanOrEqual(1);
   });
 
@@ -44,7 +44,8 @@ describe("ImageRegistriesPage", () => {
     vi.mocked(listRegistryCredentials).mockResolvedValue({ items: [row] });
     render(<ConfirmProvider><ImageRegistriesPage /></ConfirmProvider>);
     await waitFor(() => expect(screen.getByText("index.docker.io")).toBeInTheDocument());
-    expect(screen.getByText(/connected registries/i)).toBeInTheDocument();
+    // The list renders as a data list, with its columns labelled.
+    expect(screen.getByText("Purpose")).toBeInTheDocument();
     expect(screen.getByText("Pull & push")).toBeInTheDocument();
   });
 
@@ -55,7 +56,7 @@ describe("ImageRegistriesPage", () => {
     render(<ConfirmProvider><ImageRegistriesPage /></ConfirmProvider>);
     await waitFor(() => expect(screen.getByText("index.docker.io")).toBeInTheDocument());
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
+    await user.click(screen.getByRole("button", { name: /^actions for /i }));
     await user.click(await screen.findByRole("menuitem", { name: /update credentials/i }));
 
     await user.type(await screen.findByLabelText(/password/i), "n3w");
@@ -81,7 +82,7 @@ describe("ImageRegistriesPage", () => {
     render(<ConfirmProvider><ImageRegistriesPage /></ConfirmProvider>);
     await waitFor(() => expect(screen.getByText("index.docker.io")).toBeInTheDocument());
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
+    await user.click(screen.getByRole("button", { name: /^actions for /i }));
     await user.click(await screen.findByRole("menuitem", { name: /remove registry/i }));
     await user.click(await screen.findByRole("button", { name: /^remove$/i }));
 

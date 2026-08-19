@@ -55,7 +55,7 @@ describe("AddRegistryDialog", () => {
     });
   });
 
-  it("keeps the dialog open and toasts destructively on non-conflict failure", async () => {
+  it("keeps the dialog open and shows the failure in it on non-conflict failure", async () => {
     vi.mocked(createRegistryCredential).mockRejectedValue(new Error("boom"));
     const onOpenChange = vi.fn();
     const user = userEvent.setup();
@@ -66,9 +66,8 @@ describe("AddRegistryDialog", () => {
     await user.type(screen.getByLabelText(/password/i), "s3cret");
     await user.click(screen.getByRole("button", { name: /add registry/i }));
 
-    await waitFor(() => {
-      expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
-    });
+    expect(await screen.findByText(/boom/i)).toBeInTheDocument();
+    expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 

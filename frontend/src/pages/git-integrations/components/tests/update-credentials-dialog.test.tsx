@@ -84,7 +84,7 @@ describe("UpdateCredentialsDialog", () => {
     });
   });
 
-  it("keeps the dialog open and toasts destructively on API failure", async () => {
+  it("keeps the dialog open and shows the failure in it on API failure", async () => {
     vi.mocked(updateGitIntegration).mockRejectedValue(new Error("boom"));
     const onOpenChange = vi.fn();
     const user = userEvent.setup();
@@ -93,9 +93,10 @@ describe("UpdateCredentialsDialog", () => {
     await user.type(screen.getByLabelText(/access token/i), "glpat-new");
     await user.click(screen.getByRole("button", { name: /update credentials/i }));
 
-    await waitFor(() => {
-      expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
-    });
+    // The failure lands in the dialog, beside the token that was rejected —
+    // never as a toast that fires after the form is gone.
+    expect(await screen.findByText(/boom/i)).toBeInTheDocument();
+    expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 

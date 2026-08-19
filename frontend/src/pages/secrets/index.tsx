@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { PlusCircle, AlertCircle, Loader2, KeyRound, Search, ChevronDown } from "lucide-react";
+import { Plus, Search, ChevronDown } from "lucide-react";
 import { useSecrets } from "@/hooks/use-secrets";
-import { SecretList, formatSecretType } from "./components/secret-list";
-import { SecretFormDialog } from "./components/secret-form-dialog";
+import { SecretList, SecretListSkeleton, formatSecretType } from "./components/secret-list";
+import { SecretFormDrawer } from "./components/secret-form-drawer";
 import type { Secret } from "./types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { PageHeader, Panel, EmptyState } from "@/components/branded";
+import { PageHeader, EmptyState } from "@/components/branded";
+import { NoConnectionGlyph, NoSecretsGlyph, SearchGlyph } from "@/components/branded/empty-state";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
@@ -62,11 +62,17 @@ export default function SecretsPage() {
 
   async function requestDelete(secret: Secret) {
     if (!secret.id) return;
+    // §6a level 2: a secret is rebuildable but nothing that reads it survives
+    // its removal, so the gate is an acknowledgement — not a bare red button.
     const ok = await confirm({
       title: "Delete secret?",
-      description: `This permanently deletes “${secret.name}”. This cannot be undone.`,
+      description: `Anything using “${secret.name}” starts failing the moment it is gone. The value cannot be recovered.`,
       confirmLabel: "Delete",
       variant: "destructive",
+      gate: {
+        kind: "acknowledge",
+        label: `I understand that stacks reading ${secret.name} will break.`,
+      },
     });
     if (!ok) return;
     const orgId = getCurrentOrganizationId();
@@ -176,167 +182,180 @@ export default function SecretsPage() {
 
   const sortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? "";
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-2 text-muted-foreground">Loading secrets...</p>
-      </div>
-    );
-  }
+  const clearFilters = () => {
+    setQuery("");
+    setTypeFilter(ALL_TYPES);
+  };
 
-  if (error) {
-    return (
-      <div className="p-8 text-center">
-        <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Error Loading Secrets</h2>
-        <p className="text-muted-foreground mb-4">{error}</p>
-        <Button onClick={() => window.location.reload()}>
-          Try Again
-        </Button>
+  /**
+   * §12a — the section's tools live in the header's second row, not in the page
+   * body. They used to sit inside the list's own wrapper, which meant they
+   * vanished with the list and were indented past the title above them.
+   *
+   * Rendered in every state including loading — they do not depend on the data.
+   * Not on error: a live filter over a dead list is a lie.
+   */
+  const toolbar = error ? undefined : (
+    <>
+      <div className="relative w-[300px]">
+        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-muted" />
+        <Input
+          placeholder="Filter secrets…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-[30px]"
+          aria-label="Filter secrets"
+        />
       </div>
-    );
-  }
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          {/* Filters are working controls: `flat`, never a pill (§9). Default
+              size, not `sm` — the toolbar is chrome, not a compact strip. */}
+          <Button variant="outline" shape="flat">
+            <span className="text-fg-2">Type:</span>{" "}
+            <span>{typeFilter === ALL_TYPES ? "All" : formatSecretType(typeFilter)}</span>
+            <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="min-w-[200px]"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
+          <DropdownMenuItem
+            onSelect={() => setTypeFilter(ALL_TYPES)}
+            className={cn(
+              "justify-between text-body",
+              typeFilter === ALL_TYPES && "font-semibold text-foreground",
+            )}
+          >
+            <span>All</span>
+            <span className="tabular-nums text-fg-2">{secrets.length}</span>
+          </DropdownMenuItem>
+          {typeOptions.map((o) => (
+            <DropdownMenuItem
+              key={o.type}
+              onSelect={() => setTypeFilter(o.type)}
+              className={cn(
+                "justify-between text-body",
+                typeFilter === o.type && "font-semibold text-foreground",
+              )}
+            >
+              <span>{formatSecretType(o.type)}</span>
+              <span className="tabular-nums text-fg-2">{o.count}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" shape="flat">
+            <span className="text-fg-2">Sort:</span> <span>{sortLabel}</span>
+            <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="min-w-[200px]"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
+          {SORT_OPTIONS.map((o) => (
+            <DropdownMenuItem
+              key={o.key}
+              onSelect={() => setSortKey(o.key)}
+              className={cn("text-body", sortKey === o.key && "font-semibold text-foreground")}
+            >
+              {o.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  );
+
+  const newSecret = (variant: "default" | "outline") =>
+    canWriteAnyProject ? (
+      <Button variant={variant} onClick={() => setShowAddDialog(true)}>
+        <Plus />
+        New secret
+      </Button>
+    ) : undefined;
 
   return (
-    <TooltipProvider>
-      <div className="p-8 space-y-8">
-        <PageHeader
-          eyebrow="Platform"
-          title="Secrets"
-          subtitle="Manage sensitive data like API keys, passwords, and certificates"
-          actions={
-            canWriteAnyProject ? (
-              <Button onClick={() => setShowAddDialog(true)}>
-                <PlusCircle className="h-4 w-4" />
-                Create Secret
-              </Button>
-            ) : undefined
+    <div className="flex flex-1 flex-col h-full">
+      <PageHeader
+        // §12a's one fact — a count of what is ON SCREEN, so it tracks the
+        // filters. Absent while loading, absent when empty, absent on error.
+        status={
+          !loading && !error && filtered.length > 0 ? (
+            <span className="text-name tabular-nums text-fg-muted">
+              {filtered.length} {filtered.length === 1 ? "secret" : "secrets"}
+            </span>
+          ) : undefined
+        }
+        actions={newSecret("default")}
+        toolbar={toolbar}
+      />
+
+      {error ? (
+        /* The retry REFETCHES. Reloading the page was never a retry: it threw
+           away the router, the session and any dialog the user had open, to
+           re-run one request. */
+        <EmptyState
+          className="flex-1 gap-6"
+          icon={<NoConnectionGlyph />}
+          title="Secrets could not be loaded"
+          description={error}
+          action={
+            <Button variant="outline" onClick={() => refetch()}>
+              Try again
+            </Button>
           }
         />
-
-        {secrets.length === 0 ? (
-          <EmptyState
-            icon={<KeyRound className="h-8 w-8" />}
-            title="No secrets yet"
-            description="Create your first secret to securely store sensitive data."
-            action={
-              canWriteAnyProject ? (
-                <Button onClick={() => setShowAddDialog(true)}>
-                  <PlusCircle className="h-4 w-4" />
-                  Create Secret
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative w-full min-w-[220px] max-w-[340px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Filter secrets…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <div className="ml-auto flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <span className="text-fg-2">Type:</span>{" "}
-                      <span>{typeFilter === ALL_TYPES ? "All" : formatSecretType(typeFilter)}</span>
-                      <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="min-w-[200px]"
-                    onCloseAutoFocus={(e) => e.preventDefault()}
-                  >
-                    <DropdownMenuItem
-                      onSelect={() => setTypeFilter(ALL_TYPES)}
-                      className={cn(
-                        "justify-between text-[13px]",
-                        typeFilter === ALL_TYPES && "font-semibold text-foreground"
-                      )}
-                    >
-                      <span>All</span>
-                      <span className="tabular-nums text-fg-2">{secrets.length}</span>
-                    </DropdownMenuItem>
-                    {typeOptions.map((o) => (
-                      <DropdownMenuItem
-                        key={o.type}
-                        onSelect={() => setTypeFilter(o.type)}
-                        className={cn(
-                          "justify-between text-[13px]",
-                          typeFilter === o.type && "font-semibold text-foreground"
-                        )}
-                      >
-                        <span>{formatSecretType(o.type)}</span>
-                        <span className="tabular-nums text-fg-2">{o.count}</span>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <span className="text-fg-2">Sort:</span> <span>{sortLabel}</span>
-                      <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="min-w-[200px]"
-                    onCloseAutoFocus={(e) => e.preventDefault()}
-                  >
-                    {SORT_OPTIONS.map((o) => (
-                      <DropdownMenuItem
-                        key={o.key}
-                        onSelect={() => setSortKey(o.key)}
-                        className={cn(
-                          "text-[13px]",
-                          sortKey === o.key && "font-semibold text-foreground"
-                        )}
-                      >
-                        {o.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-
-            {filtered.length === 0 ? (
-              <EmptyState
-                icon={<Search className="h-8 w-8" />}
-                title="No secrets match"
-                description="Try a different search or type filter."
-              />
-            ) : (
-              <Panel title="Organization Secrets" count={filtered.length} bodyClassName="p-0">
-                <SecretList
-                  secrets={filtered}
-                  onEdit={handleEdit}
-                  onDelete={requestDelete}
-                  canWrite={(projectId?: string) => canWrite(projectId ?? "")}
-                />
-              </Panel>
-            )}
-          </div>
-        )}
-
-        <SecretFormDialog
-          open={showAddDialog}
-          onOpenChange={handleCloseDialog}
-          onSubmit={handleCreateOrUpdateSecret}
-          isLoading={formLoading}
-          error={formError}
-          editingSecret={editingSecret}
+      ) : loading ? (
+        <SecretListSkeleton />
+      ) : secrets.length === 0 ? (
+        <EmptyState
+          className="flex-1 gap-6"
+          icon={<NoSecretsGlyph />}
+          title="No secrets yet"
+          description="Secrets hold the values your stacks need at runtime: keys, tokens and passwords. A stack reads them by name, and nobody has to paste one into a config file."
+          /* Outline, never filled (§9). The header already carries this exact
+             action as the page's one fill. */
+          action={newSecret("outline")}
         />
-      </div>
-    </TooltipProvider>
+      ) : filtered.length === 0 ? (
+        /* A filter that matched nothing is small and recoverable, so it gets the
+           small mark and a way back — never the first-run glyph. The tools stay
+           up: they are what got you here and what gets you out. */
+        <EmptyState
+          className="flex-1"
+          icon={<SearchGlyph />}
+          title="No secrets match"
+          description="Try a different search, or clear the filters."
+          action={
+            <Button variant="outline" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          }
+        />
+      ) : (
+        <SecretList
+          secrets={filtered}
+          onEdit={handleEdit}
+          onDelete={requestDelete}
+          canWrite={(projectId?: string) => canWrite(projectId ?? "")}
+        />
+      )}
+
+      <SecretFormDrawer
+        open={showAddDialog}
+        onOpenChange={handleCloseDialog}
+        onSubmit={handleCreateOrUpdateSecret}
+        isLoading={formLoading}
+        error={formError}
+        editingSecret={editingSecret}
+      />
+    </div>
   );
 }

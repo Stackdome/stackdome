@@ -11,10 +11,10 @@ describe("IntegrationsErrorState", () => {
     const onRetry = vi.fn();
     render(<IntegrationsErrorState message="request failed with status 500" onRetry={onRetry} />);
 
-    expect(screen.getByText("Couldn't load integrations")).toBeInTheDocument();
+    expect(screen.getByText("Git providers could not be loaded")).toBeInTheDocument();
     expect(screen.getByText(/request failed with status 500/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });
@@ -24,7 +24,7 @@ describe("IntegrationsEmptyState", () => {
     const onAdd = vi.fn();
     render(<IntegrationsEmptyState onAdd={onAdd} />);
 
-    expect(screen.getByText("No git integrations yet")).toBeInTheDocument();
+    expect(screen.getByText("No git providers yet")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /connect provider/i }));
     expect(onAdd).toHaveBeenCalledTimes(1);

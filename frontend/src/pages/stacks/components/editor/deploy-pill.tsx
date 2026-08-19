@@ -78,12 +78,12 @@ export function DeployPill({
     <div
       data-testid="deploy-pill"
       className={cn(
-        "absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-2.5 rounded-md border border-brand-border bg-background py-2 shadow-[var(--edge)] animate-in fade-in slide-in-from-top-2 duration-[260ms]",
+        "absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-2.5 rounded-md border border-brand-border bg-background py-2 animate-in fade-in slide-in-from-top-2 duration-[260ms]",
         hasChanges ? "pl-4 pr-2" : "px-2",
       )}
     >
       {hasChanges && (
-        <span className="whitespace-nowrap text-[13px] font-medium tracking-[-0.01em] text-brand">
+        <span className="whitespace-nowrap text-body font-medium tracking-[-0.01em] text-brand">
           Apply {dirtyTotal} {dirtyTotal === 1 ? "change" : "changes"}
         </span>
       )}
@@ -112,7 +112,7 @@ export function DeployPill({
       {!isDraft && canDiscardDraft && onDiscardDraft && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="rounded-md" aria-label="Change actions">
+            <Button shape="flat" type="button" variant="ghost" size="icon" className="rounded-md" aria-label="Change actions">
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>

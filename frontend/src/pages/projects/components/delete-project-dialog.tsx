@@ -34,13 +34,13 @@ export function DeleteProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="ask">
         <DialogHeader>
           <DialogTitle>Delete project?</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             The project &ldquo;{projectName}&rdquo; will be permanently deleted. This cannot be undone.
           </p>
 
@@ -58,7 +58,7 @@ export function DeleteProjectDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button shape="flat" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Copy, Check, Loader2, Mail, AlertCircle, Link as LinkIcon } from "lucide-react";
+import { Copy, Check, Mail, AlertCircle, Link as LinkIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +34,7 @@ interface InviteDialogProps {
 // Default badge pill shown next to default project
 function DefaultPill() {
   return (
-    <span className="inline-flex items-center px-1.5 py-px text-[9px] font-mono uppercase tracking-wider rounded text-fg-2 bg-foreground/5 border border-border">
+    <span className="inline-flex items-center px-1.5 py-px text-[9px] font-mono rounded text-fg-2 bg-foreground/5 border border-border">
       DEFAULT
     </span>
   );
@@ -69,10 +69,10 @@ function RoleCard({
       ].join(" ")}
     >
       <div className="flex w-full items-center justify-between">
-        <span className="text-sm font-medium font-mono text-foreground">{role}</span>
+        <span className="text-body font-medium font-mono text-foreground">{role}</span>
         <RadioGroupItem id={inputId} value={role} disabled={disabled} />
       </div>
-      <span className="text-[11px] text-muted-foreground leading-snug">{description}</span>
+      <span className="text-label text-muted-foreground leading-snug">{description}</span>
     </label>
   );
 }
@@ -192,7 +192,7 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="ask">
         {/* ── Header ── */}
         <DialogHeader className="flex-row items-start gap-3.5 space-y-0 pb-0">
           {/* Avatar icon */}
@@ -214,7 +214,7 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
             <DialogTitle className="text-base">
               {isSuccess ? "Invitation created" : "Invite user"}
             </DialogTitle>
-            <p className="mt-1 text-xs text-muted-foreground leading-snug">
+            <p className="mt-1 text-meta text-muted-foreground leading-snug">
               {isSuccess
                 ? "Share the one-time link below — it won’t be retrievable again."
                 : "They’ll receive an email with a one-time link to join this organisation."}
@@ -251,7 +251,7 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
                   disabled={isSubmitting}
                 />
                 {!emailError && (
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     A one-time invite link will be sent to this address.
                   </p>
                 )}
@@ -275,7 +275,7 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
                             <DefaultPill />
                           ) : (
                             <>
-                              <span className="font-mono text-sm">{resolvedProject}</span>
+                              <span className="font-mono text-body">{resolvedProject}</span>
                               {isDefaultProjectSelected && <DefaultPill />}
                             </>
                           )}
@@ -291,7 +291,7 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
                             <DefaultPill />
                           ) : (
                             <>
-                              <span className="font-mono text-sm">{t.name}</span>
+                              <span className="font-mono text-body">{t.name}</span>
                               {t.default_project && <DefaultPill />}
                             </>
                           )}
@@ -300,7 +300,7 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-[11px] text-muted-foreground leading-snug">
+                <p className="text-label text-muted-foreground leading-snug">
                   The invite is scoped to one project. The workspace default project is preselected
                   — change it if they should land somewhere else.
                 </p>
@@ -328,14 +328,22 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
             <DialogFooter>
               <Button
                 variant="outline"
+                shape="flat"
                 onClick={() => handleOpenChange(false)}
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                {isSubmitting ? "Sending invitation…" : "Send invitation"}
+              {/* The dialog's one fill, last. `loading` says what is happening
+                  and keeps full contrast — a request in flight is not a
+                  disabled control (§6). */}
+              <Button
+                shape="flat"
+                onClick={handleSubmit}
+                loading={isSubmitting}
+                loadingText="Sending invitation…"
+              >
+                Send invitation
               </Button>
             </DialogFooter>
           </>
@@ -362,7 +370,7 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
                 <div className="min-w-0 grow">
                   <p
                     className={[
-                      "text-sm font-medium",
+                      "text-body font-medium",
                       phase === "success-sent" ? "text-success" : "text-warn",
                     ].join(" ")}
                   >
@@ -375,7 +383,7 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
                       "Email delivery failed — share the link manually"
                     )}
                   </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                  <p className="mt-0.5 text-meta text-muted-foreground leading-relaxed">
                     {phase === "success-sent"
                       ? "If they don’t see it within a few minutes, share the link below directly."
                       : `${resultEmailError ?? "Couldn’t send the email"}. The invitation is still valid — they just won’t get a notification.`}
@@ -386,8 +394,8 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
               {/* One-time link block */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium">One-time invite link</span>
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <span className="text-meta font-medium">One-time invite link</span>
+                  <span className="font-mono text-label text-muted-foreground">
                     SHOWN ONCE
                   </span>
                 </div>
@@ -395,7 +403,7 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
                 {/* Link box */}
                 <div className="flex items-center gap-2 rounded-md border border-border bg-input px-3 py-2">
                   <LinkIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <code className="min-w-0 grow truncate font-mono text-xs text-foreground">
+                  <code className="min-w-0 grow truncate font-mono text-meta text-foreground">
                     {inviteUrl}
                   </code>
                   <Button variant="ghost" size="icon" onClick={handleCopy} className="shrink-0" aria-label="Copy invite link">
@@ -407,7 +415,7 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
                   </Button>
                 </div>
 
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                <p className="text-label text-muted-foreground leading-relaxed">
                   Expires in{" "}
                   <code className="font-mono text-foreground">1 day</code>.
                   {" "}This link won&apos;t be retrievable again — copy it now if you need to
@@ -418,16 +426,13 @@ export function InviteDialog({ open, onOpenChange, onCreated }: InviteDialogProp
 
             <DialogFooter className="items-center">
               {/* Left: invited email */}
-              <span className="mr-auto min-w-0 truncate font-mono text-xs text-muted-foreground">
+              <span className="mr-auto min-w-0 truncate font-mono text-meta text-muted-foreground">
                 {resultEmail}
               </span>
-              <Button
-                variant="ghost"
-                onClick={resetForm}
-              >
+              <Button variant="ghost" shape="flat" onClick={resetForm}>
                 Invite another
               </Button>
-              <Button onClick={() => handleOpenChange(false)}>Done</Button>
+              <Button shape="flat" onClick={() => handleOpenChange(false)}>Done</Button>
             </DialogFooter>
           </>
         )}

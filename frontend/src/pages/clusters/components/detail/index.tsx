@@ -159,10 +159,10 @@ export default function ClusterDetailPage() {
                   className="mt-0.5"
                 />
                 <div className="space-y-1">
-                  <Label className="text-[13px] font-medium text-foreground">
+                  <Label className="text-body font-medium text-foreground">
                     Stackdome Image Registry
                   </Label>
-                  <p className="text-[12px] text-muted-foreground leading-relaxed">
+                  <p className="text-meta text-muted-foreground leading-relaxed">
                     Provides a private registry inside this cluster for build artifacts.
                   </p>
                 </div>
@@ -171,13 +171,13 @@ export default function ClusterDetailPage() {
               {cluster.cluster_image_registry && (
                 <div className="grid grid-cols-2 gap-6 pl-11">
                   <div>
-                    <Label className="text-[13px] font-medium text-foreground">Registry Size</Label>
-                    <p className="font-mono text-sm text-muted-foreground mt-1">
+                    <Label className="text-body font-medium text-foreground">Registry Size</Label>
+                    <p className="font-mono text-body text-muted-foreground mt-1">
                       {cluster.cluster_image_registry.spec?.backend_storage_size || "—"}
                     </p>
                   </div>
                   <div>
-                    <Label className="text-[13px] font-medium text-foreground">Registry Status</Label>
+                    <Label className="text-body font-medium text-foreground">Registry Status</Label>
                     <div className="mt-1.5">
                       <StatusPill variant={statusVariant("registry", registryLabel)}>{registryLabel}</StatusPill>
                     </div>

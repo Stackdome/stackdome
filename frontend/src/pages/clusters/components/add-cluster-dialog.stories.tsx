@@ -55,6 +55,8 @@ export const SubmissionError: Story = {
     const body = within(canvasElement.ownerDocument.body)
     const alert = await body.findByRole('alert')
     await expect(alert).toHaveTextContent('No organization selected')
-    await expect(alert.className).toContain('border-danger-border')
+    // The fill is the tone now — the banner lost its border when it went
+    // borderless at radius 12.
+    await expect(alert.className).toContain('bg-danger-bg')
   },
 }

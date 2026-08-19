@@ -29,7 +29,7 @@ export function ProjectRowMenu({ project, onRename, onDelete }: ProjectRowMenuPr
     // (radix-ui/primitives#1836).
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Project actions">
+        <Button shape="flat" variant="ghost" size="icon" aria-label="Project actions">
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>

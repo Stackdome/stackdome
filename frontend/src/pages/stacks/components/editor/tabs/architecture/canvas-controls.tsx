@@ -58,11 +58,11 @@ export function CanvasControls({ showConnections, onToggleConnections, onAutoLay
   const cell =
     "flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground";
   const square =
-    "flex size-8 items-center justify-center rounded-md border border-border bg-control shadow-[var(--edge)] transition-colors";
+    "flex size-8 items-center justify-center rounded-md border border-border bg-control transition-colors";
 
   return (
     <Panel position="bottom-left" className="!m-4 flex flex-col gap-2">
-      <div className="flex flex-col overflow-hidden rounded-md border border-border bg-control shadow-[var(--edge)]">
+      <div className="flex flex-col overflow-hidden rounded-md border border-border bg-control">
         <button type="button" aria-label="Zoom in" className={cell} onClick={() => zoomIn()}>
           <Plus className="size-3.5" />
         </button>
@@ -75,7 +75,7 @@ export function CanvasControls({ showConnections, onToggleConnections, onAutoLay
           <Maximize2 className="size-3.5" />
         </button>
       </div>
-      <div className="flex flex-col overflow-hidden rounded-md border border-border bg-control shadow-[var(--edge)]">
+      <div className="flex flex-col overflow-hidden rounded-md border border-border bg-control">
         <button
           type="button"
           aria-label="Auto layout"

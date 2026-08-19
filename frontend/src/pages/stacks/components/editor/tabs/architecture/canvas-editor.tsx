@@ -147,7 +147,7 @@ export function CanvasEditor({
         )}
         {nodes.length > 0 && (
           <Panel position="bottom-center" className="pointer-events-none !mb-[18px]">
-            <div className="flex items-center gap-2 text-[11.5px] text-fg-muted">
+            <div className="flex items-center gap-2 text-label text-fg-muted">
               {readOnly ? (
                 <>
                   <Lock className="size-[13px]" aria-hidden />
@@ -187,8 +187,8 @@ export function CanvasEditor({
       )}
       {nodes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center text-center">
-          <p className="text-sm font-medium text-foreground">No resources yet</p>
-          <p className="mt-1 text-[13px] text-muted-foreground">
+          <p className="text-body font-medium text-foreground">No resources yet</p>
+          <p className="mt-1 text-body text-muted-foreground">
             Use <span className="font-medium text-foreground">+ Add resource</span> to start building your stack.
           </p>
         </div>

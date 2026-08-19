@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader,
+  DialogSection, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FieldShell } from "@/components/branded";
+import { AlertBanner, FieldShell } from "@/components/branded";
 import { useToast } from "@/components/ui/use-toast";
 import { updateRegistryCredential, type RegistryCredential } from "@/api/registry-credentials";
 import { getErrorMessage } from "@/api/client";
@@ -26,6 +27,7 @@ export function UpdateCredentialsDialog({ credential, onOpenChange, onUpdated }:
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
+  const [error, setError] = useState<string | null>(null);
 
   const credentialId = credential?.id;
   useEffect(() => {
@@ -34,6 +36,7 @@ export function UpdateCredentialsDialog({ credential, onOpenChange, onUpdated }:
     setUsername(credential?.username ?? "");
     setPassword("");
     setFieldErrors({});
+    setError(null);
     // Keyed on id, not the object: a refetched credential must not wipe in-progress edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [credentialId]);
@@ -46,13 +49,14 @@ export function UpdateCredentialsDialog({ credential, onOpenChange, onUpdated }:
       return;
     }
     setFieldErrors({});
+    setError(null);
     const orgId = getCurrentOrganizationId();
     if (!orgId || !credential?.id) {
-      toast({
-        title: "Couldn't update credentials",
-        description: !orgId ? "No organization selected." : "Registry is no longer available.",
-        variant: "destructive",
-      });
+      setError(
+        !orgId
+          ? "No organization is selected. Pick one from the account menu and try again."
+          : "This registry is no longer available. Close this and reload the list.",
+      );
       return;
     }
     setSaving(true);
@@ -67,7 +71,8 @@ export function UpdateCredentialsDialog({ credential, onOpenChange, onUpdated }:
       onOpenChange(false);
       onUpdated();
     } catch (e) {
-      toast({ title: "Couldn't update credentials", description: getErrorMessage(e), variant: "destructive" });
+      // Kept in the dialog: the rejected login is still on screen to correct.
+      setError(getErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -78,51 +83,57 @@ export function UpdateCredentialsDialog({ credential, onOpenChange, onUpdated }:
 
   return (
     <Dialog open={credential != null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px]">
-        <DialogHeader>
-          <DialogTitle>Update credentials</DialogTitle>
-          <DialogDescription>
-            Replaces the stored login for this registry. Builds pick up the new credentials on their next run.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          {credential && (
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
-              <ProviderLogo providerId={providerId} className="h-5 w-5 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">{providerLabel}</p>
-                <p className="truncate font-mono text-[11.5px] text-fg-muted">{credential.host}</p>
-              </div>
+      <DialogContent size="ask">
+        <DialogBody>
+          <DialogHeader>
+            <DialogTitle>Update credentials</DialogTitle>
+            <DialogDescription>
+              Replaces the stored login for this registry. Builds pick up the new credentials on their next run.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogSection>
+            <div className="flex flex-col gap-4">
+              {credential && (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  <ProviderLogo providerId={providerId} className="h-5 w-5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-body font-medium text-foreground">{providerLabel}</p>
+                    <p className="truncate font-mono text-label text-fg-muted">{credential.host}</p>
+                  </div>
+                </div>
+              )}
+              <FieldShell label="Username" htmlFor="rotate-username" required error={fieldErrors.username}>
+                <Input
+                  id="rotate-username"
+                  autoComplete="off"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    setFieldErrors((prev) => ({ ...prev, username: undefined }));
+                  }}
+                  aria-invalid={!!fieldErrors.username}
+                />
+              </FieldShell>
+              <FieldShell label="Password" htmlFor="rotate-password" required error={fieldErrors.password}>
+                <Input
+                  id="rotate-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                    setError(null);
+                  }}
+                  aria-invalid={!!fieldErrors.password}
+                />
+              </FieldShell>
             </div>
-          )}
-          <FieldShell label="Username" htmlFor="rotate-username" required error={fieldErrors.username}>
-            <Input
-              id="rotate-username"
-              autoComplete="off"
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value);
-                setFieldErrors((prev) => ({ ...prev, username: undefined }));
-              }}
-              aria-invalid={!!fieldErrors.username}
-            />
-          </FieldShell>
-          <FieldShell label="Password" htmlFor="rotate-password" required error={fieldErrors.password}>
-            <Input
-              id="rotate-password"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setFieldErrors((prev) => ({ ...prev, password: undefined }));
-              }}
-              aria-invalid={!!fieldErrors.password}
-            />
-          </FieldShell>
-        </div>
+            {error && <AlertBanner>{error}</AlertBanner>}
+          </DialogSection>
+        </DialogBody>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button shape="flat" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
           <Button onClick={() => void submit()} disabled={saving}>

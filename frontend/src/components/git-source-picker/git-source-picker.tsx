@@ -1,9 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
-import { Globe, Lock, Plus, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { GitBranch, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import {
+  AlertBanner,
+  EmptyState,
+  FieldShell,
+  NoProviderGlyph,
+  PickerList,
+  PickerRow,
+  PickerRowTick,
+} from "@/components/branded";
+import { SearchGlyph } from "@/components/branded/empty-state";
+import { SearchField } from "@/pages/stacks/components/create/search-field";
+import { StickyBar } from "@/pages/stacks/components/create/sticky-bar";
+import { parsePublicRepoUrl } from "@/pages/stacks/components/create/selection";
 import {
   listGitIntegrations,
   listRepositories,
@@ -36,6 +48,24 @@ function hostOf(url: string): string | null {
 }
 
 type Tab = "provider" | "url";
+
+/**
+ * The two sources, as peers.
+ *
+ * A public URL is not a fallback for when the provider list fails — people
+ * reach for it deliberately — so neither label is abbreviated to make room for
+ * the other, and neither is listed first because it is expected to win.
+ *
+ * `Provider`, not `Connected provider` — the same call create-stack made.
+ * "Connected" reports a state rather than naming a source, and it reports it on
+ * the segment you are already standing on: that a provider IS connected is what
+ * the list underneath proves. Losing it also takes the track from 225 to ~162,
+ * which is what lets the switch and the search share one row.
+ */
+const SOURCES = [
+  { value: "provider" as const, label: "Provider", showLabel: true },
+  { value: "url" as const, label: "Public URL", showLabel: true },
+];
 
 interface GitSourcePickerProps {
   value: PickedRepo | null;
@@ -165,14 +195,22 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
     }
   };
 
+  /**
+   * **One reading of the URL, and it is create-stack's** — `parsePublicRepoUrl`.
+   *
+   * What it emits and what the row below shows are now the same derivation, so
+   * `Continue` cannot go live on a string the next phase then fails to use. It
+   * also tightened the gate: any non-empty text used to count as a repository,
+   * so `abc` unblocked the button.
+   */
   const emitPublicUrl = (url: string) => {
     setPublicUrl(url);
-    const trimmed = url.trim();
-    if (trimmed) {
-      onChange({ fullName: repoTail(trimmed), cloneUrl: trimmed, defaultBranch: "", integrationId: null });
-    } else {
-      onChange(null);
-    }
+    const parsed = parsePublicRepoUrl(url);
+    onChange(
+      parsed
+        ? { fullName: parsed.fullName, cloneUrl: parsed.cloneUrl, defaultBranch: "main", integrationId: null }
+        : null,
+    );
   };
 
   const hostMismatch =
@@ -185,149 +223,244 @@ export function GitSourcePicker({ value, onChange, publicUrlHint }: GitSourcePic
     ? repos.filter((r) => r.full_name?.toLowerCase().includes(needle))
     : repos;
 
-  return (
-    <div className="space-y-4">
-      <div role="tablist" className="flex gap-6 border-b border-border">
-        {(
-          [
-            { key: "provider", label: "Connected provider" },
-            { key: "url", label: "Public URL" },
-          ] as { key: Tab; label: string }[]
-        ).map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.key}
-            onClick={() => switchTab(t.key)}
-            className={cn(
-              "-mb-px border-b-2 px-0.5 py-2 font-mono text-[11px] uppercase tracking-[1.5px] transition-colors",
-              tab === t.key
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+  /**
+   * What the pasted URL resolves to, or `null` while it is not yet a
+   * repository. Parsed, not fetched — a public URL has no integration to look
+   * it up through — and the SAME parse `onChange` emits.
+   */
+  const parsed = useMemo(() => parsePublicRepoUrl(publicUrl), [publicUrl]);
+
+  /* `flex-none` on the row, `self-start` on its own — either way the control
+     hugs its segments rather than being stretched by the flex parent (§11). */
+  const modes = (className: string) => (
+    <SegmentedControl
+      options={SOURCES}
+      value={tab}
+      onValueChange={switchTab}
+      aria-label="Where the repository lives"
+      className={className}
+    />
+  );
+
+  /**
+   * **The switch and the search are one band on one row**, and the whole band
+   * pins — the same control band create-stack's repository step uses. Both
+   * filter the same list, so they are one control; and a search box that
+   * scrolls away above a long list of repositories is a search box you cannot
+   * reach.
+   *
+   * A `StickyBar` has to be the first thing in its column, or its negative top
+   * margin paints over whatever is above it.
+   */
+  const band = (searchDisabled?: boolean) => (
+    <StickyBar>
+      <div className="flex items-center gap-4">
+        {modes("flex-none")}
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Search repositories…"
+          label="Search repositories"
+          disabled={searchDisabled}
+          className="min-w-0 flex-1"
+        />
+        {/* Only when there is a choice to make. With one connected provider the
+            chip names something that could not have been anything else. */}
+        {integrations.length > 1 && (
+          <CredentialsDropdown
+            integrations={integrations}
+            selectedId={selectedId}
+            onSelect={selectIntegration}
+            onConnectNew={() => setConnectOpen(true)}
+          />
+        )}
       </div>
+    </StickyBar>
+  );
 
-      {tab === "provider" && loaded && integrations.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-md border border-dashed py-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            Connect a git provider to pick from your repositories.
-          </p>
-          <Button onClick={() => setConnectOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Connect provider
-          </Button>
-        </div>
-      )}
+  return (
+    <div className="flex flex-col gap-4">
+      {tab === "url" ? (
+        <div className="flex flex-col gap-4">
+          {/* **The URL does NOT take the search field's slot.** That position is
+              a toolbar position — a tool OVER the content below it. A search
+              field filters the list under it; the URL box has nothing under it
+              because it IS the content, so putting it there promises "this
+              narrows what you see" and does not keep the promise.
 
-      {tab === "provider" && integrations.length > 0 && (
-        <>
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                className="pl-8"
-                placeholder="Search repositories…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                disabled={selected?.type !== GIT_INTEGRATION_TYPE_GITHUB_APP}
-              />
-            </div>
-            <CredentialsDropdown
-              integrations={integrations}
-              selectedId={selectedId}
-              onSelect={selectIntegration}
-              onConnectNew={() => setConnectOpen(true)}
-            />
-          </div>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          {selected?.type === GIT_INTEGRATION_TYPE_GITHUB_APP && (
-            <>
-              {searching && <p className="text-sm text-muted-foreground">Searching…</p>}
-              <ul className="divide-y rounded-md border">
-                {filteredRepos.map((r) => (
-                  <li key={r.full_name}>
-                    <button
-                      type="button"
-                      className={cn(
-                        "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-accent",
-                        value?.cloneUrl && value.cloneUrl === (r.clone_url ?? "") && "bg-foreground/5",
-                      )}
-                      onClick={() => void pickRepo(r)}
-                    >
-                      <span className="flex-1 truncate font-mono text-xs">{r.full_name}</span>
-                      {r.private && (
-                        <Badge variant="outline" className="gap-1 text-[10px]">
-                          <Lock className="h-3 w-3" />
-                          private
-                        </Badge>
-                      )}
-                    </button>
-                  </li>
-                ))}
-                {!searching && filteredRepos.length === 0 && (
-                  <li className="space-y-2 px-3 py-6 text-center text-sm text-muted-foreground">
-                    <p>No repositories found.</p>
-                    {configureUrl && (
-                      <a
-                        href={configureUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-foreground hover:underline"
-                      >
-                        Don&apos;t see your repository? Configure in GitHub →
-                      </a>
-                    )}
-                  </li>
-                )}
-              </ul>
-            </>
-          )}
-
-          {selected?.type === GIT_INTEGRATION_TYPE_CREDENTIALS && (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Repository listing isn&apos;t available for token connections. Paste the
-                repository URL on {selected.host}; clones use the stored credentials.
-              </p>
-              <Input
-                placeholder={`https://${selected.host}/group/project`}
-                value={hostUrl}
-                onChange={(e) => emitHostUrl(e.target.value, selected)}
-              />
-              {hostMismatch && (
-                <p className="text-sm text-destructive">
-                  URL must be on {selected.host} to use this connection.
-                </p>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {tab === "url" && (
-        <div className="space-y-2">
-          <div className="relative">
-            <Globe className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              So the switch keeps the row to itself and the URL becomes what it
+              actually is: a form field, with a label saying what it is and a
+              hint saying what it costs. The hint is the sentence that used to
+              float above the row as loose body copy. */}
+          {modes("self-start")}
+          <FieldShell
+            label="Repository URL"
+            htmlFor="git-source-public-url"
+            hint="Any public repository. A private one needs a connected provider."
+          >
+            {/* Mono: a URL is a machine value (§6). No leading glyph — the
+                magnifier belongs to the thing that filters a list, and a globe
+                beside a field already labelled "Repository URL" says it twice. */}
             <Input
-              className="pl-8"
-              placeholder="https://github.com/acme/webapp"
+              id="git-source-public-url"
+              className="font-mono"
+              placeholder="https://github.com/acme/web-api.git"
               value={publicUrl}
               onChange={(e) => emitPublicUrl(e.target.value)}
             />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Public repositories work without a connection; private ones need a matching
-            git integration.
-          </p>
-          {publicUrlHint && <p className="text-xs text-warn">{publicUrlHint}</p>}
+          </FieldShell>
+
+          {/**
+           * **Both sources end on the same object.**
+           *
+           * Turning `https://github.com/acme/awwdits.git` into `acme/awwdits` is
+           * a derivation, and without this the first place its result appeared
+           * was the NEXT phase, in a name box you would then have to correct.
+           * The same 56 `PickerRow` the provider list is made of, ticked — no
+           * new component.
+           */}
+          {parsed && (
+            <div className="flex flex-col gap-2">
+              <p className="text-label text-fg-muted">This will build</p>
+              <PickerRow
+                icon={<GitBranch />}
+                name={parsed.fullName}
+                meta={[{ text: "public URL" }, { text: "main" }]}
+                selected
+                trailing={<PickerRowTick />}
+              />
+            </div>
+          )}
+
+          {/* **Under the repository, not above it.** `blocking` — it will fail
+              unless you deal with it first — but what it is about is the thing
+              you just picked: this repository will not get pull-request
+              automation. Above the field it interrupted you before you had
+              chosen anything, and pushed the row it is about below the fold.
+
+              The banner puts the tone in the glyph and the ground and leaves the
+              sentence in ink, rather than saying its severity twice in coloured
+              body copy. */}
+          {publicUrlHint && <AlertBanner tone="blocking">{publicUrlHint}</AlertBanner>}
         </div>
+      ) : loaded && integrations.length === 0 ? (
+        <>
+          {/* **The band stays, with the search off.** It is the same source in a
+              different state, not a different source, so the controls do not
+              rearrange themselves — and §9 is satisfied because the reason sits
+              directly under the dead field, in full, with the fix as a button. */}
+          {band(true)}
+          {/* The first thing a brand-new organisation can ever see here, so it
+              gets the page-grade first-run treatment rather than a dashed box:
+              the same severed-connection drawing New stack and the Previews page
+              use, so one situation has one picture across the product.
+
+              `outline`, not filled — connecting a provider is a detour, and the
+              one fill on this surface belongs to the action that finishes it
+              (§9). The description names the OTHER source, because it is a peer
+              and this is exactly the moment someone needs telling they are not
+              stuck. */}
+          <EmptyState
+            className="gap-6"
+            icon={<NoProviderGlyph />}
+            title="No git provider connected yet"
+            description="Connect one and your repositories show up here. You can also add a repository by public URL."
+            action={
+              <Button variant="outline" onClick={() => setConnectOpen(true)}>
+                <Plus />
+                Connect provider
+              </Button>
+            }
+          />
+        </>
+      ) : (
+        <>
+          {/* A token connection cannot list anything, so the search above it is
+              off and the reason is the field's own hint directly beneath. */}
+          {band(selected?.type !== GIT_INTEGRATION_TYPE_GITHUB_APP)}
+
+          {error && <p className="text-meta text-danger">{error}</p>}
+
+          {selected?.type === GIT_INTEGRATION_TYPE_GITHUB_APP && (
+            <>
+              {searching && <p className="text-meta text-fg-muted px-2">Searching…</p>}
+              {/* §11's list: no box around it, no rule between rows. What
+                  separates one repository from the next is space and the hover
+                  wash, and what marks the chosen one is the selection wash plus
+                  a single tick. */}
+              {filteredRepos.length > 0 ? (
+                <PickerList aria-label="Repositories">
+                  {filteredRepos.map((r) => {
+                    const fullName = r.full_name ?? repoTail(r.clone_url ?? "");
+                    const selectedRow = !!value?.cloneUrl && value.cloneUrl === (r.clone_url ?? "");
+                    return (
+                      <PickerRow
+                        key={fullName}
+                        icon={<GitBranch />}
+                        name={fullName}
+                        /* **Visibility, then branch.** It used to say `private`
+                           or nothing at all, so a public repository carried no
+                           second line and the row read as half-drawn. Whether it
+                           is private is what tells you the pick depends on the
+                           connected provider rather than on a URL anybody could
+                           paste. */
+                        meta={[
+                          { text: r.private ? "private" : "public" },
+                          { text: r.default_branch || "main" },
+                        ]}
+                        selected={selectedRow}
+                        trailing={selectedRow ? <PickerRowTick /> : null}
+                        onClick={() => void pickRepo(r)}
+                      />
+                    );
+                  })}
+                </PickerList>
+              ) : (
+                !searching && (
+                  <EmptyState
+                    icon={<SearchGlyph />}
+                    title="No repository matches that"
+                    description="Try a shorter word, or grant the app access to more repositories."
+                    action={
+                      configureUrl ? (
+                        <Button variant="outline" asChild>
+                          <a href={configureUrl} target="_blank" rel="noreferrer">
+                            Configure in GitHub
+                          </a>
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                )
+              )}
+            </>
+          )}
+
+          {/* A token connection has no list to pick from, so the URL you paste
+              IS the content — the same reasoning that gave the Public URL side
+              its own labelled field rather than the toolbar slot. */}
+          {selected?.type === GIT_INTEGRATION_TYPE_CREDENTIALS && (
+            <FieldShell
+              label="Repository URL"
+              htmlFor="git-source-host-url"
+              hint={`Repository listing isn't available for token connections. Paste a repository URL on ${selected.host}; clones use the stored credentials.`}
+              error={
+                hostMismatch
+                  ? `URL must be on ${selected.host} to use this connection.`
+                  : undefined
+              }
+            >
+              <Input
+                id="git-source-host-url"
+                className="font-mono"
+                placeholder={`https://${selected.host}/group/project`}
+                value={hostUrl}
+                onChange={(e) => emitHostUrl(e.target.value, selected)}
+                aria-invalid={hostMismatch}
+              />
+            </FieldShell>
+          )}
+        </>
       )}
 
       <AddIntegrationWizard

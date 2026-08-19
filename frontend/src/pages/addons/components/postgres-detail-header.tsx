@@ -38,10 +38,14 @@ function stateVariant(state?: string): StatusVariant {
 export function PostgresDetailHeader({
   addon,
   onDelete,
+  onEdit,
   canWrite = true,
 }: {
   addon: PostgresAddon;
   onDelete: () => void;
+  /** Opens the addon drawer in edit mode. Editing one object is a drawer (§13),
+   *  so this no longer navigates to a page of its own. */
+  onEdit: () => void;
   // Hide the Edit/Delete affordances for viewers without write access on the
   // addon's project. Defaults to true so callers that don't gate keep current UX.
   canWrite?: boolean;
@@ -72,7 +76,7 @@ export function PostgresDetailHeader({
     <div className="flex flex-col gap-3">
       <Link
         to="/addons"
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1 text-meta text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3 w-3" /> All addons
       </Link>
@@ -91,7 +95,7 @@ export function PostgresDetailHeader({
               <TooltipTrigger asChild>
                 <span className="cursor-help">{statusPill}</span>
               </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-sm text-xs">
+              <TooltipContent side="right" className="max-w-sm text-meta">
                 {statusMessage}
               </TooltipContent>
             </Tooltip>
@@ -107,9 +111,9 @@ export function PostgresDetailHeader({
         actions={
           canWrite ? (
             <div className="flex gap-3">
-              <Link to={`/addons/postgres/${addon.id}/edit`}>
-                <Button variant="outline">Edit</Button>
-              </Link>
+              <Button variant="outline" onClick={onEdit}>
+                Edit
+              </Button>
               <Button
                 variant="outline"
                 className="border-danger-border text-danger hover:bg-danger-bg hover:text-danger"

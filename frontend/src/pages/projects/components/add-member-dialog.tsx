@@ -91,7 +91,7 @@ export function AddMemberDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent size="ask">
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
         </DialogHeader>
@@ -129,7 +129,7 @@ export function AddMemberDialog({
                               {u.name ?? u.email ?? u.id}
                             </span>
                             {u.name && u.email && (
-                              <span className="ml-2 text-muted-foreground text-xs truncate">
+                              <span className="ml-2 text-muted-foreground text-meta truncate">
                                 {u.email}
                               </span>
                             )}
@@ -142,7 +142,7 @@ export function AddMemberDialog({
               </Command>
             </div>
             {selectedUser && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-meta text-muted-foreground">
                 Selected: {selectedUser.name ?? selectedUser.email}
               </p>
             )}
@@ -157,22 +157,22 @@ export function AddMemberDialog({
             >
               <label className="flex items-center gap-2 cursor-pointer">
                 <RadioGroupItem value="Developer" id="add-role-dev" />
-                <span className="text-sm">Developer</span>
+                <span className="text-body">Developer</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <RadioGroupItem value="Viewer" id="add-role-viewer" />
-                <span className="text-sm">Viewer</span>
+                <span className="text-body">Viewer</span>
               </label>
             </RadioGroup>
           </FieldShell>
 
           {error && (
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-body text-destructive">{error}</p>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={busy}>
+          <Button shape="flat" variant="outline" onClick={handleClose} disabled={busy}>
             Cancel
           </Button>
           <Button

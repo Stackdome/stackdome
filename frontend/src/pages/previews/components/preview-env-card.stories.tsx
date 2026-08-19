@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import type { PreviewStack } from '@/api/preview-envs'
 import { PreviewEnvCard } from './preview-env-card'
 
@@ -40,7 +40,7 @@ export const Ready: Story = {
     const card = await canvas.findByRole('link', { name: /pr #128/i })
     await expect(card.className).not.toContain('ring-brand')
     await expect(card.className).not.toContain('outline-none')
-    await expect(card.className).toContain('outline-[var(--ring)]')
+    await expect(card.className).toMatch(/(?:^|\s)focus-ring(?:-edge|-inset)?(?:\s|$)/)
 
     const title = await canvas.findByText('PR #128')
     await expect(title.className).not.toContain('text-brand')
@@ -53,4 +53,28 @@ export const Deploying: Story = {
 
 export const Failed: Story = {
   args: { env: makeEnv({ status: { phase: 'Failed' } } as Partial<PreviewStack>) },
+}
+
+/**
+ * Every kebab action is blocked while the environment is being torn down —
+ * and each one says so. A menu cannot carry a tooltip (§"Disabled"), so the
+ * reason is a second line inside the item, at full contrast while the label
+ * takes the dim.
+ */
+export const DeletingBlocksTheMenu: Story = {
+  args: { env: makeEnv({ status: { phase: 'Deleting' } } as Partial<PreviewStack>) },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(await canvas.findByRole('button', { name: /actions for pr #128/i }))
+
+    // Anchored at the start: the reason joins the accessible name, so a loose
+    // /delete/i would match "Sync — Being deleted" too.
+    const body = within(document.body)
+    const sync = await body.findByRole('menuitem', { name: /^Sync/ })
+    const del = await body.findByRole('menuitem', { name: /^Delete/ })
+
+    await expect(sync).toHaveAttribute('aria-disabled', 'true')
+    await expect(del).toHaveAttribute('aria-disabled', 'true')
+    await expect(sync).toHaveTextContent('Being deleted')
+    await expect(del).toHaveTextContent('Being deleted')
+  },
 }

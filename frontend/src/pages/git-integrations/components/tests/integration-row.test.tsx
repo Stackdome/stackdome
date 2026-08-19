@@ -124,7 +124,7 @@ describe("IntegrationRow", () => {
     const onVerify = vi.fn();
     const row = integration({ type: GIT_INTEGRATION_TYPE_CREDENTIALS, status: STATUS_ACTIVE, host: "gitlab.com" });
     renderRow({ onVerify, integration: row });
-    await user.click(screen.getByRole("button", { name: /open row menu/i }), { pointerEventsCheck: 0 });
+    await user.click(screen.getByRole("button", { name: /^actions for /i }), { pointerEventsCheck: 0 });
     await user.click(await screen.findByText(/verify repository access/i), { pointerEventsCheck: 0 });
     await waitFor(() => expect(onVerify).toHaveBeenCalledWith(row));
   });
@@ -133,7 +133,7 @@ describe("IntegrationRow", () => {
     const user = userEvent.setup();
     renderRow();
     await waitFor(() => expect(listInstallations).toHaveBeenCalled());
-    await user.click(screen.getByRole("button", { name: /open row menu/i }), { pointerEventsCheck: 0 });
+    await user.click(screen.getByRole("button", { name: /^actions for /i }), { pointerEventsCheck: 0 });
     expect(await screen.findByText(/remove integration/i)).toBeInTheDocument();
     expect(screen.queryByText(/verify repository access/i)).not.toBeInTheDocument();
   });
@@ -150,7 +150,7 @@ describe("IntegrationRow", () => {
     const row = integration();
     renderRow({ onRemove });
     await waitFor(() => expect(listInstallations).toHaveBeenCalled());
-    await user.click(screen.getByRole("button", { name: /open row menu/i }), { pointerEventsCheck: 0 });
+    await user.click(screen.getByRole("button", { name: /^actions for /i }), { pointerEventsCheck: 0 });
     const removeItem = await screen.findByText(/remove integration/i);
     await user.click(removeItem, { pointerEventsCheck: 0 });
 
@@ -181,7 +181,7 @@ describe("IntegrationRow", () => {
     const user = userEvent.setup();
     renderRow({ integration: creds, onUpdateCredentials });
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
+    await user.click(screen.getByRole("button", { name: /^actions for /i }));
     await user.click(await screen.findByRole("menuitem", { name: /update credentials/i }));
 
     await waitFor(() => expect(onUpdateCredentials).toHaveBeenCalledWith(creds));
@@ -195,7 +195,7 @@ describe("IntegrationRow", () => {
       onUpdateCredentials: vi.fn(),
     });
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
+    await user.click(screen.getByRole("button", { name: /^actions for /i }));
 
     const manage = await screen.findByRole("menuitem", { name: /manage on github/i });
     expect(manage).toHaveAttribute("href", "https://github.com/apps/x/installations/new");
@@ -207,7 +207,7 @@ describe("IntegrationRow", () => {
     const user = userEvent.setup();
     renderRow({ integration: integration({ install_url: undefined }) });
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
+    await user.click(screen.getByRole("button", { name: /^actions for /i }));
     await screen.findByRole("menuitem", { name: /remove integration/i });
     expect(screen.queryByRole("menuitem", { name: /manage on github/i })).not.toBeInTheDocument();
   });

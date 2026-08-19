@@ -70,9 +70,14 @@ describe("PreviewsPage", () => {
   it("renders a config row with repo, base branch and its active env count", async () => {
     renderPage();
     expect(await screen.findByText("webapp")).toBeInTheDocument();
-    expect(screen.getByText("acme/webapp")).toBeInTheDocument();
+    // The host is on the row now. It used to be carried by a provider logo in a
+    // bordered tile, which went the way the secrets list's key glyph did — a
+    // tile is a card inside a list.
+    expect(screen.getByText("github.com/acme/webapp")).toBeInTheDocument();
     expect(screen.getByText("main")).toBeInTheDocument();
-    expect(screen.getByText(/2 environments/)).toBeInTheDocument();
+    // The number alone: the column is headed "Environments", so the cell does
+    // not repeat the word.
+    expect(screen.getByText("2")).toBeInTheDocument();
   });
 
   it("navigates to the config detail on row click", async () => {

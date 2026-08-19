@@ -1,16 +1,22 @@
-import { Package, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/branded";
+import { NoConnectionGlyph, NoSecretsGlyph } from "@/components/branded/empty-state";
 
+/**
+ * The load failed. **The retry refetches** — this page already had a real
+ * `refresh()` rather than a page reload, and that behaviour is kept.
+ */
 export function RegistriesErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <EmptyState
-      icon={<Package className="h-8 w-8" />}
-      title="Couldn't load registries"
+      className="flex-1 gap-6"
+      icon={<NoConnectionGlyph />}
+      title="Registries could not be loaded"
       description={message}
       action={
         <Button variant="outline" onClick={onRetry}>
-          Retry
+          Try again
         </Button>
       }
     />
@@ -20,12 +26,15 @@ export function RegistriesErrorState({ message, onRetry }: { message: string; on
 export function RegistriesEmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <EmptyState
-      icon={<Package className="h-8 w-8" />}
-      title="No image registries yet"
-      description="Add registry credentials so builds can pull private base images and push build artifacts."
+      className="flex-1 gap-6"
+      icon={<NoSecretsGlyph />}
+      title="No registries yet"
+      description="A registry credential lets a build pull private base images and push what it produces. Add one for Docker Hub, GHCR, ECR or any registry you host."
       action={
-        <Button onClick={onAdd}>
-          <Plus className="h-4 w-4" />
+        /* Outline, never filled (§9). The header already carries this exact
+           action as the page's one fill. */
+        <Button variant="outline" onClick={onAdd}>
+          <Plus />
           Add registry
         </Button>
       }

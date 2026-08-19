@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { Route, Routes, useNavigate } from 'react-router-dom'
 import { makeProject, makeProjectMembership, makeUser } from '../../../.storybook/fixtures'
 import { baselineHandlers } from '../../../.storybook/msw-handlers'
+import { withSheetHeader } from '../../../.storybook/decorators'
 import ProjectDetailPage from './project-detail'
 
 // The global preview decorator already supplies a MemoryRouter (nesting a
@@ -49,6 +50,7 @@ const meta = {
   component: ProjectDetailPage,
   tags: ['ai-generated'],
   decorators: [
+    withSheetHeader,
     (Story) => (
       <RouteHost>
         <Story />

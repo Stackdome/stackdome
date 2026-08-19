@@ -4,6 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { SheetHost } from "@/test-support/sheet-host";
 
 // Radix popper content reads ResizeObserver on mount, which jsdom doesn't implement.
 beforeAll(() => {
@@ -42,10 +43,12 @@ function renderPage() {
   return render(
     <ConfirmProvider>
       <MemoryRouter initialEntries={["/clusters"]}>
-        <Routes>
-          <Route path="/clusters" element={<ClustersPage />} />
-          <Route path="/clusters/:id" element={<div>cluster detail</div>} />
-        </Routes>
+        <SheetHost>
+          <Routes>
+            <Route path="/clusters" element={<ClustersPage />} />
+            <Route path="/clusters/:id" element={<div>cluster detail</div>} />
+          </Routes>
+        </SheetHost>
       </MemoryRouter>
     </ConfirmProvider>,
   );
@@ -59,16 +62,16 @@ describe("ClustersPage", () => {
   it("stays on the list page and disables Add Cluster when one cluster exists", () => {
     useClustersMock.mockReturnValue({ clusters: [cluster], loading: false, error: null, refetch: vi.fn() });
     renderPage();
-    expect(screen.getByText("All Clusters")).toBeInTheDocument();
+    expect(screen.getByText("1 cluster")).toBeInTheDocument();
     expect(screen.getByText("kind-local")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Add Cluster/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Add cluster/ })).toBeDisabled();
   });
 
   it("keeps Add Cluster enabled when no clusters exist", () => {
     useClustersMock.mockReturnValue({ clusters: [], loading: false, error: null, refetch: vi.fn() });
     renderPage();
-    expect(screen.getByText("No clusters configured")).toBeInTheDocument();
-    for (const button of screen.getAllByRole("button", { name: /Add Cluster/ })) {
+    expect(screen.getByText("No clusters yet")).toBeInTheDocument();
+    for (const button of screen.getAllByRole("button", { name: /Add cluster/ })) {
       expect(button).toBeEnabled();
     }
   });
@@ -78,7 +81,7 @@ describe("ClustersPage", () => {
     renderPage();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /kind-local/ }));
+    await user.click(screen.getByRole("link", { name: /kind-local/ }));
 
     expect(await screen.findByText("cluster detail")).toBeInTheDocument();
   });

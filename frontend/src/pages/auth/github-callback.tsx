@@ -46,12 +46,12 @@ export default function GithubCallbackPage() {
       {error ? (
         <>
           <AlertBanner>{error}</AlertBanner>
-          <Link to="/sign-in" className="text-sm underline underline-offset-4">
+          <Link to="/sign-in" className="text-body underline underline-offset-4">
             Back to sign in
           </Link>
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">Completing GitHub sign-in…</p>
+        <p className="text-body text-muted-foreground">Completing GitHub sign-in…</p>
       )}
     </div>
   );

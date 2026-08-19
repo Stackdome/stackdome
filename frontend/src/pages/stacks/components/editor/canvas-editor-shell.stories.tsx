@@ -6,7 +6,7 @@ import { EDITOR_TABS } from './editor-tabs'
 import { CanvasEditorShell, type CanvasEditorShellProps } from './canvas-editor-shell'
 
 const canvasPlaceholder = (
-  <div className="flex h-full items-center justify-center border border-dashed border-border text-sm text-muted-foreground">
+  <div className="flex h-full items-center justify-center border border-dashed border-border text-body text-muted-foreground">
     canvas
   </div>
 )

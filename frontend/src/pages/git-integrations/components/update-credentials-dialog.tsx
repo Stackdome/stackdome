@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader,
+  DialogSection, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FieldShell } from "@/components/branded";
+import { AlertBanner, FieldShell } from "@/components/branded";
 import { useToast } from "@/components/ui/use-toast";
 import { updateGitIntegration, type GitIntegration } from "@/api/git-integrations";
 import { getErrorMessage } from "@/api/client";
@@ -26,6 +27,7 @@ export function UpdateCredentialsDialog({ integration, onOpenChange, onUpdated }
   const [token, setToken] = useState("");
   const [saving, setSaving] = useState(false);
   const [tokenError, setTokenError] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
 
   const integrationId = integration?.id;
   useEffect(() => {
@@ -34,6 +36,7 @@ export function UpdateCredentialsDialog({ integration, onOpenChange, onUpdated }
     setUsername("");
     setToken("");
     setTokenError(undefined);
+    setError(null);
   }, [integrationId]);
 
   const submit = async () => {
@@ -43,13 +46,14 @@ export function UpdateCredentialsDialog({ integration, onOpenChange, onUpdated }
       return;
     }
     setTokenError(undefined);
+    setError(null);
     const orgId = getCurrentOrganizationId();
     if (!orgId || !integration?.id) {
-      toast({
-        title: "Couldn't update credentials",
-        description: !orgId ? "No organization selected." : "Integration is no longer available.",
-        variant: "destructive",
-      });
+      setError(
+        !orgId
+          ? "No organization is selected. Pick one from the account menu and try again."
+          : "This integration is no longer available. Close this and reload the list.",
+      );
       return;
     }
     setSaving(true);
@@ -65,7 +69,9 @@ export function UpdateCredentialsDialog({ integration, onOpenChange, onUpdated }
       onOpenChange(false);
       onUpdated();
     } catch (e) {
-      toast({ title: "Couldn't update credentials", description: getErrorMessage(e), variant: "destructive" });
+      // Stays in the dialog: the token that was rejected is still on screen and
+      // still editable. A toast would fire after the form had already gone.
+      setError(getErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -73,59 +79,65 @@ export function UpdateCredentialsDialog({ integration, onOpenChange, onUpdated }
 
   return (
     <Dialog open={integration != null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px]">
-        <DialogHeader>
-          <DialogTitle>Update credentials</DialogTitle>
-          <DialogDescription>
-            Replaces the stored credentials for this integration. Existing clones keep working once the new
-            credentials are saved.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          {integration && (
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
-              <ProviderLogo providerId={providerIdFor(integration)} className="h-5 w-5 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  {PROVIDER_DISPLAY_NAMES[providerIdFor(integration)]}
-                </p>
-                <p className="truncate font-mono text-[11.5px] text-fg-muted">{integration.host}</p>
-              </div>
+      <DialogContent size="ask">
+        <DialogBody>
+          <DialogHeader>
+            <DialogTitle>Update credentials</DialogTitle>
+            <DialogDescription>
+              Replaces the stored credentials for this integration. Existing clones keep working once the new
+              credentials are saved.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogSection>
+            <div className="flex flex-col gap-4">
+              {integration && (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  <ProviderLogo providerId={providerIdFor(integration)} className="h-5 w-5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-body font-medium text-foreground">
+                      {PROVIDER_DISPLAY_NAMES[providerIdFor(integration)]}
+                    </p>
+                    <p className="truncate font-mono text-label text-fg-muted">{integration.host}</p>
+                  </div>
+                </div>
+              )}
+              <FieldShell
+                label="Username"
+                htmlFor="update-credentials-username"
+                hint="Required for providers using basic auth (e.g. Bitbucket app passwords)."
+              >
+                <Input
+                  id="update-credentials-username"
+                  autoComplete="off"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </FieldShell>
+              <FieldShell
+                label="Access token"
+                htmlFor="update-credentials-token"
+                required
+                error={tokenError}
+              >
+                <Input
+                  id="update-credentials-token"
+                  type="password"
+                  autoComplete="new-password"
+                  value={token}
+                  onChange={(e) => {
+                    setToken(e.target.value);
+                    setTokenError(undefined);
+                    setError(null);
+                  }}
+                  aria-invalid={!!tokenError}
+                />
+              </FieldShell>
             </div>
-          )}
-          <FieldShell
-            label="Username"
-            htmlFor="update-credentials-username"
-            hint="Required for providers using basic auth (e.g. Bitbucket app passwords)."
-          >
-            <Input
-              id="update-credentials-username"
-              autoComplete="off"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </FieldShell>
-          <FieldShell
-            label="Access token"
-            htmlFor="update-credentials-token"
-            required
-            error={tokenError}
-          >
-            <Input
-              id="update-credentials-token"
-              type="password"
-              autoComplete="new-password"
-              value={token}
-              onChange={(e) => {
-                setToken(e.target.value);
-                setTokenError(undefined);
-              }}
-              aria-invalid={!!tokenError}
-            />
-          </FieldShell>
-        </div>
+            {error && <AlertBanner>{error}</AlertBanner>}
+          </DialogSection>
+        </DialogBody>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button shape="flat" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
           <Button onClick={() => void submit()} disabled={saving}>

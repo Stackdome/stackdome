@@ -3,7 +3,7 @@ import { expect, waitFor, within } from 'storybook/test'
 import { http, HttpResponse } from 'msw'
 import { makeUser, makeOrgInvite, makeProject } from '../../../.storybook/fixtures'
 import { baselineHandlers } from '../../../.storybook/msw-handlers'
-import { withConfirm } from '../../../.storybook/decorators'
+import { withConfirm, withSheetHeader } from '../../../.storybook/decorators'
 import UsersPage from './index'
 
 const USERS_PATH = '/api/v1/organizations/:orgId/users'
@@ -55,7 +55,7 @@ const meta = {
   component: UsersPage,
   tags: ['ai-generated'],
   parameters: { layout: 'fullscreen' },
-  decorators: [withConfirm],
+  decorators: [withConfirm, withSheetHeader],
 } satisfies Meta<typeof UsersPage>
 
 export default meta
@@ -165,5 +165,55 @@ export const LongNameOverflow: Story = {
   },
   play: async ({ canvas }) => {
     await expect(await canvas.findByText(/Bartholomew/)).toBeInTheDocument()
+  },
+}
+
+/** §7 and §7a on this page, asserted rather than described.
+ *
+ *  - The table is not boxed: a border around the whole thing is the card
+ *    mistake at a larger scale.
+ *  - The kebab appears on hover, not at rest — one per row at rest is eight
+ *    pieces of chrome competing with eight names.
+ *  - `Developer`, `Viewer` and `default` are words, so they are not mono. Mono
+ *    means a machine produced this and a machine will read it back.
+ */
+export const ListContract: Story = {
+  parameters: { msw: withUsersAndInvites([admin, member], [pendingInvite]) },
+  play: async ({ canvas }) => {
+    // Wait for real rows: the loading skeleton renders a <table> too, so
+    // findByRole('table') resolves before any user has arrived.
+    await canvas.findByText('Ada Lovelace')
+    const table = canvas.getByRole('table')
+
+    // Nothing between the table and the sheet draws a box around it.
+    for (let el = table.parentElement; el && el !== document.body; el = el.parentElement) {
+      const style = getComputedStyle(el)
+      await expect(parseFloat(style.borderTopWidth)).toBe(0)
+      await expect(style.boxShadow).toBe('none')
+    }
+
+    // Row actions are hidden at rest but keep their tab stop.
+    const kebab = canvas.getAllByRole('button', { name: /user actions/i })[0]
+    const actions = kebab.closest('[data-slot="table-row-actions"]') as HTMLElement
+    await expect(actions).not.toBeNull()
+    await expect(getComputedStyle(actions).opacity).toBe('0')
+
+    // Roles and project names are words, not machine strings.
+    for (const word of ['Developer', 'Viewer']) {
+      for (const el of canvas.queryAllByText(word)) {
+        await expect(getComputedStyle(el).fontFamily).not.toMatch(/mono/i)
+      }
+    }
+  },
+}
+
+/** §7 — headers are sentence case. No `text-transform` is faking it back. */
+export const HeadersAreSentenceCase: Story = {
+  parameters: { msw: withUsersAndInvites([admin], []) },
+  play: async ({ canvas }) => {
+    await canvas.findByText('Ada Lovelace')
+    const header = canvas.getByRole('columnheader', { name: 'Org role' })
+    await expect(getComputedStyle(header).textTransform).toBe('none')
+    await expect(header.textContent).toBe('Org role')
   },
 }

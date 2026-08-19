@@ -36,7 +36,7 @@ export function AuthShell({ title, sub, below, children }: AuthShellProps) {
       <main className="relative z-[1] mx-auto flex w-full max-w-[428px] flex-1 flex-col px-6 py-20">
         <div className="mt-auto text-center">
           <h1 className="auth-title">{title}</h1>
-          {sub && <p className="mx-auto mt-2.5 text-sm leading-relaxed text-muted-foreground">{sub}</p>}
+          {sub && <p className="mx-auto mt-2.5 text-body leading-relaxed text-muted-foreground">{sub}</p>}
         </div>
 
         {/* Pill controls inside a stadium plate — the plate is rounded like its contents.
@@ -45,7 +45,7 @@ export function AuthShell({ title, sub, below, children }: AuthShellProps) {
           {children}
         </div>
 
-        {below && <div className="mt-6 text-center text-sm text-muted-foreground">{below}</div>}
+        {below && <div className="mt-6 text-center text-body text-muted-foreground">{below}</div>}
         <div className="mb-auto" aria-hidden="true" />
       </main>
     </div>
@@ -75,10 +75,10 @@ export function FieldLabel({
   return (
     <label
       htmlFor={htmlFor}
-      className="flex items-center justify-between text-[13px] font-medium text-muted-foreground"
+      className="flex items-center justify-between text-body font-medium text-muted-foreground"
     >
       <span>{children}</span>
-      {hint && <span className="text-xs text-muted-foreground/70">{hint}</span>}
+      {hint && <span className="text-meta text-muted-foreground/70">{hint}</span>}
     </label>
   );
 }

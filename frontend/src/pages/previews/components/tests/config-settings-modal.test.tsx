@@ -225,9 +225,8 @@ describe("ConfigSettingsModal", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
-    await waitFor(() => expect(toastMock).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Save failed", variant: "destructive" }),
-    ));
+    // In the modal, not a toast: the settings that failed are still on screen.
+    expect(await screen.findByText(/boom/i)).toBeInTheDocument();
     expect(onSaved).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalled();
   });
@@ -280,9 +279,7 @@ describe("ConfigSettingsModal", () => {
     // exercising the real click handler and assertions below.
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
 
-    await waitFor(() => expect(toastMock).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Delete failed", variant: "destructive" }),
-    ));
+    expect(await screen.findByText(/environments still exist/i)).toBeInTheDocument();
     expect(onDeleted).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(screen.getByLabelText(/stackfile path/i)).toBeInTheDocument();

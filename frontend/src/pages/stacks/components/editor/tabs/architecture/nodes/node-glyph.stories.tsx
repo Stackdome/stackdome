@@ -19,7 +19,7 @@ function Cell({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex w-20 flex-col items-center gap-1.5 rounded-md border border-border p-3">
       {children}
-      <span className="font-mono text-[10px] text-fg-muted">{label}</span>
+      <span className="font-mono text-label text-fg-muted">{label}</span>
     </div>
   )
 }

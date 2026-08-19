@@ -4,7 +4,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FieldShell } from "@/components/branded";
+import { AlertBanner, FieldShell } from "@/components/branded";
 import { useConfirm } from "@/components/branded/confirm";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
@@ -42,6 +42,8 @@ export function ConfigSettingsModal({ open, onOpenChange, config, onSaved, onDel
   // True from clicking "Delete configuration" until the flow settles — keeps
   // the settings Dialog from self-dismissing while the confirm is up.
   const [deleteFlowActive, setDeleteFlowActive] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const confirm = useConfirm();
 
   // Re-seed local state from the latest config every time the modal opens —
@@ -69,6 +71,7 @@ export function ConfigSettingsModal({ open, onOpenChange, config, onSaved, onDel
       return;
     }
     setFieldErrors({});
+    setSaveError(null);
     const orgId = getCurrentOrganizationId();
     if (!orgId || !defaultProjectName || !config.id) return;
     setSaving(true);
@@ -90,13 +93,15 @@ export function ConfigSettingsModal({ open, onOpenChange, config, onSaved, onDel
       onSaved(updated);
       onOpenChange(false);
     } catch (e) {
-      toast({ title: "Save failed", description: getErrorMessage(e), variant: "destructive" });
+      // In the dialog, not a toast — the settings that failed are still here.
+      setSaveError(getErrorMessage(e));
     } finally {
       setSaving(false);
     }
   };
 
   const requestDelete = async () => {
+    setDeleteError(null);
     setDeleteFlowActive(true);
     try {
       const ok = await confirm({
@@ -115,7 +120,7 @@ export function ConfigSettingsModal({ open, onOpenChange, config, onSaved, onDel
         onOpenChange(false);
         onDeleted();
       } catch (e) {
-        toast({ title: "Delete failed", description: getErrorMessage(e), variant: "destructive" });
+        setDeleteError(getErrorMessage(e));
       } finally {
         setDeleting(false);
       }
@@ -131,7 +136,7 @@ export function ConfigSettingsModal({ open, onOpenChange, config, onSaved, onDel
             "outside" this Dialog's content — without these guards Radix
             dismisses the settings modal underneath the confirm. */}
         <DialogContent
-          className="sm:max-w-xl"
+          size="form"
           onInteractOutside={(e) => {
             if (deleteFlowActive) e.preventDefault();
           }}
@@ -182,7 +187,7 @@ export function ConfigSettingsModal({ open, onOpenChange, config, onSaved, onDel
                   setMaxActive(Number.isNaN(n) ? 1 : Math.max(1, Math.floor(n)));
                   setFieldErrors((prev) => ({ ...prev, maxActive: undefined }));
                 }}
-                className="w-28 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="w-28"
               />
             </FieldShell>
             <FieldShell
@@ -198,16 +203,18 @@ export function ConfigSettingsModal({ open, onOpenChange, config, onSaved, onDel
                 }}
               />
             </FieldShell>
+            {saveError && <AlertBanner>{saveError}</AlertBanner>}
             <Button onClick={() => void save()} disabled={saving}>Save</Button>
           </div>
 
           <Separator className="my-3" />
 
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-danger">Danger zone</h3>
-            <p className="text-sm text-muted-foreground">
+            <h3 className="text-body font-semibold text-danger">Danger zone</h3>
+            <p className="text-body text-muted-foreground">
               Deleting the configuration stops new previews for this repository.
             </p>
+            {deleteError && <AlertBanner>{deleteError}</AlertBanner>}
             <Button
               variant="outline"
               size="sm"

@@ -82,7 +82,7 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
 
   return (
     <Dialog open={env != null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px]">
+      <DialogContent size="ask">
         <DialogHeader>
           <DialogTitle>Sync preview environment</DialogTitle>
           <DialogDescription>
@@ -105,7 +105,7 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
                 setCommit(e.target.value);
                 setFieldErrors((prev) => ({ ...prev, commit: undefined }));
               }}
-              className="font-mono text-xs"
+              className="font-mono text-meta"
               aria-invalid={!!fieldErrors.commit}
             />
           </FieldShell>
@@ -140,7 +140,7 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
                   placeholder="Paste a stackfile to use instead of the one in the repository"
                   value={stackfileContent}
                   onChange={(e) => setStackfileContent(e.target.value)}
-                  className="font-mono text-xs"
+                  className="font-mono text-meta"
                 />
               </FieldShell>
               <FieldShell
@@ -157,7 +157,7 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
                     setOverridesText(e.target.value);
                     setFieldErrors((prev) => ({ ...prev, overridesText: undefined }));
                   }}
-                  className="font-mono text-xs"
+                  className="font-mono text-meta"
                 />
               </FieldShell>
             </div>
@@ -166,7 +166,7 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
           {error && <AlertBanner>{error}</AlertBanner>}
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button shape="flat" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
           <Button onClick={() => void submit()} disabled={saving}>

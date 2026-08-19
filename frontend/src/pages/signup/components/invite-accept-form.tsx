@@ -91,8 +91,8 @@ export function InviteAcceptForm({ token }: InviteAcceptFormProps) {
   if (phase === "accepted") {
     return (
       <div className="space-y-4 text-center py-8">
-        <p className="text-2xl font-semibold">You&apos;re in.</p>
-        <p className="text-sm text-muted-foreground">Taking you to Stackdome…</p>
+        <p className="text-head font-semibold">You&apos;re in.</p>
+        <p className="text-body text-muted-foreground">Taking you to Stackdome…</p>
       </div>
     );
   }
@@ -100,7 +100,7 @@ export function InviteAcceptForm({ token }: InviteAcceptFormProps) {
   if (phase === "existing-user") {
     return (
       <div className="space-y-4 py-8">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           You already have an account with this email address.{" "}
           <Link to="/sign-in" className="text-foreground underline underline-offset-4">
             Log in

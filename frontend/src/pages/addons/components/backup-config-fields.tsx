@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FieldShell } from "@/components/branded";
+import { FieldGrid, FieldShell } from "@/components/branded";
 import { Link } from "react-router-dom";
 import cronstrue from "cronstrue";
 import {
@@ -71,7 +71,6 @@ export function BackupConfigFields({
   ) => onChange({ ...values, [k]: val });
 
   const noStores = !storesLoading && objectStores.length === 0;
-  const disabled = !values.enabled;
   const parsed = parseCron(values.schedule);
   const scheduleArityOk = isValidCronArity(values.schedule);
   const description = scheduleArityOk ? describeCron(values.schedule) : null;
@@ -119,29 +118,20 @@ export function BackupConfigFields({
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-3xl">
+    <FieldGrid>
+      {/* **The destination leads, because both capabilities ship to it.** It
+          used to sit between the two switches, which read as though it belonged
+          to `Enable scheduled backups` alone — but WAL archiving ships to the
+          same store, and neither can do anything without one. A prerequisite
+          shared by everything below it goes first. */}
       <FieldShell
-        label="Enable scheduled backups"
-        htmlFor="bk-enabled"
-        hint="When off, only manual backups can run."
-      >
-        <div className="flex items-center h-10">
-          <Switch
-            id="bk-enabled"
-            checked={values.enabled}
-            onCheckedChange={(c) => set("enabled", c)}
-          />
-        </div>
-      </FieldShell>
-
-      <FieldShell
-        label="Object Store"
+        label="Object store"
         htmlFor="bk-objstore"
         error={errors.objectStoreId}
         hint={
           noStores ? (
             <>
-              No Object Stores yet.{" "}
+              No object stores yet.{" "}
               <Link
                 to="/object-stores"
                 target="_blank"
@@ -177,143 +167,201 @@ export function BackupConfigFields({
         </Select>
       </FieldShell>
 
+      {/* **A switch, then what it turns on.** `Schedule` is a sub of this
+          switch and it used to be two fields away, with the object store and
+          WAL archiving between them — so the switch appeared to control nothing
+          and the schedule appeared to belong to WAL.
+
+          **`Scheduled backups`, not `Enable scheduled backups`.** A switch label
+          names the thing; the switch itself says whether it is on. "Enable" was
+          the control's job written into its own label, and it made the row read
+          as an instruction rather than a setting.
+
+          **The hint carries what the disabled region used to say.** There was a
+          separate sentence below — *turn this on to set when they run* — that
+          existed only to explain a greyed-out `Schedule`. With the schedule
+          hidden until the switch is on, the sentence has nothing left to explain
+          and belongs where the promise is made: on the switch. */}
       <FieldShell
+        inline
+        span={2}
+        label="Scheduled backups"
+        htmlFor="bk-enabled"
+        // Two strings, because one cannot be true in both states. The promise —
+        // *turn this on and you get to say when* — is only worth making while
+        // the schedule is not on screen; once it is, the sentence describes a
+        // field the reader is already looking at. Off keeps the promise, on
+        // says what the switch would cost to undo.
+        hint={
+          values.enabled
+            ? "Backups run on the schedule below. Turn off for manual backups only."
+            : "When off, only manual backups can run. Turn on to set when they run."
+        }
+      >
+        <Switch
+          id="bk-enabled"
+          checked={values.enabled}
+          onCheckedChange={(c) => set("enabled", c)}
+        />
+      </FieldShell>
+
+      {/* **Hidden when the switch is off, not greyed out.** §9's "nothing is
+          disabled without saying why" is about a control that refuses and does
+          not explain — but a schedule for backups that do not run is not a
+          refused control, it is a question that has not been asked yet. Greyed
+          out it held six controls and a sentence on screen to say "these do not
+          apply", which is more room spent denying the setting than the setting
+          takes. The switch above now carries the promise in its own hint.
+
+          **The schedule is one sentence, so it spans the grid.** `Daily` and the
+          time it runs at answer one question — *when* — and they were stacked,
+          which made two rows out of one answer and left the reader to work out
+          that the second line belonged to the first. On one line it reads the
+          way it is spoken: `Daily at 03:00`. Weekly adds its day in the same
+          line, in the place the sentence puts it.
+
+          It needs both columns to do that: at 292 the parts collapse and wrap
+          back into the two rows this was fixing. */}
+      {values.enabled && (
+        <FieldShell
+          label="Schedule"
+          htmlFor="bk-frequency"
+          span={2}
+          error={scheduleError}
+          hint={
+            mode === "custom" && description ? (
+              <span>
+                {description} <span className="text-muted-foreground/70">(UTC)</span>
+              </span>
+            ) : undefined
+          }
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={parts.frequency}
+              onValueChange={(v) => applyParts({ ...parts, frequency: v as Frequency })}
+            >
+              {/* `!` beats `FieldShell`'s fill, which is right for a field whose
+                control IS the field and wrong for one part of a sentence. */}
+              <SelectTrigger id="bk-frequency" className="w-40!">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FREQUENCIES.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {parts.frequency === "hourly" && (
+              <label className="flex items-center gap-2 text-body text-muted-foreground">
+              at minute
+                <Input
+                  type="number"
+                  min={0}
+                  max={59}
+                  className="w-20 font-mono"
+                  value={parts.minute}
+                  onChange={(e) =>
+                    applyParts({ ...parts, minute: clamp(e.target.value, 0, 59) })
+                  }
+                />
+              </label>
+            )}
+
+            {(parts.frequency === "daily" ||
+            parts.frequency === "weekly" ||
+            parts.frequency === "monthly") && (
+              <>
+                {parts.frequency === "weekly" && (
+                  <Select
+                    value={String(parts.dayOfWeek)}
+                    onValueChange={(v) =>
+                      applyParts({ ...parts, dayOfWeek: Number(v) })
+                    }
+                  >
+                    <SelectTrigger className="w-36!">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WEEKDAYS.map((d, i) => (
+                        <SelectItem key={d} value={String(i)}>
+                          {d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {parts.frequency === "monthly" && (
+                  <label className="flex items-center gap-2 text-body text-muted-foreground">
+                  day
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      className="w-20 font-mono"
+                      value={parts.dayOfMonth}
+                      onChange={(e) =>
+                        applyParts({
+                          ...parts,
+                          dayOfMonth: clamp(e.target.value, 1, 31),
+                        })
+                      }
+                    />
+                  </label>
+                )}
+                <label className="flex items-center gap-2 text-body text-muted-foreground">
+                at
+                  <Input
+                    type="time"
+                    className="w-32 font-mono"
+                    value={`${pad(parts.hour)}:${pad(parts.minute)}`}
+                    onChange={(e) => {
+                      const [h, m] = e.target.value.split(":");
+                      applyParts({
+                        ...parts,
+                        hour: clamp(h, 0, 23),
+                        minute: clamp(m, 0, 59),
+                      });
+                    }}
+                  />
+                </label>
+              </>
+            )}
+
+            {parts.frequency === "custom" && (
+              <Input
+                id="bk-schedule"
+                className="font-mono"
+                value={values.schedule}
+                onChange={(e) => emit(e.target.value)}
+                onBlur={(e) => emit(normalizeCron(e.target.value))}
+                placeholder="0 0 3 * * *  (sec min hour dom mon dow)"
+              />
+            )}
+          </div>
+        </FieldShell>
+      )}
+
+      {/* Last, and on its own. It is a second, independent capability — not a
+          setting of the scheduled backups above it — and nothing follows from
+          it, so nothing should sit under it. */}
+      <FieldShell
+        inline
+        span={2}
         label="WAL archiving"
         htmlFor="bk-wal"
         hint="Continuously ships WAL segments. Required for point-in-time recovery."
       >
-        <div className="flex items-center h-10">
-          <Switch
-            id="bk-wal"
-            checked={values.walArchiving}
-            onCheckedChange={(c) => set("walArchiving", c)}
-          />
-        </div>
+        <Switch
+          id="bk-wal"
+          checked={values.walArchiving}
+          onCheckedChange={(c) => set("walArchiving", c)}
+        />
       </FieldShell>
 
-      <FieldShell
-        label="Schedule"
-        htmlFor="bk-frequency"
-        error={scheduleError}
-        hint={
-          mode === "custom" && description ? (
-            <span>
-              {description} <span className="text-muted-foreground/70">(UTC)</span>
-            </span>
-          ) : undefined
-        }
-      >
-        <div className="flex flex-col gap-2">
-          <Select
-            value={parts.frequency}
-            onValueChange={(v) => applyParts({ ...parts, frequency: v as Frequency })}
-            disabled={disabled}
-          >
-            <SelectTrigger id="bk-frequency">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FREQUENCIES.map((f) => (
-                <SelectItem key={f.value} value={f.value}>
-                  {f.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {parts.frequency === "hourly" && (
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              at minute
-              <Input
-                type="number"
-                min={0}
-                max={59}
-                className="w-20 font-mono"
-                value={parts.minute}
-                disabled={disabled}
-                onChange={(e) =>
-                  applyParts({ ...parts, minute: clamp(e.target.value, 0, 59) })
-                }
-              />
-            </label>
-          )}
-
-          {(parts.frequency === "daily" ||
-            parts.frequency === "weekly" ||
-            parts.frequency === "monthly") && (
-            <div className="flex flex-wrap items-center gap-2">
-              {parts.frequency === "weekly" && (
-                <Select
-                  value={String(parts.dayOfWeek)}
-                  onValueChange={(v) =>
-                    applyParts({ ...parts, dayOfWeek: Number(v) })
-                  }
-                  disabled={disabled}
-                >
-                  <SelectTrigger className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {WEEKDAYS.map((d, i) => (
-                      <SelectItem key={d} value={String(i)}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {parts.frequency === "monthly" && (
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  day
-                  <Input
-                    type="number"
-                    min={1}
-                    max={31}
-                    className="w-20 font-mono"
-                    value={parts.dayOfMonth}
-                    disabled={disabled}
-                    onChange={(e) =>
-                      applyParts({
-                        ...parts,
-                        dayOfMonth: clamp(e.target.value, 1, 31),
-                      })
-                    }
-                  />
-                </label>
-              )}
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                at
-                <Input
-                  type="time"
-                  className="w-32 font-mono"
-                  value={`${pad(parts.hour)}:${pad(parts.minute)}`}
-                  disabled={disabled}
-                  onChange={(e) => {
-                    const [h, m] = e.target.value.split(":");
-                    applyParts({
-                      ...parts,
-                      hour: clamp(h, 0, 23),
-                      minute: clamp(m, 0, 59),
-                    });
-                  }}
-                />
-              </label>
-            </div>
-          )}
-
-          {parts.frequency === "custom" && (
-            <Input
-              id="bk-schedule"
-              className="font-mono"
-              value={values.schedule}
-              disabled={disabled}
-              onChange={(e) => emit(e.target.value)}
-              onBlur={(e) => emit(normalizeCron(e.target.value))}
-              placeholder="0 0 3 * * *  (sec min hour dom mon dow)"
-            />
-          )}
-        </div>
-      </FieldShell>
-    </div>
+    </FieldGrid>
   );
 }

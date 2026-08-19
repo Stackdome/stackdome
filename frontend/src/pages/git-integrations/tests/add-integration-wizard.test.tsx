@@ -106,7 +106,7 @@ describe("AddIntegrationWizard", () => {
   });
 
   it("shows a structured error card on connect failure with a retry that re-calls connect()", () => {
-    mockConnectError = "Popup blocked — allow popups for this site and try again.";
+    mockConnectError = "Popup blocked. Allow popups for this site and try again.";
     renderWizard();
     fireEvent.click(screen.getByRole("button", { name: /GitHub/ }));
     fireEvent.click(screen.getByRole("button", { name: /install github app/i }));

@@ -86,7 +86,7 @@ export function BuildLogsModal({ open, onClose, ...rest }: BuildLogsModalProps) 
         if (!next) onClose();
       }}
     >
-      <DialogContent className="flex h-[min(640px,85vh)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+      <DialogContent size="work" className="flex h-[min(640px,85vh)] flex-col gap-0 overflow-hidden p-0">
         <BuildLogsBody key={rest.buildId} open={open} {...rest} />
       </DialogContent>
     </Dialog>
@@ -124,12 +124,12 @@ function BuildLogsBody({
   return (
     <>
       <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b border-border px-4 py-3">
-        <DialogTitle className="text-sm font-semibold">Build logs — {resourceName}</DialogTitle>
+        <DialogTitle className="text-body font-semibold">Build logs — {resourceName}</DialogTitle>
         <DialogDescription className="sr-only">
           Streamed output from the image build for {resourceName}.
         </DialogDescription>
         {revision && (
-          <span className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-fg-muted">
+          <span className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-label text-fg-muted">
             {revision}
           </span>
         )}
@@ -227,8 +227,8 @@ function OutcomeBanner({ state }: { state: string }) {
     <div
       className={
         ok
-          ? "border-t border-border bg-success/10 px-4 py-2 font-mono text-xs text-success"
-          : "border-t border-border bg-danger/10 px-4 py-2 font-mono text-xs text-danger"
+          ? "border-t border-border bg-success/10 px-4 py-2 font-mono text-meta text-success"
+          : "border-t border-border bg-danger/10 px-4 py-2 font-mono text-meta text-danger"
       }
     >
       {ok ? "✓ Build succeeded — log stream complete" : "✕ Build failed — log stream complete"}
@@ -241,8 +241,8 @@ function CenterState({ icon, title, body, action }: CenterStateProps) {
     <div className="absolute inset-0 grid place-items-center p-6 text-center">
       <div className="max-w-sm">
         <div className="flex justify-center">{icon}</div>
-        <h3 className="mt-3 text-sm font-semibold text-foreground">{title}</h3>
-        <p className="mt-1 text-xs text-fg-muted">{body}</p>
+        <h3 className="mt-3 text-body font-semibold text-foreground">{title}</h3>
+        <p className="mt-1 text-meta text-fg-muted">{body}</p>
         {action && <div className="mt-3 flex justify-center">{action}</div>}
       </div>
     </div>

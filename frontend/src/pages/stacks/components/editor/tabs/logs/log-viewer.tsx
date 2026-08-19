@@ -132,7 +132,7 @@ export function LogViewer({ stackId, organizationId, resources = [], liveStatusR
       {/* Header with integrated filter controls */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-[18px] font-medium tracking-[-0.01em] text-foreground">Stack logs</h2>
+          <h2 className="text-title font-medium tracking-[-0.01em] text-foreground">Stack logs</h2>
           <StatusPill variant={statusInfo.variant}>{statusInfo.label}</StatusPill>
         </div>
 
@@ -141,12 +141,12 @@ export function LogViewer({ stackId, organizationId, resources = [], liveStatusR
           {availableSources.length > 0 && (
             <Popover open={sourceSelectOpen} onOpenChange={setSourceSelectOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 w-48 justify-start rounded-sm text-[12.5px] font-medium">
+                <Button variant="outline" size="sm" className="h-8 w-48 justify-start rounded-sm text-meta font-medium">
                   <Layers className="h-3.5 w-3.5" />
                   Resources
                   <ChevronDown className="ml-auto h-3.5 w-3.5" />
                   {filters.sources.length > 0 && (
-                    <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                    <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-meta">
                       {filters.sources.length}
                     </Badge>
                   )}
@@ -169,7 +169,7 @@ export function LogViewer({ stackId, organizationId, resources = [], liveStatusR
                         />
                         <span className="truncate">{source}</span>
                         {!readySources.has(source) && (
-                          <span className="ml-auto pl-2 text-[10px] text-fg-muted">not ready</span>
+                          <span className="ml-auto pl-2 text-label text-fg-muted">not ready</span>
                         )}
                       </CommandItem>
                     ))}
@@ -181,7 +181,7 @@ export function LogViewer({ stackId, organizationId, resources = [], liveStatusR
 
           {/* Time Range Selector */}
           <Select value={filters.timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="h-8 w-48 rounded-sm text-[12.5px] font-medium">
+            <SelectTrigger className="w-48 text-meta font-medium">
               <Clock className="h-3.5 w-3.5" />
               <SelectValue />
             </SelectTrigger>

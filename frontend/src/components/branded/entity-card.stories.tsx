@@ -23,8 +23,8 @@ export const TwoPills: Story = {
   },
   play: async ({ canvas }) => {
     const pill = canvas.getAllByRole('link')[0]
-    await expect(pill.className).toContain('focus-visible:outline-2')
-    await expect(pill.className).not.toContain('ring-')
+    await expect(pill.className).toMatch(/(?:^|\s)focus-ring(?:-edge|-inset)?(?:\s|$)/)
+    await expect(pill.className).not.toMatch(/(?:^|[\s:])ring-/)
   },
 }
 

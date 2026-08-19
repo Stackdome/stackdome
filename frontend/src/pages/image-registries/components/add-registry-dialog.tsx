@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { FieldShell } from "@/components/branded";
+import { AlertBanner, FieldShell } from "@/components/branded";
 import { useToast } from "@/components/ui/use-toast";
 import { WizardFooter } from "@/components/wizard-footer";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,7 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
   const [purpose, setPurpose] = useState<RegistryCredentialPurpose>(PURPOSE_BOTH);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -52,6 +53,7 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
     setPassword("");
     setPurpose(PURPOSE_BOTH);
     setFieldErrors({});
+    setError(null);
   }, [open]);
 
   const pickProvider = (p: RegistryProvider) => {
@@ -62,6 +64,7 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
     setUsername("");
     setPassword("");
     setFieldErrors({});
+    setError(null);
   };
 
   const submit = async () => {
@@ -72,9 +75,10 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
       return;
     }
     setFieldErrors({});
+    setError(null);
     const orgId = getCurrentOrganizationId();
     if (!orgId) {
-      toast({ title: "Couldn't add registry", description: "No organization selected.", variant: "destructive" });
+      setError("No organization is selected. Pick one from the account menu and try again.");
       return;
     }
     setSaving(true);
@@ -88,7 +92,9 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
       if (isAxiosError(e) && e.response?.status === 409) {
         setFieldErrors({ host: "Credentials for this registry and purpose already exist." });
       } else {
-        toast({ title: "Couldn't add registry", description: getErrorMessage(e), variant: "destructive" });
+        // Above the footer, not a toast — the host and login that were rejected
+        // are still on screen and still editable.
+        setError(getErrorMessage(e));
       }
     } finally {
       setSaving(false);
@@ -97,7 +103,7 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="block gap-0 overflow-hidden p-0 sm:max-w-[540px]">
+      <DialogContent size="form" className="block gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">Add image registry</DialogTitle>
         <DialogDescription className="sr-only">
           Store pull/push credentials so builds can use private registries.
@@ -106,7 +112,7 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
           <span className="flex h-6 w-6 items-center justify-center text-muted-foreground">
             <Package className="h-5 w-5" />
           </span>
-          <span className="font-mono text-[11px] uppercase tracking-[1.5px] text-muted-foreground">
+          <span className="font-mono text-label text-muted-foreground">
             Add image registry
           </span>
         </div>
@@ -120,10 +126,10 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
                   top-aligns (instead of clipping) once it overflows. */}
               <div className="my-auto w-full">
                 <div className="mb-7 text-center">
-                  <h2 className="mb-2 text-2xl font-medium tracking-tight">
+                  <h2 className="mb-2 text-head font-medium">
                     Where do your images live?
                   </h2>
-                  <p className="text-sm text-muted-foreground">Pick a registry.</p>
+                  <p className="text-body text-muted-foreground">Pick a registry.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2.5">
                   {REGISTRY_PROVIDERS.map((p) => (
@@ -133,15 +139,15 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
                       onClick={() => pickProvider(p)}
                       className={cn(
                         "flex min-h-[76px] items-start gap-3 rounded-md border bg-card p-4 text-left transition-colors",
-                        "hover:border-primary focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2",
+                        "hover:border-primary focus-ring-edge",
                       )}
                     >
                       <span className="flex h-9 w-9 flex-none items-center justify-center rounded bg-muted text-muted-foreground">
                         <ProviderLogo providerId={p.id} className="h-[18px] w-[18px]" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="mb-0.5 block text-sm font-medium text-foreground">{p.label}</span>
-                        <span className="block text-xs text-muted-foreground">
+                        <span className="mb-0.5 block text-body font-medium text-foreground">{p.label}</span>
+                        <span className="block text-meta text-muted-foreground">
                           {p.hostPrefill || "Custom host"}
                         </span>
                       </span>
@@ -154,10 +160,10 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
             <>
               <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-8 [&>*]:shrink-0">
                 <div className="mb-1 text-center">
-                  <h2 className="mb-2 text-2xl font-medium tracking-tight">
+                  <h2 className="mb-2 text-head font-medium">
                     Connect {provider.id === "other" ? "your registry" : provider.label}
                   </h2>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-body text-muted-foreground">
                     Stackdome stores the credentials encrypted and uses them only for image pulls and pushes.
                   </p>
                 </div>
@@ -216,6 +222,7 @@ export function AddRegistryDialog({ open, onOpenChange, onCreated }: AddRegistry
                     </SelectContent>
                   </Select>
                 </FieldShell>
+                {error && <AlertBanner>{error}</AlertBanner>}
               </div>
               <WizardFooter
                 onBack={() => setProvider(null)}

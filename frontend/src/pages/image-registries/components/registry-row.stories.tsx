@@ -34,13 +34,21 @@ type Story = StoryObj<typeof meta>
 export const DockerHub: Story = {
   args: { credential: makeCredential() },
   play: async ({ canvas }) => {
-    const trigger = canvas.getByRole('button', { name: 'Open row menu' })
-    // Row-menu trigger reads the shared icon-button size — no hand-set
-    // h-8/w-8 override, no arbitrary radius swap (rubric #9).
-    await expect(trigger.className).toContain('size-10')
+    const trigger = canvas.getByRole('button', { name: /^Actions for / })
+    // Row-menu trigger reads the shared icon-button size — no hand-set h-8/w-8
+    // override. The icon default is 32px since the control-height ladder landed.
+    await expect(trigger.className).toContain('size-7')
     await expect(trigger.className).not.toMatch(/\bh-8\b/)
-    await expect(trigger.className).not.toContain('rounded-md')
-    await expect(trigger.className).toContain('focus-visible:outline-2')
+    await expect(trigger.className).toContain('focus-ring')
+
+    // A row menu is a working control, so it is `flat`, and §2 makes its radius
+    // a function of its height: at 28px the ladder gives 6. Both numbers come
+    // from the variant, not from the call site — this used to assert
+    // `rounded-md` was ABSENT, back when a radius in the class list could only
+    // have been hand-set here.
+    const style = getComputedStyle(trigger)
+    await expect(parseFloat(style.height)).toBe(28)
+    await expect(parseFloat(style.borderRadius)).toBe(6)
   },
 }
 

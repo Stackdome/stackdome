@@ -41,7 +41,7 @@ export function StageTracker({ stages, className }: { stages: Stages; className?
         <span className={cn("box-border flex h-[15px] w-[15px] flex-none items-center justify-center rounded-full border-[1.5px]", RING[status])}>
           {glyph(status)}
         </span>
-        <span className={cn("font-sans text-[12px] font-medium", status === "todo" || status === "skipped" ? "text-fg-muted" : "text-foreground")}>
+        <span className={cn("font-sans text-meta font-medium", status === "todo" || status === "skipped" ? "text-fg-muted" : "text-foreground")}>
           {stage.label}
         </span>
       </div>,

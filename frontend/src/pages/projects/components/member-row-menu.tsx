@@ -94,7 +94,7 @@ export function MemberRowMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Member actions" disabled={busy}>
+        <Button shape="flat" variant="ghost" size="icon" aria-label="Member actions" disabled={busy}>
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>

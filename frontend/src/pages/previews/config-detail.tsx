@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle, ChevronDown, GitPullRequest, Loader2, Plus, Search, Settings,
 } from "lucide-react";
@@ -23,7 +23,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { usePreviewEnvs } from "@/hooks/use-preview-envs";
 import { PreviewEnvCard } from "./components/preview-env-card";
 import { ConfigSettingsModal } from "./components/config-settings-modal";
-import { NewPreviewEnvModal } from "./components/new-preview-env-modal";
+import { NewPreviewEnvDrawer } from "./components/new-preview-env-drawer";
 import { SyncEnvDialog } from "./components/sync-env-dialog";
 
 type SortKey = "updated" | "created" | "name";
@@ -191,9 +191,6 @@ export default function PreviewConfigDetailPage() {
   return (
     <div className="flex flex-1 flex-col p-8 space-y-6 h-full">
       <PageHeader
-        eyebrow={<Link to="/previews">← Previews</Link>}
-        title={config.name}
-        subtitle={config.git_repository?.repo_url}
         actions={
           canWriteAnyProject ? (
             <>
@@ -210,6 +207,22 @@ export default function PreviewConfigDetailPage() {
         }
       />
 
+      {/* Which repository these previews come from. Reference, not
+          orientation — §8 keeps entity metadata out of the sheet header, so it
+          lives here with the content it describes. It is a machine string, so
+          it is the one thing on the page that earns mono (§7a). */}
+      {config.git_repository?.repo_url && (
+        <p className="text-meta text-fg-muted">
+          <span className="font-mono">{config.git_repository.repo_url}</span>
+          {config.git_repository.base_branch && (
+            <>
+              {" · "}
+              <span className="font-mono">{config.git_repository.base_branch}</span>
+            </>
+          )}
+        </p>
+      )}
+
       {/* Filter / sort toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         {showToolbar && (
@@ -220,13 +233,13 @@ export default function PreviewConfigDetailPage() {
                 placeholder="Search PR #, branch, commit…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="pl-9 h-9"
+                className="pl-9"
               />
             </div>
             <div className="ml-auto flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button shape="flat" variant="outline" size="sm">
                     <span className="text-fg-2">Status:</span> <span>{statusFilter === ALL_STATUSES ? "All" : statusFilter}</span>
                     <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
                   </Button>
@@ -239,7 +252,7 @@ export default function PreviewConfigDetailPage() {
                   <DropdownMenuItem
                     onSelect={() => setStatusFilter(ALL_STATUSES)}
                     className={cn(
-                      "justify-between text-[13px]",
+                      "justify-between text-body",
                       statusFilter === ALL_STATUSES && "font-semibold text-foreground"
                     )}
                   >
@@ -251,7 +264,7 @@ export default function PreviewConfigDetailPage() {
                       key={o.word}
                       onSelect={() => setStatusFilter(o.word)}
                       className={cn(
-                        "justify-between text-[13px]",
+                        "justify-between text-body",
                         statusFilter === o.word && "font-semibold text-foreground"
                       )}
                     >
@@ -263,7 +276,7 @@ export default function PreviewConfigDetailPage() {
               </DropdownMenu>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button shape="flat" variant="outline" size="sm">
                     <span className="text-fg-2">Sort:</span> <span>{sortLabel}</span>
                     <ChevronDown className="h-3.5 w-3.5 flex-none text-fg-2" />
                   </Button>
@@ -278,7 +291,7 @@ export default function PreviewConfigDetailPage() {
                       key={o.key}
                       onSelect={() => setSortKey(o.key)}
                       className={cn(
-                        "text-[13px]",
+                        "text-body",
                         sortKey === o.key && "font-semibold text-foreground"
                       )}
                     >
@@ -292,10 +305,10 @@ export default function PreviewConfigDetailPage() {
         )}
       </div>
 
-      {envsError && <p className="text-sm text-destructive">{envsError}</p>}
+      {envsError && <p className="text-body text-destructive">{envsError}</p>}
 
       {envsLoading ? (
-        <p className="text-sm text-muted-foreground">Loading environments…</p>
+        <p className="text-body text-muted-foreground">Loading environments…</p>
       ) : envs.length === 0 ? (
         <EmptyState
           icon={<GitPullRequest className="h-8 w-8" />}
@@ -341,7 +354,7 @@ export default function PreviewConfigDetailPage() {
         onSaved={setConfig}
         onDeleted={() => navigate("/previews")}
       />
-      <NewPreviewEnvModal
+      <NewPreviewEnvDrawer
         open={createOpen}
         onOpenChange={setCreateOpen}
         config={config}

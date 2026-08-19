@@ -26,7 +26,7 @@ export function Panel({ title, count, action, className, bodyClassName, bare, to
   return (
     <section
       className={cn(
-        !bare && "rounded-[12px] border bg-secondary shadow-[var(--edge)]",
+        !bare && "rounded-[12px] border bg-secondary",
         !bare && (invalid ? "border-danger-border" : "border-border-strong"),
         className,
       )}
@@ -38,10 +38,10 @@ export function Panel({ title, count, action, className, bodyClassName, bare, to
           bare && "px-0",
         )}>
           {tone === "soft" ? (
-            <span className="text-[13px] font-semibold text-foreground">
+            <span className="text-body font-semibold text-foreground">
               {title}
               {count !== undefined && count !== null && (
-                <span className="ml-2 text-[13px] font-normal text-muted-foreground">· {count}</span>
+                <span className="ml-2 text-body font-normal text-muted-foreground">· {count}</span>
               )}
             </span>
           ) : (
@@ -54,11 +54,11 @@ export function Panel({ title, count, action, className, bodyClassName, bare, to
           )}
           {action && (
             tone === "soft" ? (
-              <span className="text-[12.5px] text-fg-2 hover:text-foreground transition-colors">
+              <span className="text-meta text-fg-2 hover:text-foreground transition-colors">
                 {action}
               </span>
             ) : (
-              <span className="font-mono text-[11px] uppercase tracking-[1.5px] text-fg-2 hover:text-foreground transition-colors">
+              <span className="font-mono text-label text-fg-2 hover:text-foreground transition-colors">
                 {action}
               </span>
             )

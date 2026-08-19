@@ -36,13 +36,14 @@ describe("PreviewEnvCard", () => {
     expect(screen.getByText(label)).toBeInTheDocument();
   });
 
-  it("keeps failure details off the card — the FAILED status word is the only signal", () => {
+  it("keeps failure details off the card — the status word is the only signal", () => {
     const env: PreviewStack = {
       ...base,
       status: { phase: "Failed", reason: "StackfileNotFound", message: "no stackfile at path" },
     };
     renderCard({ env });
-    expect(screen.getByText("failed")).toBeInTheDocument();
+    // Sentence case now that §7 removed the CSS caps — words are words.
+    expect(screen.getByText(statusVariantLabel.error)).toBeInTheDocument();
     expect(screen.queryByText(/no stackfile at path/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/check the stackfile path/i)).not.toBeInTheDocument();
   });
@@ -73,15 +74,25 @@ describe("PreviewEnvCard", () => {
     expect(onSync).not.toHaveBeenCalled();
   });
 
-  it("disables kebab items while the env is Deleting", async () => {
+  it("disables kebab items while the env is Deleting, and says why in the item", async () => {
     const env: PreviewStack = { ...base, status: { phase: "Deleting" } };
     renderCard({ env, onSync: vi.fn(), onDelete: vi.fn() });
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /actions for pr #42/i }), { pointerEventsCheck: 0 });
 
-    expect(await screen.findByText(/^sync$/i)).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByText(/^delete$/i)).toHaveAttribute("aria-disabled", "true");
+    // Assert on the menu item, not the label text — the label now sits in its
+    // own span so the reason line can escape the disabled dim. Anchored at the
+    // start because the reason joins the accessible name: a screen reader hears
+    // "Delete, Being deleted, dimmed", so a loose /delete/i matches both items.
+    const sync = await screen.findByRole("menuitem", { name: /^Sync/ });
+    const del = screen.getByRole("menuitem", { name: /^Delete/ });
+    expect(sync).toHaveAttribute("aria-disabled", "true");
+    expect(del).toHaveAttribute("aria-disabled", "true");
+
+    // A menu cannot carry a tooltip, so the reason is inline in each item.
+    expect(sync).toHaveTextContent("Being deleted");
+    expect(del).toHaveTextContent("Being deleted");
   });
 
   it("has no link role when stack_id is absent", () => {

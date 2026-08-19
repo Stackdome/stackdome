@@ -91,7 +91,9 @@ export const ServerError: Story = {
     await userEvent.click(body.getByRole('button', { name: /send invitation/i }))
     const alert = await body.findByRole('alert')
     await expect(alert).toHaveTextContent('no seats remaining')
-    await expect(alert.className).toContain('border-danger-border')
+    // The fill is the tone now — the banner lost its border when it went
+    // borderless at radius 12.
+    await expect(alert.className).toContain('bg-danger-bg')
 
     // Dismiss clears the banner without touching the form.
     await userEvent.click(body.getByRole('button', { name: /dismiss/i }))

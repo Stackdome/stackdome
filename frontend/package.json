@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "VITE_PREVIEW=true vite --port 5273 --open",
+    "dev:mock:empty": "VITE_PREVIEW=true VITE_PREVIEW_SCENARIO=empty vite --port 5274 --open",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
