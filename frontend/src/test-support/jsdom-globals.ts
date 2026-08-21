@@ -21,4 +21,28 @@ if (typeof window !== "undefined") {
     disconnect() {}
   }
   globalThis.ResizeObserver ??= ResizeObserverStub;
+
+  /**
+   * `matchMedia` — same argument, one rung up.
+   *
+   * jsdom ships no media-query engine, and a component is entitled to ask
+   * `prefers-reduced-motion` or `prefers-color-scheme` unconditionally: the
+   * question is how the product behaves, not whether the test environment
+   * implements CSSOM View. Two test files had already hand-rolled this stub with
+   * the same comment; the third one to need it is the sign it belongs here.
+   *
+   * **Everything reports false**, which is the honest default: no reduced-motion
+   * preference, not mobile, light. A spec that cares about the other answer
+   * overrides this for its own case rather than reading a global.
+   */
+  globalThis.matchMedia ??= ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
 }

@@ -97,36 +97,92 @@ export function EnvRow({
   const isDirty = isModified || isAdded;
   return (
     <div
-      className={`relative rounded-md border py-2 pl-[13px] pr-2.5 transition-colors ${
+      /* **At rest the row is ON the sheet, not in a card.**
+         It carried `border-border bg-background` — a grey panel per variable,
+         on a white sheet, while Ports and Mounts render their members flush.
+         Eleven of them turned the section into a stack of boxes and the border
+         did the work the row's own alignment already does.
+
+         The border STAYS, transparent: a row that gains a 1px edge on the
+         keystroke that makes it dirty shifts every column 1px sideways. Only
+         the ink changes. */
+      /* **Full width, and the paint is what bleeds.** It carried
+         `pl-[13px] pr-2.5`, so every control sat inset from the section's own
+         content edge while Ports and Mounts reach it — a 400px panel cannot
+         spare 24px to frame a row. The negative margin pushes the BOX out past
+         the edge and the padding puts the controls back on it, so the tint and
+         the bar have room to sit outside the grid without moving it.
+
+         **The state edge is an OUTLINE, not a border** (§4). A border is part
+         of the box, so `-mx-1.5 px-1.5` put the controls back 1px inside the
+         section's edge instead of on it — measured, the row spanned 1053→1411
+         against a content edge of 1052→1412. An outline paints outside the box
+         and costs the grid nothing, and it also means a row cannot shift when
+         it goes dirty, which is what the transparent border was there for. */
+      className={`relative -mx-1.5 rounded-md px-1.5 py-1.5 transition-colors ${
         isOrphanAddon
-          ? "border-warn-border bg-warn-bg"
+          ? "bg-warn-bg outline-1 outline-warn-border"
           : isDirty
-            ? "border-brand-border bg-brand-bg"
-            : "border-border bg-background"
+            ? "bg-change-bg outline-1 outline-change-border"
+            : ""
       }`}
       data-testid={`env-row-${resourceIndex}-${index}`}
       onBlur={onBlur}
     >
-      {/* 2px accent bar signalling row state (dirty = brand, orphan = warn). */}
+      {/* 2px accent bar signalling row state. **`--change`, not brand**: this is
+          the same "differs from what is deployed" the dirty rails, the count
+          chip and the tab dots say, and it was the last mark in the editor
+          still saying it in orange. */}
       <span
         aria-hidden
         className={`absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-full ${
-          isOrphanAddon ? "bg-warn" : isDirty ? "bg-brand" : "bg-transparent"
+          isOrphanAddon ? "bg-warn" : isDirty ? "bg-change" : "bg-transparent"
         }`}
       />
       {/* items-start keeps every control top-aligned so a per-cell error (which
           grows that cell downward) never knocks the other columns out of line. */}
-      {/* 4 inside a record, not 8 — the members of one variable are one thing.
-          Name and value both FLEX because neither has a bounded length; only
-          `From` is a closed set, so only `From` is fixed. */}
-      <div className="flex items-start gap-1">
+      {/* **6, the record gap — and the board's own grid** (`935:50009`):
+          `100 · 6 · fill · 6 · fill · 6 · 32`. Name and Value both FLEX because
+          neither has a bounded length; `From` is a closed set so it is fixed,
+          and the remove button is the icon rung. `basis-0` is what makes the
+          two fills EQUAL — from their own content they would split by how long
+          `production` happens to be against `NODE_ENV`. */}
+      <div className="flex items-start gap-1.5">
+        {/* **From leads the row**, because it decides what the other two cells
+            ARE — a plain value, a secret key, an addon field. It read third,
+            after the two cells it governs. A closed set, so it is fixed at 100
+            (the board's width for it) rather than sharing the flex. */}
+        <div className="w-[100px] flex-none">
+          <Select
+            value={row.from}
+            onValueChange={(v) => onChangeFrom(v as EnvFrom)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="stack">Plain text</SelectItem>
+              <SelectItem value="secret">Secret</SelectItem>
+              <SelectItem value="addon">Addon</SelectItem>
+              <SelectItem value="resource">Resource</SelectItem>
+              {/* Template rows come from imports (composite values); not hand-authorable yet. */}
+              {row.from === "resourceTemplate" && (
+                <SelectItem value="resourceTemplate" disabled>
+                  Template
+                </SelectItem>
+              )}
+              <SelectItem value="self">Self</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Key */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-0">
           <Input
             id={`env-name-${resourceIndex}-${index}`}
             value={row.name || ""}
             onChange={(e) => onChangeName(e.target.value)}
-            className={`h-8 w-full text-meta md:text-meta ${isOrphanAddon ? "opacity-60" : ""}`}
+            className={isOrphanAddon ? "opacity-60" : undefined}
             aria-invalid={!!(rowErrors?.duplicate || rowErrors?.name)}
             placeholder="KEY"
             readOnly={isOrphanAddon}
@@ -139,12 +195,12 @@ export function EnvRow({
         </div>
 
         {/* Value */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-0">
           {row.from === "stack" && (
             <Input
               value={row.value || ""}
               onChange={(e) => onChangeValue(e.target.value)}
-              className="h-8 w-full text-meta md:text-meta"
+              
               aria-invalid={!!rowErrors?.value}
               placeholder="value"
             />
@@ -183,7 +239,10 @@ export function EnvRow({
           )}
           {row.from === "resourceTemplate" && (
             <div className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5">
-              <code className="truncate font-mono text-meta">{row.template}</code>
+              {/* Not mono, and not `<code>` either: a reference expression is
+                  neither a URL nor a source listing. §6 leaves mono for one
+                  thing and this is not it. */}
+              <span className="truncate text-meta">{row.template}</span>
               <span className="ml-auto flex-none text-label italic text-muted-foreground">
                 {row.resourceName} · resolved at deploy
               </span>
@@ -201,42 +260,21 @@ export function EnvRow({
           )}
         </div>
 
-        {/* From select (Stack | Secret | Addon) — a closed set, so it is fixed
-            at the width of its widest option rather than sharing the flex. */}
-        <div className="w-[116px] flex-none">
-          <Select
-            value={row.from}
-            onValueChange={(v) => onChangeFrom(v as EnvFrom)}
-          >
-            <SelectTrigger size="sm" className="w-full text-meta">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="stack">Plain text</SelectItem>
-              <SelectItem value="secret">Secret</SelectItem>
-              <SelectItem value="addon">Addon</SelectItem>
-              <SelectItem value="resource">Resource</SelectItem>
-              {/* Template rows come from imports (composite values); not hand-authorable yet. */}
-              {row.from === "resourceTemplate" && (
-                <SelectItem value="resourceTemplate" disabled>
-                  Template
-                </SelectItem>
-              )}
-              <SelectItem value="self">Self</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* Reset (modified existing row — restore baseline) or Remove (added/clean rows) */}
         {/* Packed straight after the last member at the icon-button rung, not
             pushed to the far edge — the hole in the middle is what stopped a
             row reading as one variable. */}
-        <div className="flex h-8 w-8 flex-none items-center justify-center">
+        {/* **Every control in this row is 32** — the board's own rung
+            (`Select 100×32`, `Field 145×32`, `remove 32×32`). It ran three
+            heights: `size="sm"` selects at 28, `Input` at 32, and a `size-7`
+            override on the icon button putting it at 28. Three rungs in one
+            32px strip, and the eye reads the row as ragged without being able
+            to say why. `size="icon"` is already 32; the override was the bug. */}
+        <div className="flex flex-none items-start">
           {isModified && onReset ? (
             <Button
               variant="ghost"
               size="icon"
-              className="size-7"
               onClick={onReset}
               aria-label="Reset env var to original value"
               title="Reset to original value"
@@ -247,7 +285,7 @@ export function EnvRow({
             <Button
               variant="ghost"
               size="icon"
-              className="size-7 hover:bg-danger-bg hover:text-danger"
+              className="hover:bg-danger-bg hover:text-danger"
               onClick={onRemove}
               aria-label={row.name ? `Remove ${row.name}` : "Remove env var"}
             >
@@ -289,7 +327,7 @@ function SecretValueCell({
         onValueChange={(value) => onChange(value, "")}
         disabled={loading || genericSecrets.length === 0}
       >
-        <SelectTrigger size="sm" className="w-full text-meta">
+        <SelectTrigger className="w-full">
           <SelectValue
             placeholder={
               genericSecrets.length === 0
@@ -317,7 +355,7 @@ function SecretValueCell({
           onValueChange={(value) => onChange(secretId, value)}
           disabled={availableKeys.length === 0}
         >
-          <SelectTrigger size="sm" className="w-full text-meta">
+          <SelectTrigger className="w-full">
             <SelectValue
               placeholder={
                 availableKeys.length === 0
@@ -391,7 +429,7 @@ function ResourceOutputCell({
         onValueChange={(v) => onChange(v, "")}
         disabled={resourceOptions.length === 0}
       >
-        <SelectTrigger size="sm" className="w-full text-meta" data-testid="resource-picker-trigger">
+        <SelectTrigger className="w-full" data-testid="resource-picker-trigger">
           <SelectValue placeholder={resourceOptions.length === 0 ? "No other resources" : "select resource..."} />
         </SelectTrigger>
         <SelectContent>
@@ -402,7 +440,7 @@ function ResourceOutputCell({
       </Select>
       {resourceName && (
         <Select value={output || ""} onValueChange={(v) => onChange(resourceName, v)} disabled={outputs.length === 0}>
-          <SelectTrigger size="sm" className="w-full text-meta" data-testid="resource-output-trigger">
+          <SelectTrigger className="w-full" data-testid="resource-output-trigger">
             <SelectValue placeholder={outputs.length === 0 ? "No outputs" : "select output..."} />
           </SelectTrigger>
           <SelectContent>
@@ -425,7 +463,7 @@ function SelfOutputCell({
 }) {
   return (
     <Select value={selfOutput || ""} onValueChange={onChange} disabled={outputs.length === 0}>
-      <SelectTrigger size="sm" className="w-full text-meta" data-testid="self-output-trigger">
+      <SelectTrigger className="w-full" data-testid="self-output-trigger">
         <SelectValue placeholder={outputs.length === 0 ? "No outputs declared" : "select output..."} />
       </SelectTrigger>
       <SelectContent>
@@ -472,7 +510,7 @@ function AddonCredFieldPicker({
       >
         <SelectTrigger
           size="sm"
-          className="w-full text-meta"
+          className="w-full"
           aria-invalid={!!error}
           data-testid="field-picker-trigger"
         >

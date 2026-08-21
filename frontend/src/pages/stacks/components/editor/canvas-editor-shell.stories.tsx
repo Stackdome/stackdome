@@ -12,12 +12,10 @@ const canvasPlaceholder = (
 )
 
 const defaultShellProps: CanvasEditorShellProps = {
-  stackName: 'orders-api',
   stackId: 's1',
   headerHealth: 'ok',
   subtitle: '3 services · 2 volumes',
   hasResources: true,
-  nameEditable: false,
   activeTab: EDITOR_TABS.architecture,
   onTabChange: fn(),
   isActive: false,
@@ -55,12 +53,9 @@ export const Default: Story = {}
 /** New stack: editable name, no autosave/actions menu, draft deploy pill. */
 export const DirtyDraft: Story = {
   args: {
-    stackName: 'new-stack',
     stackId: undefined,
     headerHealth: undefined,
     isNewStack: true,
-    nameEditable: true,
-    onNameChange: fn(),
     onDraftDeploy: fn(),
     isActive: true,
     dirtyTotal: 3,
@@ -71,13 +66,9 @@ export const DirtyDraft: Story = {
 /** Name validation failing on a draft. */
 export const Validating: Story = {
   args: {
-    stackName: 'New Stack!',
     stackId: undefined,
     headerHealth: undefined,
     isNewStack: true,
-    nameEditable: true,
-    onNameChange: fn(),
-    nameError: 'Name must be lowercase letters, numbers, and dashes.',
     publicEndpoints: [],
   },
 }

@@ -32,10 +32,52 @@ import {
 } from "@/pages/stacks/lib/canvas/layout-graph";
 import { resolveCollisions, type CollidableNode } from "@/pages/stacks/lib/canvas/resolve-collisions";
 import { carryPositions } from "@/pages/stacks/lib/canvas/carry-positions";
-import { drawerRegionWidthPx } from "@/components/ui/drawer";
+import { drawerRegionWidthPx, PEER_SHEET_GUTTER_PX } from "@/components/ui/drawer";
 import { FIT_OPTIONS } from "./fit-options";
 import type { CanvasFlowNode } from "./canvas-editor";
 import type { CanvasMenuTarget } from "./canvas-context-menu";
+
+/**
+ * **`--rail-duration` and `--ease-panel`, in JS.**
+ *
+ * The pan exists because the peer-sheet column is opening, so it has to run on
+ * that column's clock and that column's curve — anything else and the graph and
+ * the panel are two gestures instead of one. The CSS owns the canonical values
+ * (`index.css`); these are the same two numbers where a frame loop can reach
+ * them, and they are commented on both sides so a change to one finds the other.
+ */
+const PAN_DURATION_MS = 200;
+
+/** `cubic-bezier(0.32, 0.72, 0, 1)`. */
+const EASE_PANEL = [0.32, 0.72, 0, 1] as const;
+
+/**
+ * Evaluate a cubic Bézier easing at time `t`.
+ *
+ * A CSS easing curve is `x(u) → y(u)` with `u` a parameter, NOT a function of
+ * time directly — so this solves `x(u) = t` first (bisection, which needs no
+ * derivative and cannot diverge on the flat stretch this curve has near `u=1`),
+ * then reads `y` at that `u`. 20 halvings puts `u` inside 1e-6, far below a
+ * pixel at any viewport width.
+ */
+function easePanel(t: number): number {
+  const [x1, y1, x2, y2] = EASE_PANEL;
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  const bez = (a: number, b: number, u: number) => {
+    const v = 1 - u;
+    return 3 * v * v * u * a + 3 * v * u * u * b + u * u * u;
+  };
+  let lo = 0;
+  let hi = 1;
+  let u = t;
+  for (let i = 0; i < 20; i++) {
+    u = (lo + hi) / 2;
+    if (bez(x1, x2, u) < t) lo = u;
+    else hi = u;
+  }
+  return bez(y1, y2, u);
+}
 
 /** Collision-box dims for nodes React Flow hasn't measured yet (fresh layout
  *  output) — attachment cards are markedly smaller than resource cards. */
@@ -158,21 +200,59 @@ export function useCanvasGraph({
     requestAnimationFrame(() => fitView(FIT_OPTIONS));
   }, [nodesInitialized, fitView]);
 
-  // The inspector takes its width FROM the canvas, so opening it squeezes the
-  // container from the right. Pan the viewport by half that width so the point
-  // that was at the visible center stays centered — the graph glides left with
-  // the panel instead of sitting still while the container shrinks around it.
-  //
-  // One width, not a depth-dependent inset: there is one panel now, so this is
-  // 480 in and 480 back out.
+  /**
+   * The inspector is a SHEET beside the sheet, so opening it squeezes this
+   * container from the right by its width **plus the gutter between the two
+   * cards** — the canvas loses the paper as well as the panel. Pan the viewport
+   * by half that total so the point that was at the visible centre stays
+   * centred: the graph glides left with the panel instead of sitting still
+   * while the container shrinks around it.
+   *
+   * One width, not a depth-dependent inset: there is one panel, so this is 408
+   * in and 408 back out.
+   *
+   * ### Why this is hand-tweened instead of `setViewport(…, { duration })`
+   *
+   * **ReactFlow's animated `setViewport` cannot do a straight line.** It hands
+   * the transition to d3, and d3 interpolates a viewport with `interpolateZoom`
+   * — the "smooth zoom" curve, which deliberately arcs OUT and back on a long
+   * translate so a big pan feels like flying. Measured on this exact move, with
+   * the zoom target identical to the zoom start: `1 → 0.9858 → 1`, dipping and
+   * recovering in lockstep with x. On a graph of cards that reads as the nodes
+   * breathing under the slide, not as the sheet giving up a column.
+   *
+   * A frame loop over x alone is a straight line by construction — `zoom` is
+   * copied from the start viewport and never interpolated, so there is nothing
+   * left to arc. It also puts the pan on the SAME clock and curve as the column
+   * that caused it (`--rail-duration`, `--ease-panel`), which the old 260ms
+   * could not be: two durations for one gesture is two gestures.
+   */
   const prevInsetRef = useRef(0);
+  const panRef = useRef(0);
   useEffect(() => {
-    const inset = inspectorOpen ? drawerRegionWidthPx.form : 0;
+    const inset = inspectorOpen ? drawerRegionWidthPx.form + PEER_SHEET_GUTTER_PX : 0;
     const delta = inset - prevInsetRef.current;
     prevInsetRef.current = inset;
     if (delta === 0) return;
-    const vp = getViewport();
-    void setViewport({ ...vp, x: vp.x - delta / 2 }, { duration: 260 });
+
+    const from = getViewport();
+    const toX = from.x - delta / 2;
+
+    // Nothing to watch and nothing to lose: land it.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setViewport({ ...from, x: toX });
+      return;
+    }
+
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / PAN_DURATION_MS);
+      setViewport({ ...from, x: from.x + (toX - from.x) * easePanel(t) });
+      if (t < 1) panRef.current = requestAnimationFrame(tick);
+    };
+    cancelAnimationFrame(panRef.current);
+    panRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(panRef.current);
   }, [inspectorOpen, getViewport, setViewport]);
 
   const isFloatingVolume = (node: CanvasFlowNode) =>

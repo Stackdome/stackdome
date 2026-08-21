@@ -37,6 +37,8 @@ import { stackNameConflictError } from "@/pages/stacks/lib/stack-name-conflict";
 import { createStackFetchGate } from "@/pages/stacks/lib/canvas/stack-fetch-gate";
 import { draftToSnapshot } from "@/pages/stacks/lib/draft-sync/draft-snapshot";
 import { emptyDraftSeed, buildDraftFormData, type DraftSeed } from "@/pages/stacks/lib/canvas/draft-seed";
+import { suggestStackName } from "@/pages/stacks/lib/canvas/suggest-stack-name";
+import { STACK_DRAFT_PATH } from "@/pages/stacks/lib/routes";
 import { createRelease, cancelRelease, rollbackRelease } from "@/api/releases";
 import { useReleases } from "@/pages/stacks/components/editor/tabs/deployments/use-releases";
 import { useReleaseDetail, ReleaseDetailProvider } from "@/pages/stacks/components/editor/tabs/deployments/use-release-detail";
@@ -85,9 +87,7 @@ export default function CanvasEditorPage() {
   const [activeTab, setActiveTab] = useState<EditorTabId>(EDITOR_TABS.architecture);
   // Resource pre-selected in the Logs tab filter when arriving via a drawer's
   // "View logs". Cleared on direct tab navigation so the filter doesn't stick.
-  const [logsInitialSource, setLogsInitialSource] = useState<string | undefined>();
   const [draftDeploying, setDraftDeploying] = useState(false);
-  const [nameError, setNameError] = useState<string | undefined>();
 
   const { setCustomLabel, setPathLoading, registerRename } = useBreadcrumb();
   const { toast } = useToast();
@@ -99,6 +99,51 @@ export default function CanvasEditorPage() {
   // Viewer read-only gating: only OrgAdmin / project Developer may mutate this stack.
   const stackProjectId = fetchedStack?.project_id ?? currentStack?.project_id;
   const canWriteStack = canWrite(stackProjectId ?? "");
+
+  /**
+   * **A draft names itself, and the trail is where you rename it.**
+   *
+   * The header used to carry a dashed `name-your-stack` field beside the
+   * crumb — a second naming mechanism, on the one screen that already has the
+   * first. Every saved stack is renamed by clicking its last crumb
+   * (`RenameableTitle`, registered below); the draft had a form control doing
+   * the same job three pixels away, and it opened EMPTY, so the canvas asked
+   * for a name before there was anything on it to name.
+   *
+   * The suggestion is applied once, when the stacks list is known — the list
+   * is what makes it unique, and on the first render it may still be loading.
+   * `seed.name` wins where the create journey already asked (a template, a
+   * repo), because that name is a real answer and this one is a placeholder.
+   */
+  useEffect(() => {
+    if (!isNewStack || draftName) return;
+    setDraftName(suggestStackName(stacks));
+  }, [isNewStack, draftName, stacks]);
+
+  /** The crumb IS the title (§12a), so the draft's name has to be the crumb. */
+  useEffect(() => {
+    if (!isNewStack || !draftName) return;
+    setCustomLabel(STACK_DRAFT_PATH, draftName);
+  }, [isNewStack, draftName, setCustomLabel]);
+
+  /**
+   * **The draft renames through the same trail control as a saved stack** —
+   * it just has no server to tell. Nothing is persisted until Deploy, so the
+   * handler is a `setState` that refuses the two names the API would: an empty
+   * one, and one already in use.
+   */
+  useEffect(() => {
+    if (!isNewStack) return;
+    return registerRename(STACK_DRAFT_PATH, async (name: string) => {
+      const next = name.trim();
+      if (!next) throw new Error("Give the stack a name.");
+      if (stacks.some((st) => st.name === next)) {
+        throw new Error("A stack with this name already exists.");
+      }
+      setDraftName(next);
+      setCustomLabel(STACK_DRAFT_PATH, next);
+    });
+  }, [isNewStack, stacks, registerRename, setCustomLabel]);
 
   useEffect(() => {
     if (isNewStack) return;
@@ -656,7 +701,6 @@ export default function CanvasEditorPage() {
     const parsed = parseApiError(err);
     if (parsed.fieldErrors.length === 0) return false;
     const mapped = mapFieldErrors(parsed.fieldErrors, { dialect: "fat" });
-    if (mapped.stackName) setNameError(mapped.stackName);
     setServerFieldErrors((prev) => {
       const next = { ...prev };
       for (const [idxStr, fields] of Object.entries(mapped.resources)) {
@@ -732,7 +776,6 @@ export default function CanvasEditorPage() {
   const performDraftDeploy = async () => {
     if (!isNewStack) return;
     setDraftDeploying(true);
-    setNameError(undefined);
     // Clear stale validation state from a previous failed attempt.
     setDeployFieldErrors([]);
     setServerFieldErrors({});
@@ -741,7 +784,6 @@ export default function CanvasEditorPage() {
     // min-length-constrained in the schema (empty passes zod and only fails at
     // the API), so guard it here to surface the error inline on the title input.
     if (!draftName.trim()) {
-      setNameError("Required");
       setDraftDeploying(false);
       toast({
         title: "Name your stack",
@@ -765,12 +807,11 @@ export default function CanvasEditorPage() {
 
       const validation = FormStackSchema.safeParse(formStackData);
       if (!validation.success) {
-        const { nameError: newNameError, messages } = formatDraftValidationIssues(
+        const { messages } = formatDraftValidationIssues(
           validation.error.issues,
           resources,
           formStackData.spec.volumes as { name?: string }[] | undefined,
         );
-        setNameError(newNameError);
         toast({
           title: "Validation error",
           description: messages.length > 0 ? messages.join("; ") : "Please fix the highlighted errors before saving.",
@@ -805,7 +846,6 @@ export default function CanvasEditorPage() {
         existingStacks,
       });
       if (conflict) {
-        setNameError(conflict);
         toast({ title: "Name already taken", description: conflict, variant: "destructive" });
         setDraftDeploying(false);
         return;
@@ -888,11 +928,6 @@ export default function CanvasEditorPage() {
     await draftSync.flush();
     await stackRevert.revert();
   }, [confirm, draftSync, stackRevert]);
-
-  const handleNameChange = useCallback((name: string) => {
-    setDraftName(name);
-    setNameError(undefined);
-  }, []);
 
   // Revert one resource/volume from the View-changes modal by name → session index.
   const discardResourceByName = useCallback(
@@ -995,7 +1030,6 @@ export default function CanvasEditorPage() {
       organizationId={effectiveStack.organisation_id || getCurrentOrganizationId() || ''}
       resources={effectiveStack.spec.stack_resources?.map(r => ({ name: r.name || '', id: r.id || '' })) || []}
       liveStatusResources={observabilityLiveResources}
-      initialSources={logsInitialSource ? [logsInitialSource] : undefined}
     />
   ) : (
     <div className="text-center text-muted-foreground py-12">Stack ID not available</div>
@@ -1021,21 +1055,14 @@ export default function CanvasEditorPage() {
   return (
     <ReleaseDetailProvider value={releaseDetail}>
       <CanvasEditorShell
-        stackName={isNewStack ? draftName : (effectiveStack?.name ?? "")}
         stackId={effectiveStack?.id}
         isNewStack={isNewStack}
-        nameEditable={isNewStack}
-        onNameChange={handleNameChange}
-        nameError={nameError}
         headerHealth={headerHealth}
         latestDeployFailed={showDeployFailedHint}
         lifecycle={effectiveStack?.lifecycle}
         subtitle={subtitleText}
         activeTab={activeTab}
-        onTabChange={(tab) => {
-          setLogsInitialSource(undefined);
-          setActiveTab(tab);
-        }}
+        onTabChange={setActiveTab}
         isActive={session.isActive}
         dirtyTotal={changeCount}
         isStaged={lifecycle.phase === "staged"}
@@ -1090,10 +1117,6 @@ export default function CanvasEditorPage() {
               addonNameById={addonNameById}
               addonStateById={addonStateById}
               errors={mergedResourceErrors}
-              onViewLogs={(resourceName) => {
-                setLogsInitialSource(resourceName);
-                setActiveTab(EDITOR_TABS.logs);
-              }}
               topologyIds={!isNewStack && idsReady ? deployIds : null}
               topologyRefreshKey={topologyRefreshKey}
               onDeleteVolume={idsReady ? volumeDelete.deleteVolume : undefined}

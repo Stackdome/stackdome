@@ -8,13 +8,18 @@ import { VolumeFields } from "@/pages/stacks/components/editor/tabs/architecture
 import { removeMountsOf } from "@/pages/stacks/lib/canvas/volume-ops";
 
 interface VolumeDrawerProps {
+  /** False for the frame before it opens and for the length of its exit — the
+   *  column outside reads it to clip this panel in and out. **Defaults to
+   *  open**, which is the honest state for a drawer rendered on its own: a
+   *  story has no column to animate and nothing to wait for. */
+  open?: boolean;
   /** Draft volume name — the stack entry's identity. */
   volumeName: string;
   session: UseStackEditSession;
   onClose: () => void;
   /**
    * The service this volume was opened from, when there is one. It becomes the
-   * first crumb — `web › uploads` — and clicking it is the way back to the
+   * first crumb — `web / uploads` — and clicking it is the way back to the
    * service, one level up in the same panel.
    */
   from?: { name: string; onBack: () => void };
@@ -28,6 +33,7 @@ interface VolumeDrawerProps {
 
 /** The inspector, one level deep: a volume, in the same panel as its service. */
 export function VolumeDrawer({
+  open = true,
   volumeName,
   session,
   onClose,
@@ -62,15 +68,20 @@ export function VolumeDrawer({
   const name = volume.name || volumeName;
 
   return (
-    <DrawerRegion aria-label={`Volume ${name}`} data-testid="volume-drawer">
+    <DrawerRegion detached open={open} aria-label={`Volume ${name}`} data-testid="volume-drawer">
       <DrawerHeader
-        leading={<HardDrive className="size-4 flex-none text-fg-muted" aria-hidden />}
+        leading={<HardDrive />}
         steps={from ? [{ label: from.name, onClick: from.onBack }, name] : [name]}
-        trailing={<span className="flex-none text-meta text-fg-muted">Volume</span>}
-        description={`${volume.spec?.size || "size unset"} · ${volume.spec?.access_mode || "ReadWriteOnce"}`}
+        // **The kind leads the sub-line; it does not sit alone in the corner.**
+        // `Volume` was a lone word pinned to the header's right edge with
+        // nothing to belong to — the only thing on that end of the band, and
+        // the eye had to travel back to the name to learn what it described.
+        // In front of the facts it is the first word of one phrase.
+        description={`Volume · ${volume.spec?.size || "size unset"} · ${volume.spec?.access_mode || "ReadWriteOnce"}`}
         onClose={onClose}
       />
-      <DrawerBody>
+      {/* Sections pay their own inset — see `FormSection`. */}
+      <DrawerBody className="gap-0 p-0">
         <VolumeFields
           volume={volume}
           index={index}

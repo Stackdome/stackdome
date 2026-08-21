@@ -59,15 +59,15 @@ function RowLine({ row }: { row: DiffRow }) {
 const BADGE_STYLES: Record<string, string> = {
   added: "border-success-border bg-success-bg text-success",
   removed: "border-danger-border bg-danger-bg text-danger",
-  modified: "border-brand-border bg-brand-bg text-brand",
-  renamed: "border-brand-border bg-brand-bg text-brand",
+  modified: "border-change-border bg-change-bg text-change",
+  renamed: "border-change-border bg-change-bg text-change",
 };
 
 const DOT_STYLES: Record<string, string> = {
   added: "bg-success",
   removed: "bg-danger",
-  modified: "bg-brand",
-  renamed: "bg-brand",
+  modified: "bg-change",
+  renamed: "bg-change",
 };
 
 /** Compact flat change card: dot + name + badge + always-visible Discard in the
@@ -97,7 +97,7 @@ function ChangeCard({
       type="button"
       variant="ghost"
       size="sm"
-      className="h-6 flex-none gap-1 px-2 font-mono text-label text-fg-muted hover:text-brand"
+      className="h-6 flex-none gap-1 px-2 font-mono text-label text-fg-muted hover:text-change"
       disabled={disabled}
       onClick={onDiscard}
     >

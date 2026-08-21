@@ -94,6 +94,23 @@ export function CanvasEditor({
 
   return (
     <div className="relative h-full w-full" data-testid="stack-canvas">
+      {/* **No `fitView` prop — the graph is panned, never re-fitted.**
+
+          It re-fits on every container RESIZE, not just on mount, and the
+          inspector resizes this container by 408 every time it opens. So the
+          panel opening ran two animations at once on the same nodes: that one
+          re-solving the zoom to keep the whole graph inside a narrower box, and
+          `useCanvasGraph`'s pan sliding the viewport by half the loss. Measured,
+          the zoom dipped to 0.9857 and sprang back to 1 inside the same 260ms —
+          a scale down and up underneath a slide, which reads as the cards
+          breathing rather than as the sheet giving up a column.
+
+          **The move alone is the right amount.** Opening a panel is not a reason
+          to change how big the graph is; it is a reason to keep what you were
+          looking at in view, which is exactly what the pan does. The initial fit
+          still happens — once, explicitly, in `useCanvasGraph` when the nodes
+          have measured — so nothing is lost but a resize re-fit nobody asked
+          for. `fitViewOptions` stays: the manual `fitView()` call reads it. */}
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -109,7 +126,6 @@ export function CanvasEditor({
         onNodeDragStop={onNodeDragStop}
         onPaneContextMenu={readOnly ? undefined : onPaneContextMenu}
         nodesDraggable={!readOnly}
-        fitView
         fitViewOptions={FIT_OPTIONS}
         // Follow the app's theme toggle, not the OS preference — "system"
         // left the canvas dark while the rest of the UI switched to light.

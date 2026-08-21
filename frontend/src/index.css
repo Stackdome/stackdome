@@ -110,6 +110,30 @@
   --brand-bg-hover: rgba(255, 96, 7, 0.16);
   --brand-border: rgba(255, 96, 7, 0.30);
 
+  /* ── Change — the accent blue, and it is NOT the brand ──────────────────
+     Every mark that means "this differs from what is deployed" — the dirty
+     rail on a field, the modified/renamed rows in View changes, the count
+     chip in the inspector band, the dot on the tab that holds them.
+
+     **It ran in `--brand` orange, and orange is the wrong job.** Orange is the
+     product's mark and its accent; spending it on "you edited this" put the
+     loudest colour in the system on the most ordinary thing a user does in the
+     editor, and it collided with the one place orange means something else.
+     Blue is already the system's STATE mark (§5) — it is what `--ring` says
+     for focus and for selection — and "changed" is a state, not an action.
+
+     Same three rungs as `--brand`, so the two families are swappable at a call
+     site without touching anything but the word.
+
+     **The ink is `--ring`, aliased, not a second copy of the hex.** Figma does
+     the same — `state/change` is an alias of `accent/primary`, not a duplicate
+     — and for the same reason: one blue, one place to change it. Only the two
+     alphas below are the change family's own, and they sit on the rungs
+     `brand/bg` and `brand/border` already use (9% and 30%). */
+  --change: var(--ring);
+  --change-bg: rgba(59, 111, 224, 0.09);
+  --change-border: rgba(59, 111, 224, 0.30);
+
   /* ── Ink tiers ── */
   --fg-2: #5C574E;                       /* ink-dim — body/supporting copy */
   /* ink-mute — furniture and time (group labels, timestamps, breadcrumb "/"),
@@ -223,36 +247,39 @@
   --ctl-px-l: 15px;
 
   /* ── Canvas ── */
-  /* **A canvas is a space, not a surface** — and after three passes at giving it
-     a ground of its own, the answer is that the SPACE is drawn, not tinted.
+  /* **The canvas has a ground again, and it is `#FBFBF8`.**
      
-     It shipped at `#FBFBF8`, 1.3 L off the sheet, which merged. Dropping it to
-     `#F0EFEC` separated it and read as a grey panel bolted into a white page;
-     insetting it from the sheet framed it and read as a widget. Both were tone
-     doing a job tone is bad at here, because everything ON this canvas — the
-     node cards, the tool islands — is white, so any tint the ground takes is a
-     tint the content has to climb back out of.
+     It spent a pass as the sheet's own white, on the argument that a canvas is
+     a space rather than a surface and the GRID is what says so. Judged on the
+     board beside the peer sheet, that argument loses to a simpler one: with the
+     inspector now a card of its own, the screen holds three planes — rail,
+     canvas, panel — and two of them being the identical white made the working
+     surface the only region on screen with no edge of its own.
      
-     **The canvas is the sheet, and the GRID is what says "space".** Dots are the
-     one mark that means *extent* rather than *surface*: they are not a fill, so
-     nothing sits on a different plane, and they read as a place you can put
-     things down. Elevation already separates what floats (§5) — `shadow-md` on a
-     node, `shadow-sm` on an island — and a measured hairline cannot do that on
-     white anyway. */
-  --surface-canvas: var(--card);
-  /* Ink, not orange. A wire is the quietest thing on the canvas — it says two
-     nodes are related, which you read once and then stop looking at. Orange is
-     the mark and the accent; spending it on every edge made the connections
-     shout louder than the services they connect. */
+     1.3 L off the sheet is exactly the amount that was called "merged" before,
+     and it is the right amount now: enough that the canvas reads as its own
+     plane against the two cards, not so much that the white node cards sitting
+     on it have a tint to climb out of. Sampled off the board's own render:
+     `rgb(251, 251, 248)`, to the byte. */
+  --surface-canvas: #FBFBF8;
   --wire: rgba(25, 23, 20, 0.28);
   --surface-node: #FFFFFF;
   /* Dot-grid tokens: dots need far firmer alpha than hairlines — a 1-1.5px
      disc at hairline alpha is invisible (see website design-system gotchas).
-     With the ground now white (see `--surface-canvas`), the grid is the ONLY
-     thing distinguishing the canvas from the sheet, so it is drawn to be read
-     rather than merely sensed: 0.16/0.24 → **0.24/0.34**. */
-  --grid: rgba(25, 23, 20, 0.24);
-  --grid-bold: rgba(25, 23, 20, 0.34);
+     
+     **One ink at 0.5, for BOTH tiers** — the board sets `canvas/grid` and
+     `canvas/grid-bold` to the same `#19171480`, and the difference between the
+     two is size, not colour. That works because the bold gap (80) is a whole
+     multiple of the fine one (16): every bold dot lands ON a fine dot and the
+     two paints composite, so the second tier is 1 − 0.5² = 0.75 without any
+     second colour to keep in step with the first.
+     
+     Measured off the board's render at 1×, on `#FBFBF8`: the 1px disc peaks at
+     `rgb(173,173,170)` and the 2px one at `rgb(105,105,102)` — 0.35 and 0.65
+     effective, which is a 0.5 paint antialiased and a 0.75 stack antialiased.
+     The alphas below are the paint, not the peaks. */
+  --grid: rgba(25, 23, 20, 0.5);
+  --grid-bold: rgba(25, 23, 20, 0.5);
 
   /* ── Terminal / code surfaces — dark in both themes ── */
   --code-bg: #181611;
@@ -279,6 +306,12 @@
      reads mechanical; this leaves fast and lands soft, which is what makes the
      two edges feel attached to a single movement. */
   --rail-duration: 200ms;
+  /* The peer sheet's own two numbers, so the column that clips it and the
+     canvas that pans for it are reading the same width. `drawerRegionWidthPx`
+     and `PEER_SHEET_GUTTER_PX` in `ui/drawer.tsx` are the same two values on
+     the JS side — the canvas has to pan by half their sum. */
+  --peer-sheet-width: 400px;
+  --peer-sheet-gutter: 8px;
   /* **One curve for a large surface moving.** The rail and the drawer are the
      same job — a big plane changing where it is — so they share it rather than
      each picking their own. It is an ease-OUT family curve: leaves fast, lands
@@ -316,6 +349,22 @@
      more layer, named for its one caller, so §5's ladder still has four
      entries. Jaseem's call, 16 Aug 2026. */
   --shadow-toast: var(--shadow-lg), 0 2px 6px -1px rgba(16, 20, 26, 0.10);
+
+  /* **`elevation/lg` cast sideways, for the one panel whose only free edge is
+     vertical.** The inspector is a *region* of the sheet, not a float over it:
+     it runs the full height of the editor, so its top and bottom are flush and
+     a downward shadow has nowhere to land. Measured on the shipped panel,
+     `shadow-lg` reached **3px** horizontally — blur/2 minus spread — which is
+     to say none. Against a dot-grid canvas the panel read as having no shadow
+     at all, and the 1px hairline was carrying the whole plane change on its own.
+
+     Same ink, same blur, same spread; the offset moves from `y` to `-x`, so it
+     casts left onto the canvas it is taking space from. Reach is 20 + 3 = 23px.
+
+     **A sixth value, and deliberately not a fifth RUNG** — this is `lg` on its
+     side, named for its one caller, the same exemption `--shadow-toast` takes.
+     §5's ladder still has four entries. */
+  --shadow-region: -20px 0 50px -22px rgba(16, 20, 26, 0.11), -8px 0 22px -12px rgba(16, 20, 26, 0.06);
 
   /* ── The scrim: ONE value, every overlay ──
      There was no scrim token. Dialog hardcoded `bg-black/50`, AlertDialog
@@ -426,6 +475,11 @@
   --brand-bg: rgba(255, 122, 46, 0.10);
   --brand-bg-hover: rgba(255, 122, 46, 0.18);
   --brand-border: rgba(255, 122, 46, 0.30);
+
+  /* `--change` needs no dark value: it aliases `--ring`, which is redefined
+     just above. Only the two alphas are restated, on the dark accent. */
+  --change-bg: rgba(110, 155, 255, 0.10);
+  --change-border: rgba(110, 155, 255, 0.30);
 
   /* The ink ladder. Lightness is load-bearing — --fg-muted's L is a CONTRAST
      correction, twice over. 71.8/61.5/41.1 was solved against the CARD, which
@@ -541,6 +595,10 @@
      layer that costs paint and buys no contrast. */
   --shadow-toast: var(--shadow-lg);
 
+  /* `lg` on its side, as in light — see the light block. Dark's `lg` is deeper
+     and wider, so the sideways cast reaches 40px rather than 23. */
+  --shadow-region: -28px 0 64px -20px rgba(0, 0, 0, 0.7), -10px 0 24px -10px rgba(0, 0, 0, 0.55);
+
   /* Deeper in dark: the ground is already near-black, so 50% ink barely
      separates the overlay from the page behind it. */
   --scrim: rgb(0 0 0 / 0.65);
@@ -581,6 +639,9 @@
   --color-brand-darker: var(--brand-darker);
   --color-brand-bg: var(--brand-bg);
   --color-brand-bg-hover: var(--brand-bg-hover);
+  --color-change: var(--change);
+  --color-change-bg: var(--change-bg);
+  --color-change-border: var(--change-border);
   --color-brand-border: var(--brand-border);
 
   --color-fg-2: var(--fg-2);
@@ -663,6 +724,7 @@
   /* ── Radius ladder ───────────────────────────────────────────────────
      Radius scales with the SIZE of the element, not its importance.
 
+       xs   4px   a token INSIDE a control — a chip in a multi-select field
        sm   6px   chips, badges, tags, icon hit-areas
        md   8px   THE DEFAULT — list rows, menu items, nav items, inputs
        lg  12px   cards, panels, the content sheet
@@ -672,9 +734,20 @@
      (buttons, chips, toggles) get it. Anything that holds a block of content
      gets a ladder value.
 
+     **`xs` is the rung below a control, not a smaller control.** §2 makes
+     radius a function of HEIGHT — 28/6 · 32/8 · 40/12 — and the ladder had no
+     entry under 28. A chip sitting inside a field is 22 tall, so it needs one:
+     shipped as a hardcoded `4px` in two places until this rung existed.
+
+     It is deliberately NOT `full`. A pill is right for a status word standing
+     on its own; a row of pills inside a rounded rectangle reads as lozenges
+     floating in a tray rather than as the field's own contents. Settled by
+     Jaseem on the Shape + Hierarchy board, August 2026.
+
      Was 9 / 14 / 22 / 22 — marketing scale, ported literally from the website.
      At those values `rounded-md` on a 32px control produced a near-pill, which
      is why every control on the old screens looked identical. */
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -1161,8 +1234,56 @@ body {
     max-width: 23.2px;
   }
 
+  /* ── The peer sheet, on the rail's own clock ────────────────────────────
+     The node inspector is a SHEET beside the sheet (§15), and it arrives and
+     leaves the way the nav rail does: **the column it occupies animates its
+     own `width`**, over `--rail-duration` on `--ease-panel`, and the panel
+     inside keeps its 400 and is CLIPPED by the column rather than sliding
+     under its neighbour. Same property, same two numbers as `Sidebar`'s
+     `transition-[width]` — to the eye these are one gesture, the shell giving
+     a column away and taking it back, and two curves for that would read as
+     two mechanisms.
+
+     **`width`, not the `0fr → 1fr` trick `.rail-x` uses.** That one animates a
+     grid TRACK, and a track can only drive the box when something else decides
+     the box's width — inside the rail, the rail does. This slot is a flex item
+     in the app frame, so its automatic size comes from its content: the track
+     went to `0fr` and the panel still measured 400, and both directions
+     snapped. Measured: 0 → 408 in a single frame, in both directions.
+
+     The 8px gutter travels with the column, on the CHILD's margin — so a
+     closed slot is genuinely 0 wide and the main sheet does not stop 8px short
+     of the frame while nothing is open.
+
+     Driven by `data-state` on the child, not `:has(> *)`: the panel stays
+     mounted through its own exit so there is something to see on the way out.
+     An empty column closing on nothing is a pop, not a collapse.
+
+     **No `overflow: hidden`, and that is the whole trick.** Clipping the
+     column was the obvious way to hide the panel while the track was narrow,
+     and it ate the panel's own edge: an outline and a drop shadow are painted
+     OUTSIDE the box (§4), so a container hugging the card cut its hairline off
+     at the top and bottom and flattened the shadow on three sides.
+
+     It does not need to clip. The panel is 400 wide inside a column that
+     starts at 0, so it simply hangs off the column's right edge — which is the
+     frame's right edge — and sits off-screen. As the column widens, its left
+     edge travels left and the panel rides it in. The clipping is done by the
+     app frame's own `overflow-hidden` at the window edge, where there is
+     nothing to cut but empty paper. Same two numbers, same curve, whole card. */
+  .peer-sheet {
+    width: 0;
+    transition: width var(--rail-duration) var(--ease-panel);
+  }
+  .peer-sheet:has(> [data-state="open"]) {
+    width: calc(var(--peer-sheet-width) + var(--peer-sheet-gutter));
+  }
+  .peer-sheet > * {
+    flex: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .rail-x, .rail-logo, .rail-y, .rail-y-in,
+    .rail-x, .rail-logo, .rail-y, .rail-y-in, .peer-sheet,
     [data-collapsible="icon"] .rail-x,
     [data-collapsible="icon"] .rail-logo,
     [data-collapsible="icon"] .rail-y,

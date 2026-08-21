@@ -41,9 +41,6 @@ interface ArchitectureTabProps {
   /** addonId → live state (e.g. "Ready"), for canvas addon node dots. */
   addonStateById?: ReadonlyMap<string, string>;
   errors: { [index: number]: { [field: string]: string | undefined } };
-  /** Switch the editor to the Logs tab (from the drawer's "View logs"),
-   *  pre-filtering to the named resource when given. */
-  onViewLogs?: (resourceName?: string) => void;
   /** Null for draft (unsaved) stacks — no server topology exists yet. */
   topologyIds: { orgId: string; projectName: string; stackId: string } | null;
   /** Bump to force a topology refetch (wired to autosave refreshes). */
@@ -93,7 +90,6 @@ function StackCanvasFlow({
   addonNameById,
   addonStateById,
   errors,
-  onViewLogs,
   topologyIds,
   topologyRefreshKey,
   onDeleteVolume,
@@ -301,7 +297,6 @@ function StackCanvasFlow({
       </div>
       <InspectorHost
         selection={selection}
-        resources={resources}
         session={session}
         baselineResources={baselineResources}
         serverOutputsByName={serverOutputsByName}
@@ -310,13 +305,21 @@ function StackCanvasFlow({
         liveMode={liveMode}
         liveView={liveView}
         liveStatusResources={liveStatusResources}
-        publicEndpoints={publicEndpoints}
         persistedVolumeNames={persistedVolumeNames}
-        onViewLogs={onViewLogs}
+        // The drawer streams this resource's logs in its own Logs tab, so it
+        // needs the stream's address rather than a way to navigate to it. Null
+        // topology means a draft stack — nothing deployed, nothing to stream.
+        logs={topologyIds ? { stackId: topologyIds.stackId, organizationId: topologyIds.orgId } : undefined}
         onClose={closeInspector}
         onBack={backOneLevel}
         onRemoveResource={draft.removeResource}
         onOpenVolume={openVolume}
+        // The same two lines the canvas context menu runs for "Add volume" —
+        // one act, one dialog, reached from either place.
+        onAddVolumeToResource={(idx) => {
+          setAddVolumeResourceIdx(idx);
+          setAddVolumeOpen(true);
+        }}
         onRequestDeleteVolume={draft.onRequestDeleteVolume}
       />
       <AddVolumeDialog

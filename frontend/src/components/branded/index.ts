@@ -14,9 +14,9 @@ export {
   NoSecretsGlyph,
 } from "./empty-state";
 export { FieldError } from "./field-error";
-export { FieldShell, FieldGrid } from "./field-shell";
+export { FieldShell, FieldGrid, HelpTip } from "./field-shell";
 export { FormSection } from "./form-section";
-export { RecordRow, RecordList } from "./record-row";
+export { RecordRow, RecordColumns, RecordList } from "./record-row";
 export { StackdomeMark, StackdomeWordmark } from "./stackdome-mark";
 export { StageBadge, type FailureStage } from "./stage-badge";
 export { FailureCard, type FailureCardProps } from "./failure-card";
@@ -34,3 +34,4 @@ export {
   PickerRowAdd,
   PickerRowRemove,
 } from "./picker-row";
+export { SearchField } from "./search-field";

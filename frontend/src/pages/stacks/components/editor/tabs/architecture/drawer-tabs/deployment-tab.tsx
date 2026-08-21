@@ -52,12 +52,19 @@ function StackResourceDeploymentTabImpl({
 
   return (
     <>
-      <FormSection label="Pre-deployment step" state="runs before the main container">
+      {/* **The gloss moved behind the mark.** `runs before the main container`
+          never changed and never will — it is the section's own title said a
+          second way, and it was spending a permanent line of a 400px panel to
+          do it. `state` is for a fact that moves (`4 variables`, `none`). */}
+      <FormSection
+        label="Pre-deployment step"
+        help="Runs to completion before the main container starts — migrations, seeding, waiting on a dependency. The deploy stops if it fails."
+      >
         <FieldGrid>
           <FieldShell
             label="Init command"
             htmlFor={`init-command-${index}`}
-            hint="Type as in a terminal; quotes group arguments. Not run in a shell, so variables like $PORT are not replaced."
+            help="Type as in a terminal; quotes group arguments. Not run in a shell, so variables like $PORT are not replaced."
           >
             <DirtyField
               draft={draft}
@@ -71,7 +78,7 @@ function StackResourceDeploymentTabImpl({
                 value={draft.init_spec?.command ?? ""}
                 onChange={(e) => onPatchInitSpec({ command: e.target.value })}
                 placeholder="e.g., sh /scripts/init.sh"
-                className="h-9 text-meta"
+
               />
             </DirtyField>
           </FieldShell>
@@ -88,7 +95,7 @@ function StackResourceDeploymentTabImpl({
                 value={draft.init_spec?.args ?? ""}
                 onChange={(e) => onPatchInitSpec({ args: e.target.value })}
                 placeholder="e.g., arg1 arg2 arg3"
-                className="h-9 text-meta"
+
               />
             </DirtyField>
           </FieldShell>
@@ -100,7 +107,7 @@ function StackResourceDeploymentTabImpl({
           <FieldShell
             label="Command"
             htmlFor={`exec-command-${index}`}
-            hint="Overrides the container's default ENTRYPOINT. Type as in a terminal; quotes group arguments."
+            help="Overrides the container's default ENTRYPOINT. Type as in a terminal; quotes group arguments."
           >
             <DirtyField
               draft={draft}
@@ -114,7 +121,7 @@ function StackResourceDeploymentTabImpl({
                 value={draft.execution_config?.command ?? ""}
                 onChange={(e) => onPatchExecCommandArgs({ command: e.target.value })}
                 placeholder="e.g., node server.js"
-                className="h-9 text-meta"
+
               />
             </DirtyField>
           </FieldShell>
@@ -131,7 +138,7 @@ function StackResourceDeploymentTabImpl({
                 value={draft.execution_config?.args ?? ""}
                 onChange={(e) => onPatchExecCommandArgs({ args: e.target.value })}
                 placeholder="e.g., --port=3000 --verbose"
-                className="h-9 text-meta"
+
               />
             </DirtyField>
           </FieldShell>

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, fn, within } from 'storybook/test'
+import { expect, fn, userEvent, within } from 'storybook/test'
 import { ResourceDrawer } from './resource-drawer'
 import type { UseStackEditSession } from '@/pages/stacks/hooks/use-stack-edit-session'
 import type { FormStackResourceData, FormVolumeExtendedData } from '@/pages/stacks/schemas/form-schema'
@@ -73,7 +73,6 @@ const meta = {
     errors: {},
     onClose: fn(),
     onRemove: fn(),
-    onViewLogs: fn(),
     onOpenVolume: fn(),
   },
 } satisfies Meta<typeof ResourceDrawer>
@@ -81,15 +80,55 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Eight sections in one scroll — the shape that replaced three sub-tabs. */
+/**
+ * Eight sections in one scroll — the shape that replaced three sub-tabs — under
+ * the two that did NOT come back with them.
+ *
+ * `Configuration ǀ Deployment ǀ Environment` cut one subject into arbitrary
+ * thirds. `Settings ǀ Logs` separates a form from a live stream, which cannot
+ * share a scroll at any length. The play proves both halves of that: exactly two
+ * tabs, and every section still on one page under the first of them.
+ */
 export const GitService: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     for (const section of ['General', 'Source', 'Ports', 'Mounts', 'Environment']) {
       await expect(canvas.getByRole('heading', { name: new RegExp(`^${section}`) })).toBeVisible()
     }
-    // The tabs are gone, not hidden.
-    await expect(canvas.queryByRole('tab')).not.toBeInTheDocument()
+    const tabs = canvas.getAllByRole('tab')
+    await expect(tabs).toHaveLength(2)
+    await expect(tabs[0]).toHaveTextContent('Settings')
+    await expect(tabs[1]).toHaveTextContent('Logs')
+    await expect(tabs[0]).toHaveAttribute('data-state', 'active')
+  },
+}
+
+/**
+ * **The Logs tab on a stack that has never shipped.** No `logs` address means
+ * no stream exists yet — the tab still opens, and it says why rather than
+ * disappearing or sitting there disconnected.
+ */
+export const LogsBeforeFirstDeploy: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('tab', { name: 'Logs' }))
+    await expect(await canvas.findByText('Nothing to stream yet')).toBeVisible()
+    // The form is unmounted, not hidden behind it.
+    await expect(canvas.queryByRole('heading', { name: /^General/ })).not.toBeInTheDocument()
+  },
+}
+
+/**
+ * **Delete lives beside the close, and it is an icon.** A red word at the button
+ * rung outranked everything else on a 480 column; removing a resource is the
+ * rarest thing anyone does here. Both controls end the drawer, so they share the
+ * corner.
+ */
+export const RemoveIsBesideTheClose: Story = {
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('button', { name: 'Remove resource' }))
+    await expect(args.onRemove).toHaveBeenCalledWith(0)
   },
 }
 
@@ -166,12 +205,5 @@ export const LongText: Story = {
       } as Resource,
     ]),
     baselineResources: [web],
-  },
-}
-
-/** A service with a public endpoint — the header's URL line. */
-export const WithPublicUrl: Story = {
-  args: {
-    publicUrls: [{ url: 'https://web.acme.dev', target_port: 3000 }] as never,
   },
 }

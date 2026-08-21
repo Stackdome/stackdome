@@ -1,8 +1,8 @@
 import { type ReactNode } from "react";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSelectionSlide, SELECTION_SLIDE_TRANSITION } from "@/hooks/use-selection-slide";
+import { useSelectionSlide } from "@/hooks/use-selection-slide";
+import { TAB_TRIGGER_CLASS, TabIndicator } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { PageHeader, StatusChip } from "@/components/branded";
 import type { StackLifecycle } from "@/api/stacks";
@@ -40,7 +40,6 @@ const TAB_ITEMS = [
 
 
 export interface CanvasEditorShellProps {
-  stackName: string;
   /** Persistence key for header collapse; falls back to a shared draft key. */
   stackId?: string;
   /** Health off the current/latest release (ReleaseHealth: "ok" | "progressing" | "degraded" |
@@ -59,11 +58,6 @@ export interface CanvasEditorShellProps {
   hasResources: boolean;
   /** New (unsaved) stack — Deploy creates the stack and starts the first release in one go. */
   isNewStack?: boolean;
-  /** Render the title as an editable input (draft only). */
-  nameEditable: boolean;
-  onNameChange?: (name: string) => void;
-  /** Validation error message for the stack name — shown when nameEditable and set. */
-  nameError?: string;
   activeTab: EditorTabId;
   onTabChange: (tab: EditorTabId) => void;
 
@@ -119,7 +113,6 @@ export interface CanvasEditorShellProps {
  * deploy pill are wired straight to the caller's session + deploy lifecycle.
  */
 export function CanvasEditorShell({
-  stackName,
   headerHealth,
   latestDeployFailed,
   lifecycle,
@@ -127,9 +120,6 @@ export function CanvasEditorShell({
   notice,
   hasResources,
   isNewStack,
-  nameEditable,
-  onNameChange,
-  nameError,
   activeTab,
   onTabChange,
   isActive,
@@ -227,31 +217,15 @@ export function CanvasEditorShell({
       <PageHeader
         identity={
           <>
+            {/* **No name field here — the crumb is the name (§12a).**
+                A draft used to open with a dashed input beside the trail and
+                an empty value in it, which made the first thing the canvas
+                asked for the one thing the user had least reason to have
+                decided. It opens named now, and the trail's last segment
+                renames it through the SAME control every saved stack uses. */}
             {/* A draft has no name yet, so the field IS the title — it stands
                 where the breadcrumb's last segment would, rather than in a
                 band of its own. */}
-            {nameEditable && (
-              <div className="group flex min-w-0 items-center gap-2">
-                <Input
-                  aria-label="Stack name"
-                  aria-invalid={!!nameError}
-                  value={stackName}
-                  onChange={(e) => onNameChange?.(e.target.value)}
-                  placeholder="name-your-stack"
-                  className={cn(
-                    "h-8 w-[22ch] rounded-md border-dashed bg-transparent",
-                    nameError
-                      ? "border-danger"
-                      : "border-border/60 hover:border-border focus-visible:border-foreground",
-                  )}
-                />
-                <Pencil className="size-4 flex-none text-muted-foreground/60 transition-opacity group-focus-within:opacity-0" />
-                {/* The message was a line under the band. With no band left it
-                    sits where the fault is — beside the field, in the row that
-                    is already the width of the sheet. */}
-                {nameError && <span className="text-meta text-danger">{nameError}</span>}
-              </div>
-            )}
             {!isNewStack && <StatusChip domain="stack_rollup" state={rollup} />}
             {/* A SECOND fact, not a second reading of the first: the stack is
                 serving, and the newest attempt to change it did not land. The
@@ -300,20 +274,14 @@ export function CanvasEditorShell({
           // 2px apart. The tabs used to sit 4px apart in bordered boxes, which
           // made four navigation targets look like four controls; at 2px with
           // no border they read as one group and the wash is the only mark.
+          // **The same face and the same travel as `TabsList`, from the same
+          // two exports.** This row cannot BE a Radix `Tabs`: the canvas body
+          // stays mounted across tab changes so an open inspector and a node
+          // selection survive, and `TabsContent` unmounts. It shares the design
+          // instead of copying it — which is what it was doing, 12px above a
+          // drawer wearing the other version.
           <nav ref={tabTrack} aria-label="Editor sections" className="relative flex items-center gap-0.5">
-            {/* The travelling face. Behind the labels, so the ink on top never
-                cross-fades with it. */}
-            {box && (
-              <span
-                aria-hidden
-                data-slot="tab-indicator"
-                className={cn(
-                  "absolute left-0 top-0 h-8 rounded-md bg-[var(--wash-selected)]",
-                  armed && SELECTION_SLIDE_TRANSITION,
-                )}
-                style={{ transform: `translateX(${box.x}px)`, width: box.w }}
-              />
-            )}
+            {box && <TabIndicator box={box} armed={armed} />}
             {TAB_ITEMS.map(({ id, label }) => {
               const active = activeTab === id;
               return (
@@ -325,30 +293,37 @@ export function CanvasEditorShell({
                   aria-current={active ? "page" : undefined}
                   onClick={() => onTabChange(id)}
                   className={cn(
-                    // 8, not 6. §2 makes radius a function of HEIGHT — 28/6 ·
-                    // 32/8 · 40/12 — and a tab is a 32px box like every other
-                    // control on the row. At 6 the three controls beside it
-                    // carried two different corners.
-                    "focus-ring-edge relative flex h-8 items-center rounded-md px-2.5 text-body font-medium",
-                    "transition-colors duration-150",
-                    // **The wash means selected, and nothing else.** Hover was
-                    // a second, fainter wash — so pointing at a tab drew a box
-                    // that looked like the selection two rungs down, and while
-                    // the face was mid-slide there were briefly two boxes lit
-                    // and no way to tell which one you were on.
-                    //
-                    // Hover is the ink coming up to full, and that is all. §7's
-                    // rule for the segmented control: selection is carried by
-                    // ink and by the raised face, never by a competing tint.
+                    TAB_TRIGGER_CLASS,
                     active ? "text-foreground" : "text-fg-muted hover:text-foreground",
                   )}
                 >
-                  {/* No count here. The version chip on the row above already
-                      states what is unsaved, and it counted a different thing —
-                      session dirt, against the chip's undeployed diff — so the
-                      header showed two numbers that disagreed. A tab is
-                      navigation; status belongs with the version. */}
                   {label}
+                  {/* **A dot, not a count.** A number here counted a different
+                      thing from the version chip on the row above — session
+                      dirt against the chip's undeployed diff — so the header
+                      showed two numbers that disagreed, and the tab lost the
+                      argument because a tab is navigation.
+
+                      A dot makes no claim about how many. It says only *there
+                      is something changed behind this tab*, which is the one
+                      fact navigation needs and the one the chip cannot give
+                      you while you are standing on Logs. In `--change`, the
+                      same blue as every other mark that means "differs from
+                      what is deployed", so it reads as the same sentence the
+                      dirty field rails and the View-changes rows are saying.
+
+                      After the word, on the trigger's own `gap-1.5` — no
+                      margin of its own, or the 6px becomes 12. A mark BEFORE
+                      the label would shift every label on the row the moment
+                      anything was edited. `aria-label` carries it, because a
+                      coloured disc is not a word. */}
+                  {id === EDITOR_TABS.architecture && dirtyTotal > 0 && (
+                    <span
+                      role="img"
+                      aria-label="has unsaved changes"
+                      className="size-1.5 flex-none rounded-full bg-change"
+                    />
+                  )}
                 </button>
               );
             })}

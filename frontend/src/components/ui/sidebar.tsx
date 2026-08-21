@@ -54,6 +54,20 @@ function useSidebar() {
   return context
 }
 
+/**
+ * The same context, for callers that may legitimately render **outside the
+ * shell** — a story, a test harness, a component mounted on its own.
+ *
+ * `useSidebar` throws by design: a `<SidebarTrigger>` with nothing to toggle is
+ * a wiring bug and should say so loudly. But a panel that merely *narrows the
+ * shell when it opens* is doing something the shell may or may not be there to
+ * receive, and its story renders it with no shell at all. Null is the honest
+ * answer there, not a crash.
+ */
+function useSidebarOptional() {
+  return React.useContext(SidebarContext)
+}
+
 function SidebarProvider({
   defaultOpen = true,
   open: openProp,
@@ -777,4 +791,5 @@ export {
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
+  useSidebarOptional,
 }

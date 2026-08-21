@@ -18,10 +18,15 @@ import {
   DialogHeader,
   DialogSection,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { AlertBanner, FieldShell, FormSection } from "@/components/branded";
-import { Plus, Plug, X, Upload, FileText, Copy } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Copy, FileText, MoreHorizontal, Plug, Upload, X } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { envRowsDiff } from "@/pages/stacks/lib/stack-diff";
 
@@ -50,16 +55,26 @@ interface StackResourceEnvironmentTabProps {
 }
 
 /** Full-width dashed "add row" affordance shared by the variable list and each addon group. */
+/**
+ * **`Add port` twenty lines away was already the answer.**
+ *
+ * This shipped as a hand-rolled `<button>`: a full-width dashed box at 12px in
+ * `text-foreground/80`, with its own hover wash. Three things wrong with that —
+ * it is a copy of a component the system already has (§2), it invented a fourth
+ * type size for a control, and a full-bleed dashed rectangle reads as a drop
+ * zone rather than as a button you press.
+ *
+ * `Button variant="outline"` with `self-start` is what the ports
+ * section beside it uses for the identical job, so the two add-controls in one
+ * panel now look like the same act.
+ */
+/** No glyph — `Add variable` says the whole act, and a ⊕ in front of it draws
+ *  the same word twice. Same call as `Add port`, `Add mount` and `Add volume`. */
 function AddRowButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border-strong px-3 py-2 text-meta font-medium text-foreground/80 transition-colors hover:bg-muted/30"
-    >
-      <Plus className="size-3.5" />
+    <Button variant="outline" onClick={onClick} className="self-start">
       {label}
-    </button>
+    </Button>
   );
 }
 
@@ -87,6 +102,12 @@ function StackResourceEnvironmentTabImpl({
   }, [envVars, baselineEnvVars]);
 
   const [dirtyEnvRows, setDirtyEnvRows] = useState<Set<number>>(new Set());
+  /** The two bulk adds live behind a menu now, and a `DialogTrigger` cannot be
+   *  a `DropdownMenuItem` — Radix races the menu's close against the dialog's
+   *  mount and can leave `pointer-events: none` on `body`. Both dialogs are
+   *  controlled, and the menu opens them one tick late. */
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const markEnvRowDirty = (envIdx: number) => {
@@ -209,147 +230,204 @@ function StackResourceEnvironmentTabImpl({
     event.target.value = "";
   };
 
-  // Design ghost chip: mono 11px bordered pill, hover swings to brand.
-  const ghostChip =
-    "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-label text-muted-foreground transition-colors hover:border-brand hover:text-brand disabled:pointer-events-none disabled:opacity-50";
-
   // What the closed section reports — a section that hides a list and does not
   // say how long it is forces you to open it to find out.
-  const count = (envVars || []).length;
-  const envState = count === 0 ? "none" : `${count} ${count === 1 ? "variable" : "variables"}`;
+
+  /**
+   * **One tool on the heading row, because only one of the three acts on the
+   * group.**
+   *
+   * All three sat here and they did not fit: `Environment` + `none` + three
+   * labelled buttons overran a 400px heading, and the label was printed under
+   * `clear all`'s ✕. The fix is not to shrink them — it is `FormSection`'s own
+   * rule, which was already written down:
+   *
+   * > Not for the control that ADDS a member. `Add port`, `Add variable` and
+   * > `Add mount` stay at the end of the list they extend… a create button
+   * > that jumps to the header stops pointing at its own result.
+   *
+   * `paste .env` and `import file` ADD MEMBERS — in bulk, but they add. They
+   * belong at the foot beside `Add variable`, which is also where a reader
+   * looking for "how do I get variables in here" is already looking. That
+   * leaves the heading holding `clear all`, the one act that operates on the
+   * group rather than extending it, and the collision goes with it.
+   */
+  const clearAll = (
+    <>
+      {/* **The primitive, not a chip.** These were three hand-rolled
+          `<button>`s carrying their own border, their own 11px type and
+          their own hover — a private copy of `Button` living in one tab,
+          which is the thing §2 forbids. At `ghost`/`sm` they lose the
+          border (three fewer lines in a panel that had too many), pick up
+          the ladder's own 28px rung, and hover the way every other
+          control in the drawer does. Only `clear all` keeps a colour, and
+          only on approach: §10 scales the mark to the blast radius, and
+          wiping every variable is the one destructive act in the group. */}
+      <Button
+        type="button"
+        variant="ghost"
+        className="text-fg-muted hover:bg-danger-bg hover:text-danger"
+        onClick={() => {
+          if (envVars?.length) {
+            onChangeEnvVars([]);
+            toast({
+              title: "Environment variables cleared",
+              description: "All environment variables have been removed.",
+              variant: "success",
+            });
+          }
+        }}
+        disabled={!envVars?.length}
+      >
+        <X aria-hidden />
+        clear all
+      </Button>
+    </>
+  );
+
+  /**
+   * **The two bulk adds, behind one mark, beside `Add variable`.**
+   *
+   * They add to this group, so they belong at the foot of the list they extend
+   * (`FormSection`'s own rule) — but three labelled controls on that row spend
+   * most of a 400px panel on ways to do a thing you mostly do one row at a
+   * time. `Add variable` keeps its words because it is the common act; the
+   * other two fold behind a `⋯` that opens beside it.
+   *
+   * The dialogs render here unconditionally and are opened by state — see
+   * `pasteOpen` / `importOpen` for why they cannot hang off the menu items.
+   */
+  const bulkAdds = (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            /* **Not "more ways to add variables".** That is what it does, and
+               it made two controls on one row answer to "add variable" — a
+               screen reader user asking for the button by name got a choice of
+               two, and the test suite hit the same ambiguity. Both items behind
+               it read a file, so the menu is an import. */
+            aria-label="Import variables"
+          >
+            <MoreHorizontal className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-[180px]">
+          {/* One tick late, or the closing menu's `pointer-events` lock is the
+              value the dialog saves and restores — see the state's note. */}
+          <DropdownMenuItem onSelect={() => setTimeout(() => setPasteOpen(true), 0)}>
+            <Copy aria-hidden />
+            Paste .env
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setTimeout(() => setImportOpen(true), 0)}>
+            <Upload aria-hidden />
+            Import file
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {/* Paste .env button */}
+      <Dialog open={pasteOpen} onOpenChange={setPasteOpen}>
+        <DialogContent size="work">
+          <DialogBody>
+            <DialogHeader>
+              <DialogTitle>Paste environment variables</DialogTitle>
+              <DialogDescription>
+                One KEY=VALUE per line. Lines starting with # are ignored.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogSection>
+              <FieldShell
+                label="Variables"
+                htmlFor={`env-paste-${index}`}
+                help="Names already set on this service are skipped."
+              >
+                <Textarea
+                  id={`env-paste-${index}`}
+                  placeholder={
+                    "DATABASE_URL=postgres://user:pass@localhost:5432/db\n" +
+                    "API_KEY=your_api_key\n" +
+                    "# NODE_ENV=development"
+                  }
+                  className="font-mono text-body min-h-[180px] w-full"
+                  onChange={() => setPasteError(null)}
+                />
+              </FieldShell>
+              {pasteError && <AlertBanner>{pasteError}</AlertBanner>}
+            </DialogSection>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                const textarea = document.getElementById(
+                  `env-paste-${index}`,
+                ) as HTMLTextAreaElement | null;
+                const content = textarea?.value.trim();
+                if (!content) {
+                  setPasteError("Paste some KEY=VALUE lines first.");
+                  return;
+                }
+                setPasteError(
+                  addMultipleEnvVars(parseEnvContent(content)) === 0
+                    ? "Nothing new to add — every name in that paste is already set here."
+                    : null,
+                );
+              }}
+            >
+              Add variables
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Import from file button */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent size="ask">
+          <DialogBody>
+            <DialogHeader>
+              <DialogTitle>Import environment variables</DialogTitle>
+              <DialogDescription>
+              Reads a .env file and adds any names not already set here.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogSection>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`env-file-upload-${index}`} className="text-body font-medium">
+              Upload .env file
+                </Label>
+                <div className="flex items-center justify-center w-full">
+                  <label
+                    htmlFor={`env-file-upload-${index}`}
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/20 hover:bg-muted/30"
+                  >
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <FileText className="w-8 h-8 mb-2 text-muted-foreground" />
+                      <p className="mb-2 text-body text-muted-foreground">Click to upload or drag and drop</p>
+                      <p className="text-meta text-muted-foreground">Supports .env files</p>
+                    </div>
+                    <input
+                      id={`env-file-upload-${index}`}
+                      type="file"
+                      accept=".env,text/plain"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </label>
+                </div>
+              </div>
+              {importError && <AlertBanner>{importError}</AlertBanner>}
+            </DialogSection>
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+    </>  );
 
   return (
-    <FormSection label="Environment" state={envState}>
+    <FormSection label="Environment">
       {/* 8, not 16: the header row, the list, its note and its add button are
           one subject, not four things in a column. */}
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-end">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-label text-muted-foreground transition-colors hover:border-danger hover:text-danger disabled:pointer-events-none disabled:opacity-50"
-              onClick={() => {
-                if (envVars?.length) {
-                  onChangeEnvVars([]);
-                  toast({
-                    title: "Environment variables cleared",
-                    description: "All environment variables have been removed.",
-                    variant: "success",
-                  });
-                }
-              }}
-              disabled={!envVars?.length}
-            >
-              <X className="size-3.5" />
-            clear all
-            </button>
-            {/* Paste .env button */}
-            <Dialog>
-              <DialogTrigger asChild>
-                <button type="button" className={ghostChip}>
-                  <Copy className="size-3.5" />
-                paste .env
-                </button>
-              </DialogTrigger>
-              <DialogContent size="work">
-                <DialogBody>
-                  <DialogHeader>
-                    <DialogTitle>Paste environment variables</DialogTitle>
-                    <DialogDescription>
-                      One KEY=VALUE per line. Lines starting with # are ignored.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogSection>
-                    <FieldShell
-                      label="Variables"
-                      htmlFor={`env-paste-${index}`}
-                      hint="Names already set on this service are skipped."
-                    >
-                      <Textarea
-                        id={`env-paste-${index}`}
-                        placeholder={
-                          "DATABASE_URL=postgres://user:pass@localhost:5432/db\n" +
-                          "API_KEY=your_api_key\n" +
-                          "# NODE_ENV=development"
-                        }
-                        className="font-mono text-body min-h-[180px] w-full"
-                        onChange={() => setPasteError(null)}
-                      />
-                    </FieldShell>
-                    {pasteError && <AlertBanner>{pasteError}</AlertBanner>}
-                  </DialogSection>
-                </DialogBody>
-                <DialogFooter>
-                  <Button
-                    onClick={() => {
-                      const textarea = document.getElementById(
-                        `env-paste-${index}`,
-                      ) as HTMLTextAreaElement | null;
-                      const content = textarea?.value.trim();
-                      if (!content) {
-                        setPasteError("Paste some KEY=VALUE lines first.");
-                        return;
-                      }
-                      setPasteError(
-                        addMultipleEnvVars(parseEnvContent(content)) === 0
-                          ? "Nothing new to add — every name in that paste is already set here."
-                          : null,
-                      );
-                    }}
-                  >
-                    Add variables
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            {/* Import from file button */}
-            <Dialog>
-              <DialogTrigger asChild>
-                <button type="button" className={ghostChip}>
-                  <Upload className="size-3.5" />
-                import file
-                </button>
-              </DialogTrigger>
-              <DialogContent size="ask">
-                <DialogBody>
-                  <DialogHeader>
-                    <DialogTitle>Import environment variables</DialogTitle>
-                    <DialogDescription>
-                    Reads a .env file and adds any names not already set here.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogSection>
-                    <div className="flex flex-col gap-1">
-                      <Label htmlFor={`env-file-upload-${index}`} className="text-body font-medium">
-                    Upload .env file
-                      </Label>
-                      <div className="flex items-center justify-center w-full">
-                        <label
-                          htmlFor={`env-file-upload-${index}`}
-                          className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/20 hover:bg-muted/30"
-                        >
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <FileText className="w-8 h-8 mb-2 text-muted-foreground" />
-                            <p className="mb-2 text-body text-muted-foreground">Click to upload or drag and drop</p>
-                            <p className="text-meta text-muted-foreground">Supports .env files</p>
-                          </div>
-                          <input
-                            id={`env-file-upload-${index}`}
-                            type="file"
-                            accept=".env,text/plain"
-                            className="hidden"
-                            onChange={handleFileUpload}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                    {importError && <AlertBanner>{importError}</AlertBanner>}
-                  </DialogSection>
-                </DialogBody>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
         {/* Environment Variables Rows */}
         {(() => {
           // Live duplicate detection (always on, regardless of dirty state)
@@ -375,7 +453,32 @@ function StackResourceEnvironmentTabImpl({
                 out.database = "Pick a database";
               if ((dirty || errPath("credField")) && !r.credField) out.credField = "Pick a field";
             }
-            if ((dirty || errPath("name")) && !r.name) out.name = "Required";
+            /**
+             * **A row you just added is empty, not wrong.**
+             *
+             * `Add variable` appends `{ name: "", value: "" }`, which is dirty
+             * against the baseline the instant it exists — so the row arrived
+             * with `KEY` outlined in red and `Required` under it, before a
+             * single character was typed. An error is a report on what you did;
+             * there is nothing here yet to report on.
+             *
+             * The source did not matter, which is why the first attempt at this
+             * failed: `errors` merges the SERVER's field errors with live zod
+             * over the whole draft, and zod is quite right that a nameless
+             * variable is invalid — it says so on the keystroke that creates
+             * the row. So the guard sits in front of both.
+             *
+             * A row that has SOMETHING in it and no name is genuinely wrong and
+             * says so. A blank one waits. **Nothing is hidden at the moment it
+             * matters**: Deploy reads `deployFieldErrors`, a different path, and
+             * the validation banner still lists the row by name.
+             */
+            const started = Object.entries(r).some(
+              ([k, v]) => k !== "from" && typeof v === "string" && v.trim() !== "",
+            );
+            if (started && !r.name && (dirty || errPath("name"))) {
+              out.name = errPath("name") ?? "Required";
+            }
             // Server-reported value error (e.g. a backend validation reason pinned
             // to this env var by the autosave engine); always surfaced when present.
             const valueErr = errPath("value");
@@ -392,8 +495,46 @@ function StackResourceEnvironmentTabImpl({
             />
           );
 
+          /* The three ways in, on one row. `flex-wrap` because at 400 a ghost
+             `paste .env` and `import file` beside a bordered `Add variable` is
+             close to the full width — they drop rather than clip. */
+          /**
+           * **Adds on the left, the one destructive act on the right.**
+           *
+           * `clear all` came off the heading with the other two, but it is not
+           * one of them: they extend the list and it empties it. Sharing a
+           * cluster with `Add variable` would put "make one more" and "throw
+           * them all away" a thumb apart. The row's own width is the gap.
+           *
+           * It renders only when there IS something to clear. A greyed-out
+           * `clear all` under an empty list is an offer with a reason nobody
+           * needs told — the empty state above it already says there is
+           * nothing here.
+           */
+          const addRow = (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5">
+                {addVariableButton}
+                {bulkAdds}
+              </div>
+              {envVars.length > 0 && clearAll}
+            </div>
+          );
+
           if (envVars.length === 0) {
-            return addVariableButton;
+            /* The same empty state Ports and Mounts use: say what the group is
+               for, then offer every way to fill it. */
+            return (
+              <div className="flex flex-col gap-4 pt-1">
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-body font-medium text-fg-2">No variables</p>
+                  <p className="text-meta text-fg-muted">
+                    Configuration this service reads at start — connection strings, API keys, feature flags.
+                  </p>
+                </div>
+                {addRow}
+              </div>
+            );
           }
 
           // Partition rows so all ungrouped (non-addon) rows render FIRST (in
@@ -467,10 +608,29 @@ function StackResourceEnvironmentTabImpl({
           return (
             <>
               {plainItems.length > 0 && (
-                <div className="flex flex-col gap-1.5">{plainItems.map(renderRow)}</div>
+                <>
+                  {/* **The headers ride the row's own grid**, or they are three
+                      words floating over nothing. The board drew them on a
+                      different one (116/140/140 at gap 4 against the row's
+                      100/145/145 at gap 6) so `Name` sat 20px left of the field
+                      it names — same numbers as the row here, and `-mx-1.5
+                      px-1.5` puts them on the same edge the rows reach. */}
+                  <div
+                    aria-hidden
+                    className="-mx-1.5 flex items-center gap-1.5 px-1.5 text-meta text-fg-muted"
+                  >
+                    <span className="w-[100px] flex-none">From</span>
+                    <span className="min-w-0 flex-1 basis-0">Name</span>
+                    <span className="min-w-0 flex-1 basis-0">Value</span>
+                    <span className="w-8 flex-none" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">{plainItems.map(renderRow)}</div>
+                </>
               )}
-              {/* Sits directly below the plain rows so a new var appears at the click point. */}
-              {addVariableButton}
+              {/* Sits directly below the plain rows so a new var appears at the
+                  click point — and carries the bulk adds with it, because they
+                  add to the same place. */}
+              {addRow}
               {addonGroups.map((g, gIdx) => {
                 const aid = g.addonId;
                 const db = g.database;

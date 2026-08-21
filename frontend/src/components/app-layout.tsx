@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Outlet, useLocation } from "react-router-dom";
 import { BreadcrumbProvider } from "@/contexts/breadcrumb-context";
 import { SheetHeader } from "@/components/sheet-header";
+import { PEER_SHEET_SLOT_ID } from "@/components/ui/drawer";
 import { useGithubSetupLanding } from "@/hooks/use-github-setup-landing";
 import { NEW_STACK_PATH } from "@/pages/stacks/lib/routes";
 
@@ -131,6 +132,19 @@ function AppLayoutContent({
             )}
           </div>
         </SidebarInset>
+        {/* **The peer sheet** (§15). A detached `DrawerRegion` portals itself
+            in here, and while it is empty the div is zero-wide with no gap —
+            the main sheet keeps the whole plane.
+
+            It is a SIBLING of the sheet, not a region inside it, which is the
+            whole point: the node inspector gets its own edge, its own radius
+            and its own shadow, with 8px of the paper frame showing between the
+            two cards. `ml-2` is that gutter; `pr-2` on the frame supplies the
+            matching one on the far side.
+
+            `empty:hidden` rather than conditional rendering, because the slot
+            has to be in the DOM *before* the region looks for it. */}
+        <div id={PEER_SHEET_SLOT_ID} className="peer-sheet min-h-0 [&>*]:ml-2" />
       </div>
     </SidebarProvider>
   );

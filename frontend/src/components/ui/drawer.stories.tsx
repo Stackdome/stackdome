@@ -118,8 +118,15 @@ export const BandsAreMeasured: Story = {
     const scroll = drawer.querySelector('[data-slot="drawer-body"]')!
     const footer = drawer.querySelector('[data-slot="drawer-footer"]')!
 
-    // Both borders are permanent — not affordances that appear on overflow.
-    await expect(getComputedStyle(header).borderBottomWidth).toBe('1px')
+    // Both rules are permanent — not affordances that appear on overflow.
+    //
+    // The header's is an INSET SHADOW (`sheet-edge-b`), not a border, and that
+    // is the point of asserting it here: a `border-b` is part of the box, so a
+    // band that pays 16 at the foot measures 17. Beside a peer sheet that 1px
+    // is visible — the sheet header across the gutter draws the same line the
+    // same way, and a border put the two hairlines a pixel out of step.
+    await expect(getComputedStyle(header).boxShadow).toContain('inset')
+    await expect(getComputedStyle(header).borderBottomWidth).toBe('0px')
     await expect(getComputedStyle(footer).borderTopWidth).toBe('1px')
 
     // Three bands, flush: no gaps between them.

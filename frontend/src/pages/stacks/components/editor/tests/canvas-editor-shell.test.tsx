@@ -51,56 +51,74 @@ function CanvasOverlayStub() {
 
 describe("CanvasEditorShell resource tally", () => {
   it("shows the canvas tally on the architecture tab", () => {
-    render(<CanvasEditorShell {...base} stackName="api" nameEditable={false} />);
+    render(<CanvasEditorShell {...base} />);
     expect(screen.getByText("0 services · 0 volumes")).toBeInTheDocument();
   });
 
   it("hides the canvas tally when an ops view overlays the canvas", () => {
-    render(<CanvasEditorShell {...base} stackName="api" nameEditable={false} activeTab={EDITOR_TABS.deployments} />);
+    render(<CanvasEditorShell {...base} activeTab={EDITOR_TABS.deployments} />);
     expect(screen.queryByText("0 services · 0 volumes")).toBeNull();
   });
 });
 
-describe("CanvasEditorShell header", () => {
-  it("renders an editable name input in draft and reports changes", () => {
-    const onNameChange = vi.fn();
-    render(<CanvasEditorShell {...base} stackName="" isNewStack nameEditable onNameChange={onNameChange} />);
-    const input = screen.getByPlaceholderText("name-your-stack");
-    fireEvent.change(input, { target: { value: "web" } });
-    expect(onNameChange).toHaveBeenCalledWith("web");
+describe("CanvasEditorShell change dot", () => {
+  // A dot, not a count — see the tab row. It reads the SAME number the version
+  // chip does (the undeployed diff), so the two can never disagree, which is
+  // what killed the count that used to live here.
+  it("marks the Architecture tab when something is undeployed", () => {
+    render(<CanvasEditorShell {...base} dirtyTotal={3} />);
+    expect(screen.getByLabelText("has unsaved changes")).toBeInTheDocument();
   });
 
-  // The editor stops printing its own title: the sheet header above it already
+  it("shows no dot when nothing differs from the last deploy", () => {
+    render(<CanvasEditorShell {...base} dirtyTotal={0} />);
+    expect(screen.queryByLabelText("has unsaved changes")).toBeNull();
+  });
+
+  it("puts the dot on Architecture, not on the ops tabs", () => {
+    render(<CanvasEditorShell {...base} dirtyTotal={2} />);
+    const dot = screen.getByLabelText("has unsaved changes");
+    expect(dot.closest("button")).toHaveTextContent("Architecture");
+  });
+});
+
+describe("CanvasEditorShell header", () => {
+  // The editor prints no title of its own: the sheet header above it already
   // says which stack this is, and saying it twice made the name the biggest
-  // thing on a screen about the graph. A draft is the exception — it has no
-  // name yet, so the field IS the title.
-  it("prints no title of its own once the stack has a name", () => {
-    render(<CanvasEditorShell {...base} stackName="tooljet" nameEditable={false} />);
+  // thing on a screen about the graph. **A draft is no longer an exception** —
+  // it opens already named and is renamed through the trail, so the dashed
+  // `name-your-stack` field that used to stand in for the title is gone.
+  it("prints no title and no name field, in a draft or a saved stack", () => {
+    const { rerender } = render(<CanvasEditorShell {...base} />);
     expect(screen.queryByRole("heading", { name: "tooljet" })).toBeNull();
     expect(screen.queryByPlaceholderText("name-your-stack")).toBeNull();
+
+    rerender(<CanvasEditorShell {...base} isNewStack />);
+    expect(screen.queryByPlaceholderText("name-your-stack")).toBeNull();
+    expect(screen.queryByLabelText("Stack name")).toBeNull();
   });
 
   // The word is the stacks LIST's rollup, humanised — not the wire's. A stack
   // that reads "Healthy" on the list must not read "ok" in its own header.
   it("renders a single status chip and never a DRAFT pill", () => {
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" headerHealth="ok" isStaged />);
+    render(<CanvasEditorShell {...base} headerHealth="ok" isStaged />);
     expect(screen.getByText("Healthy")).toBeInTheDocument();
     expect(screen.queryByText("DRAFT")).toBeNull();
   });
 
   it("shows a neutral 'Not deployed' pill when no health is derivable (never deployed)", () => {
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" />);
+    render(<CanvasEditorShell {...base} />);
     expect(screen.getByText("Not deployed")).toBeInTheDocument();
   });
 
   it("failed first deploy shows an error chip (health 'failed'), not an empty header", () => {
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" headerHealth="failed" />);
+    render(<CanvasEditorShell {...base} headerHealth="failed" />);
     expect(screen.getByText("Failed")).toBeInTheDocument();
     expect(screen.queryByText("Not deployed")).toBeNull();
   });
 
   it("shows a pending 'Deleting' pill when the stack lifecycle is deleting, overriding health", () => {
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" headerHealth="ok" lifecycle="deleting" />);
+    render(<CanvasEditorShell {...base} headerHealth="ok" lifecycle="deleting" />);
     expect(screen.getByText("Deleting")).toBeInTheDocument();
     expect(screen.queryByText("Healthy")).toBeNull();
   });
@@ -110,7 +128,7 @@ describe("CanvasEditorShell deploy pill", () => {
   it("draft with resources shows the pill Deploy wired to onDraftDeploy, no Details/menu", () => {
     const onDraftDeploy = vi.fn();
     render(
-      <CanvasEditorShell {...base} isNewStack nameEditable stackName="my-stack" onDraftDeploy={onDraftDeploy} />,
+      <CanvasEditorShell {...base} isNewStack onDraftDeploy={onDraftDeploy} />,
     );
     // Scoped to the pill: the tab rail's "Deployments" tab also matches /deploy/i.
     const pill = within(screen.getByTestId("deploy-pill"));
@@ -121,17 +139,17 @@ describe("CanvasEditorShell deploy pill", () => {
   });
 
   it("empty draft shows no pill at all", () => {
-    render(<CanvasEditorShell {...base} isNewStack nameEditable stackName="my-stack" hasResources={false} />);
+    render(<CanvasEditorShell {...base} isNewStack hasResources={false} />);
     expect(screen.queryByTestId("deploy-pill")).toBeNull();
   });
 
   it("draft shows 'Deploying' while the draft deploy runs", () => {
-    render(<CanvasEditorShell {...base} isNewStack nameEditable stackName="my-stack" draftDeploying />);
+    render(<CanvasEditorShell {...base} isNewStack draftDeploying />);
     expect(screen.getByRole("button", { name: /deploying/i })).toBeDisabled();
   });
 
   it("existing clean stack renders no pill and no rail Deploy", () => {
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" />);
+    render(<CanvasEditorShell {...base} />);
     expect(screen.queryByTestId("deploy-pill")).toBeNull();
     // Exact match — the tab rail's "Deployments" tab also matches a /deploy/i regex.
     expect(screen.queryByRole("button", { name: "Deploy" })).toBeNull();
@@ -140,25 +158,25 @@ describe("CanvasEditorShell deploy pill", () => {
   it("existing dirty stack offers Deploy", () => {
     const onViewChanges = vi.fn();
     render(
-      <CanvasEditorShell {...base} nameEditable={false} stackName="api" isActive dirtyTotal={3} onViewChanges={onViewChanges} />,
+      <CanvasEditorShell {...base} isActive dirtyTotal={3} onViewChanges={onViewChanges} />,
     );
     expect(within(screen.getByTestId("deploy-pill")).getByRole("button", { name: /Deploy/ })).toBeInTheDocument();
   });
 
   it("pill persists with 'Deploying' while deployBusy even at zero dirt", () => {
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" deployBusy />);
+    render(<CanvasEditorShell {...base} deployBusy />);
     expect(screen.getByRole("button", { name: /deploying/i })).toBeInTheDocument();
   });
 
   // Deploy sits in the shared header now, so it does not belong to a tab —
   // it acts on the stack, and the stack is the same on every one of them.
   it("Deploy stays available on an ops tab", () => {
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" isActive dirtyTotal={2} activeTab={EDITOR_TABS.logs} />);
+    render(<CanvasEditorShell {...base} isActive dirtyTotal={2} activeTab={EDITOR_TABS.logs} />);
     expect(screen.getByTestId("deploy-pill")).toBeInTheDocument();
   });
 
   it("staged-but-zero-count nets out — no pill", () => {
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" isStaged dirtyTotal={0} />);
+    render(<CanvasEditorShell {...base} isStaged dirtyTotal={0} />);
     expect(screen.queryByTestId("deploy-pill")).toBeNull();
   });
 });
@@ -166,7 +184,7 @@ describe("CanvasEditorShell deploy pill", () => {
 describe("CanvasEditorShell deploy-failed chip", () => {
   it("shows a 'Deploy failed' chip wired to onTabChange('deployments') when latestDeployFailed", () => {
     const onTabChange = vi.fn();
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" latestDeployFailed onTabChange={onTabChange} />);
+    render(<CanvasEditorShell {...base} latestDeployFailed onTabChange={onTabChange} />);
     const chip = screen.getByRole("button", { name: "Latest deploy failed — view deployments" });
     expect(chip).toBeInTheDocument();
     // The chip states the RELEASE's word; the button's name states what it is
@@ -177,7 +195,7 @@ describe("CanvasEditorShell deploy-failed chip", () => {
   });
 
   it("renders no chip when latestDeployFailed is unset", () => {
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" />);
+    render(<CanvasEditorShell {...base} />);
     expect(screen.queryByRole("button", { name: "Latest deploy failed — view deployments" })).toBeNull();
   });
 });
@@ -186,7 +204,7 @@ describe("CanvasEditorShell actions menu", () => {
   it("exposes the actions trigger for existing stacks with no 'Discard all changes' item", () => {
     // Radix dropdown content mounts on pointer interaction (not in jsdom), so we
     // assert the trigger exists and that the removed item never renders eagerly.
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" isActive dirtyTotal={2} />);
+    render(<CanvasEditorShell {...base} isActive dirtyTotal={2} />);
     expect(screen.getByRole("button", { name: "Stack actions" })).toBeInTheDocument();
     expect(screen.queryByText("Discard all changes")).toBeNull();
   });
@@ -204,7 +222,7 @@ describe("CanvasEditorShell actions menu", () => {
     const onDelete = vi.fn(() => {
       pointerEventsAtCall.push(document.body.style.pointerEvents);
     });
-    render(<CanvasEditorShell {...base} nameEditable={false} stackName="api" isActive onDelete={onDelete} />);
+    render(<CanvasEditorShell {...base} isActive onDelete={onDelete} />);
     await user.click(screen.getByRole("button", { name: "Stack actions" }), { pointerEventsCheck: 0 });
     await user.click(await screen.findByText("Delete stack"), { pointerEventsCheck: 0 });
     await waitFor(() => expect(onDelete).toHaveBeenCalled());
@@ -222,13 +240,13 @@ describe("CanvasEditorShell header", () => {
 
   it("keeps tabs clickable", () => {
     const onTabChange = vi.fn();
-    render(<CanvasEditorShell {...base} stackName="acme" nameEditable={false} stackId="s1" onTabChange={onTabChange} />);
+    render(<CanvasEditorShell {...base} stackId="s1" onTabChange={onTabChange} />);
     fireEvent.click(screen.getByRole("button", { name: /Logs/ }));
     expect(onTabChange).toHaveBeenCalledWith(EDITOR_TABS.logs);
   });
 
   it("serves deploys via the pill", () => {
-    render(<CanvasEditorShell {...base} stackName="acme" nameEditable={false} stackId="s1" isActive dirtyTotal={2} />);
+    render(<CanvasEditorShell {...base} stackId="s1" isActive dirtyTotal={2} />);
     expect(screen.getByTestId("deploy-pill")).toBeInTheDocument();
   });
 
@@ -236,8 +254,8 @@ describe("CanvasEditorShell header", () => {
     render(
       <CanvasEditorShell
         {...base}
-        stackName="acme"
-        nameEditable={false}
+       
+       
         stackId="s1"
         publicEndpoints={[{ service: "web", url: "https://web.acme.dev" }]}
       />,
