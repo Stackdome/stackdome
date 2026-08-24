@@ -1,3 +1,210 @@
+# 2026-08-24 — The ops tabs built, and three alignments that only measuring caught
+
+The stack editor's **Deployments, Logs and Metrics** went from a Figma board to
+the running app. The board work came first — a second deployments frame drawn as
+an activity feed, a live-anchor comparison, an A/B on row grouping, a stage-tracker
+comparison — then the whole thing was written in code and judged against real
+data in `dev:mock`.
+
+## The decision that carried the rest
+
+**Grouping B.** A release row is *identity + trigger*, then *state + detail*.
+Drawn against Jaseem's own sketch (A: the chip on line one) and chosen from the
+two side by side. Two things were invisible until they were drawn:
+
+- **A's line one is ragged.** `#2` has no chip, so its cause starts 60px left of
+  `#4`'s. Down a list the titles never form a column.
+- **B surfaces a copy problem A hides.** `Failed · 1 of 4 resources failed to
+  become ready` says "failed" twice. The chip was concealing it.
+
+The honest cost, stated at the time and accepted: a chip is faster to spot when
+scanning forty releases. B trades that for a shape that holds across every state.
+
+## Three alignment bugs, none of which eyeballing would have found
+
+| | Symptom | Actual cause |
+|---|---|---|
+| Horizontal | Rail 6px right of the header button | Gutter was 24; 12 lands it on 274, the button's own centre |
+| Sub-pixel | Connector "looked offset" | Geometry was **exact** — the 1px line sat at x.5, straddling two device pixels, rendering soft beside a crisp dot |
+| Vertical | Dot 8.9px above the title | Two wrong assumptions: the line box is **32px** (the menu sets it), and text centres on **cap height**, 2.9px below the line box centre |
+
+The vertical one had a trap: the draft row had no menu, so its line was 20px where
+a release row's was 32. **A nudge would have fixed one row and broken the other.**
+The draft row got `min-h-8` so one rule serves both.
+
+## What Jaseem overruled, and why he was right
+
+| His call | What it replaced |
+|---|---|
+| *"there is no structure to this now"* | My first ConfigDiff rewrite stripped every box. The hairlines separated but could not **group** — nothing said `LOG_LEVEL` belongs to `web`. The card came back, without the grey stripe, the dot or the chip |
+| *"put individual items in a box"* | I had over-corrected from his own earlier *"this looks bad"* |
+| *"the containers need be only wide enough for the content"* | Cards spanned the column for a 350px row |
+| *"use 11.5 px font here"* | Line two was `text-body` (13); at 11.5 it reads as the row's furniture, not a second title |
+| *"keep for now"* on the tracker's inert links | I had argued they report nothing. He took the point and deferred it — the design is his call, not the rule's |
+
+## Two board gaps closed
+
+- **`column/400`** now exists as a Figma text style — 11.5/16, the rung
+  `--text-column` has had in code since 23 Aug. Jaseem asked for "whatever 11.5
+  token we have"; there was one in code and none on the board.
+- **`code/bg` and `code/fg` are moot.** The log stream moved onto the sheet, so
+  the near-black terminal — and the two tokens the handoff wanted adding — are gone.
+
+## What running it found that the board could not
+
+`toLocaleTimeString()` returns `5:28:12 PM` in a 12-hour locale — ten glyphs where
+the board drew eight, and the column wrapped. And `react-lazylog` paints its own
+chrome from inside emotion: a near-black toolbar, a `#444` line hover, `#666` line
+numbers. Three literals answering to no token, invisible while the panel was dark.
+
+# 2026-08-23 (afternoon) — Five articles, an audit, and the day a class list stopped being evidence
+
+Jaseem shared five **Interface Craft** articles (Josh Puckett). They became
+`docs/design/reading/` — one file per source, every claim mapped to a
+`DESIGN-PRODUCT.md` § as *confirms / extends / contradicts / new*, candidate rules
+carrying a status. Then a full foundations audit, then nine changes.
+
+## What the reading actually changed
+
+Most of it **confirmed** what was already here, sometimes with more rigour on our
+side: alpha lines, optical over mathematical, one warmth per screen, OKLCH
+normalisation. Three things were genuinely new.
+
+| From | Change |
+|---|---|
+| Compositing | A shadow is a **contact layer plus an ambient one**, and the contact is the darker. `sm` and `2xl` were single blurs — `sm` moved luminance by **2.0 across one pixel** |
+| Colour | A receding ground is a **tint, not a picked solid**. The segmented track was painted the frame's colour: 21.3 below the sheet, **0.0 below the frame**, where it vanished |
+| Alignment | **Count the invisible lines.** Not yet run — it needs the browser harness |
+
+## The thread that ran through the whole afternoon
+
+**A class list is not a rendered pixel.** It cost four separate findings:
+
+1. I reported the outline task as *"nothing left in it"* after checking
+   `select.tsx`'s **trigger** and never its **content**.
+2. Radix writes `outline: none` **inline** on every portalled `Content`, so the
+   menus' hairlines had never rendered — while the same utilities on the sheet
+   measured correctly.
+3. `tailwind-merge` silently dropped `text-column` as a *colour*, because a
+   job-named scale cannot be inferred. A size token is **two edits**.
+4. The same merge behaviour had already been eating a bare `outline` next to
+   `outline-1`.
+
+None of these are visible in source. All four came out of measuring the running
+app — which is also how a blank page got caught masquerading as *"0 mono strings
+on every page"*.
+
+## The other thread: a mock that flattered the product
+
+Every stack in `dev:mock` shipped in a project called `default`. That made the
+joined `project · branch@sha` line look aligned, because one project name is one
+width. With realistic names the ref started at **four x positions 100px apart** —
+the argument for one fact per column, invisible on the only surface anyone judges
+from. The preview now runs three projects; `empty` still runs one.
+
+## Jaseem's calls, and the two he overruled me on
+
+| Call | |
+|---|---|
+| **`sm` and `2xl` → candidate C** | Chosen off rendered specimens, not the spec |
+| **Nav gap 6px → reverted to 2** | Built it, measured it, he called it too far on sight |
+| **`--well` → the lightest of three** | 4% light, and dark stays **black** while every wash beside it inverts — a well is a hole, not a mark |
+| **All dividers → 6%** | Reverses §4's region clause, which is kept as superseded |
+| **Ring → 1.5px** | One token, three ring forms |
+| **11.5 is the floor** | `text-label` retires **step by step**, 112 call sites |
+| **Status column loses its reason** | Every row now exactly 64px |
+| **One fact per column** | And **status second** — it is what the page is opened to read |
+| **Table data → primary ink** | It was muted, the same tier as its own column headers |
+
+**Overruled:** the audit let `shadow-sm` pass as *"defensible"* at a single layer;
+he raised it unprompted and the measurement agreed with him — 1px of reach is not
+a shadow. And I proposed keeping the segmented control's outline for its geometry;
+he was right that it had to go, and the reason turned out to be mine: I had moved
+the fill to `--well` and left the shim naming `--background`, ringing a tinted
+track in opaque frame colour.
+
+## Landed on the Figma board
+
+Elevation styles relayered and **rebound to their variables** — my earlier raw
+write had unbound `sm` and `2xl`, so they had stopped switching with dark mode.
+`surface/well` added. **213 dividers** to `line/subtle`, 1006 full-box strokes
+deliberately left at 11%. Shadow propagation took the board from **341 to 793**
+nodes following a style. 23 remain, each an off-ladder value that is a design call
+rather than a propagation — the drawers use three different shadows and none is
+`elevation/2xl`.
+
+# 2026-08-23 — The docked volume, the Storybook audit, and a column that was never on its control
+
+Three jobs, and the third one is the only one that found a bug in the product.
+
+## The node card's volume rows
+
+The complaint was alignment and padding, and both were real. Measured:
+the docked volume's name sat at **34** while the card's two other text lines sat
+at **36**, and the row carried `pb-2` with nothing on top, so the hover wash —
+the only thing that draws that row's bounds — was visibly top-heavy at 24 tall.
+
+The 2px came from two faults compounding. `pl-6` was written to indent the row
+under the summary and **never rendered**: it sits before `NODE_CARD.inset` in the
+`cn()`, and tailwind-merge resolves `px-*` over `pl-*`, so the later class wins
+and the indent is deleted before the DOM. Then the row's glyph was `size-3.5`
+against every other glyph's 16, which put the name 2px short of the column even
+with the inset correct.
+
+**Jaseem's call: flush, not indented.** Given the choice between restoring an
+indent nobody had ever seen and joining the two columns the card already has, he
+took the columns — glyph at 16, name at 40, four marks on two verticals. The row
+went to **28**, the smallest control rung, with its 6/6 of air centring the wash.
+
+Then, judged live: *"the padding after web-cache can be removed, it can sit flush
+against the card."* The last row now runs to the card's bottom edge and the clip
+rounds the wash into its corners, so the row reads as docked into the card rather
+than laid on it. The gap ABOVE the block stays 16 — that is a gap between two
+different things; the bottom is the end of the card and owes nothing.
+
+## The Storybook audit
+
+*"A lot of older versions of components in Storybook and the newer version can't
+be seen there — empty state and menu for example."*
+
+Twelve components revamped on this branch had **no story at all**, `dropdown-menu`
+among them — the menu could only be seen by finding a feature that happened to
+open one. Worse, `SearchField` had been revamped and **five call sites had each
+kept a copy of the thing it replaced**: the Shell story plus the stacks, secrets,
+addons and previews pages. They matched today, which is exactly why it was worth
+catching — the next change to that field would have moved one of six.
+
+Twelve new story files, 77 stories. The copies are gone. Two shared fixtures
+(`makeGitIntegration`, `makeGitRepository`) went into `.storybook/fixtures.ts` so
+the next git story does not hand-roll them.
+
+**`Branded/EmptyState` was not broken** — it renders the current art. Its `Bare`
+story was simply first in the list, showing the primitive with no icon and no
+copy, which reads as a pre-artwork version of the component. Moved last, renamed
+`TitleOnly`, and told what it is for.
+
+**The gap the audit nearly missed:** six drawer tabs have no story file but do
+render inside `ResourceDrawer` — except no story ever *opened* Deployment or
+Environment. Configuration renders on mount, so those two bodies were never
+drawn. A tab you can only reach by clicking is a tab whose regressions nobody
+catches.
+
+## The column that was never on its control
+
+`Port` on its column, `Protocol` 14px off, `Visibility` 28px off — and it only
+reproduced on a resource with **no baseline**, which is why four Storybook drawer
+states measured clean and his screenshot did not. See the amendment under §11 in
+`DESIGN-PRODUCT.md` for the rule; the short version is that `DirtyField` dropped
+its `className` along with the visual frame, and `className` was carrying the
+layout.
+
+The lesson worth keeping is about **where** it was wrong. A resource with no
+baseline is one you have just added. The columns were correct on every saved
+resource and wrong on every new one — so the state nobody had a story for was
+also the state every user meets first.
+
+The fix is guarded by a test that was verified by reintroducing the bug.
+
 # 2026-08-16 (last) — Previews, in code: two pages become one, and four board calls lose to the running app
 
 The board was approved and the plan had eight slices. Seven of them went in as
@@ -5700,3 +5907,241 @@ skips the journey.
 
 `ui/sheet.tsx` carries the same default (`duration-500` in, `300` out, `transition
 ease-in-out`). It is the mobile off-canvas sidebar, not this drawer.
+
+## The canvas connector, settled live in five passes
+
+Jaseem, on the architecture canvas: *"lets now fix the connectors, it does not
+look great."* Three foundations came with it — **every line connects to the
+centre of another node**, **a bend and a straight line, not the curvy one**, and
+**make the arrow a bit good looking** — plus a reference: a workflow builder
+where every connector is a right-angle route into the middle of a card's edge.
+
+The curve is the thing people notice. It was not why the board read as a sketch.
+
+### Nothing arrived anywhere predictable
+
+The old edge was a **floating** attachment: it intersected the centre-to-centre
+ray with the card's rectangle and started the bezier there. So the three edges
+leaving `web` left it at three different heights, and each met its target
+wherever the geometry happened to land — a few pixels below a corner on one
+card, mid-face on another. Every line was individually reasonable and the set of
+them had no order at all.
+
+**A face CENTRE is not a smaller version of that rule, it is a different one.**
+The midpoint of a face puts the terminal segment on the node's own centre axis,
+so the line, extended, passes through the middle of the card. That is what makes
+a connector look aimed rather than merely attached — and it is why three edges
+out of one card now leave from a single point and read as a trunk with branches,
+which is exactly what the reference does.
+
+**This one rule survived every pass below.** Everything else was rebuilt.
+
+### Which face, decided by clearance and not by distance
+
+Choosing the face decides the whole route, so it is the only real decision in
+the geometry. The first version normalised `|dx|` and `|dy|` by the two cards'
+half extents. In the running app that sent `web → api-credentials` — a small
+card **down and well to the right** — out through the bottom, and the horizontal
+leg of that route ran **underneath the `cache` card** it has nothing to do with.
+
+The test that works is **clearance**: how much empty space is left on each axis
+once both boxes are taken out of it.
+
+| | Raw `\|dx\|` vs `\|dy\|` | Half-extent normalised | Clearance |
+|---|---|---|---|
+| Side by side, slight offset | across ✓ | across ✓ | across ✓ |
+| Stacked, 260 apart sideways | **across ✗** | down ✓ | down ✓ |
+| Small card down-and-right | across ✓ | **down ✗** | across ✓ |
+
+Negative clearance means the boxes overlap on that axis — which is precisely
+when routing along it should lose. The other two tests have no way to say that.
+
+### The shape took five passes, and only the last one was judged from a screen
+
+This is the part worth keeping. Every one of these was overturned by looking at
+it running, not by argument.
+
+| Pass | Shape | Why it went |
+|---|---|---|
+| 1 | Stepped, 8px corners | *"use more curve"* |
+| 2 | Stepped, 24px corners | *"use the curved connectors, this is not looking nice, but be tasteful"* |
+| 3 | Single cubic, tension 0.34 | *"add more curve"* |
+| 4 | Single cubic, tension 0.46 | *"use arc connector"* |
+| 5 | **Straight · arc · straight, one radius** | Shipped |
+
+The cubic was the instructive failure. A bezier **eases into and out of its
+turn**, so its curvature is different at every point along it — which means no
+two edges on a board bend alike, and a fan of three cannot read as one family.
+Pushed to React Flow's own default tension of 0.5 the middle of each edge goes
+flat and the swing arrives late; that IS the wander the original edge had. An
+**arc has one curvature**, and a set of them reads as a system.
+
+**The radius is 48, and that number is not a taste call.** A turn needs twice
+its radius of perpendicular offset to stay a full quarter circle. The canvas
+lays ranks out at `RANK_SEP` 140, so past 48 most edges run a clamped radius and
+*one radius everywhere* stops being true in the only place it matters — on
+screen. Where a route genuinely cannot hold it the two arcs meet tangentially
+and the straight between them vanishes, which is the right answer for a short
+offset and falls out of the same arithmetic rather than being a second case.
+
+### The two ends are marked, and marked differently
+
+A **ring** where the line leaves the producer, a **triangle** where it enters
+the consumer. The ring came from a second reference Jaseem brought — a workflow
+canvas that rings both ends and draws no arrow at all. This graph is directed,
+and which resource feeds which is the fact the whole canvas exists to show, so
+the two ends say different things and get different marks.
+
+The ring earns its place beyond the reference: a bare line meeting a card edge
+is ambiguous about which of the two owns the connection, and on a fan of three
+leaving one point it is the only mark that says the three are **one trunk** and
+not three coincidences. It sits tangent to the face — still on the node's centre
+axis — filled with `--surface-node`, and the path starts at its exact centre so
+its own fill covers the stroke's end and there is nothing to align.
+
+**The arrowhead: a triangle, after two cleverer shapes lost.**
+
+It shipped for one pass with a **notched back** — the concave rear that
+separates an arrow from a wedge in a large glyph. Jaseem: *"should look like a
+triangle."* He is right, and the reason is scale: at 10px the notch is not read
+as a shape, only as an edge that failed to close, so the head looked chipped.
+Then the plain triangle shipped at 10 long and he cut that too — at that size a
+head stops terminating a line and starts being an object on the board.
+
+| | |
+|---|---|
+| **7 long, 8 across** | Base wider than the head is long. A tall narrow head is a dart; a base-heavy one is a triangle |
+| **Drawn from `ARROW_LENGTH`** | The same constant the geometry stops the stroke at, so the head can never overlap the line or float off its end |
+| **No stroke** | A stroke in the wire's own colour would double over its fill and leave a rim exactly where the head should be cleanest |
+
+### Solid, and the dash was never carrying anything
+
+`strokeDasharray: "6 5"` was applied to **every** edge regardless of `kind` or
+`sourceOfTruth`, so it distinguished nothing — it was texture on a line whose
+whole job is to be followed.
+
+The weight went with it. At `1.4px × 0.7 opacity` the wire resolved to about
+**0.2 alpha** — lighter than the dot grid it crosses. A connection that reads as
+fainter than the ground is not drawn. One token at full `--wire`, **1.5px**, no
+second opacity.
+
+### The colour went blue and came back
+
+Jaseem asked for the accent blue; it shipped as `--wire: var(--ring)` for one
+pass and he pulled it in the next breath — *"blue is too strong, maybe use
+border hairline."* Two things were wrong with it: it shouts on a warm ground,
+and blue is the system's **state** mark (§5), spent here on decoration.
+
+The hairline could not take the job either, and the numbers say why:
+
+| Token | Light α | Against `--grid` at 0.248 |
+|---|---|---|
+| `--border` | 0.11 | less than half the ground it crosses |
+| `--border-strong` | 0.18 | still under it |
+| **`--wire`, now** | **0.34** | the first rung that is plainly a drawn line |
+
+So `--wire` stays its own token, ink, at 34%, following `--line-ink` so it
+flips with the theme on its own.
+
+### And then it stopped being an alpha at all
+
+*"connector line should not have any opacity, they should be solid colors."*
+The value is unchanged on screen — `color-mix(in srgb, rgb(var(--line-ink)) 34%,
+var(--surface-canvas))` resolves to the same `rgb(184, 178, 164)` in light — but
+it fixes a real artefact rather than a preference.
+
+**Two wires crossing composited into a third, darker value.** The fan out of one
+card overlaps along its trunk before it splits, so the shared stretch rendered
+**heavier than the branches it splits into** — a connector changing weight
+because another one happens to run under it. Opaque, the trunk and its branches
+are one line.
+
+### Still open
+
+A route can still cross a card it does not connect to. Nothing here avoids
+obstacles; it picks the axis with the most room and trusts the layout's
+`RANK_SEP`. Worth revisiting when a real stack gets dense enough to show it.
+
+## The node became a shell with a card in it
+
+Two frames from Jaseem's `Shape + Hierarchy Pass` — nodes at `1063:51565`,
+connectors at `1063:51590`.
+
+**A node is two boxes now.** A recessed shell with a raised card inside it and a
+few pixels of tray showing all the way round. A service's identity, its source
+and its state ARE the service, and sit on the card; its volumes are things
+ATTACHED to it, and sit in the tray below. The old card said the same thing with
+a divider and a flush-to-the-edge row, which is as far as one surface can go.
+
+| | |
+|---|---|
+| **The shell is always drawn** | Even empty. A shape that appeared only when something was docked would make two objects out of one card, and the board would have two silhouettes for one kind of thing |
+| **`--surface-shell`, and it is OPAQUE** | It shipped as `--well` straight — a 4% tint — and the canvas dot grid read through the tray. A node had a field of dots inside its own frame, so the shell looked like a hole cut in it rather than a surface under it |
+| **Attachments take the same shell at 180** | Size is the only thing left saying a secret is not a workload. Widening everything to 240 would have made the board one silhouette |
+| **The mount path is on the docked row** | It was a `title` attribute: a fact the card had, never showed, and only a mouse could find |
+
+**The identity row keeps its own order against the board.** The board draws
+glyph · name · dot with the dot flush right; here the dot stays beside the name
+and the far-right slot belongs to the state word. Jaseem's call when asked — the
+dot is a fact ABOUT the name, so it reads with it. On a Ready card the slot is
+empty and the row is exactly the board's.
+
+### Four questions were worth asking before any of it
+
+The board is a rest state. It draws no `Failed`, no ports line, no selection, no
+empty tray, and one card. Everything above came out of asking rather than
+guessing, and two of the four answers went against what the frame showed.
+
+### The connector, measured off the second frame
+
+| | Board | Shipped |
+|---|---|---|
+| Dot | 8 across, solid, 4 off the face | Solid, 4 off the face, **5 across** — 8 read as a bead on the end of the line |
+| Arrow | 5 long on a 5.77 base | **6 on a 7** — the board's was a shade under, judged live |
+| Tip | stops 5 short of the card | 5 short. The gap is what stops the head merging into the card's own hairline |
+| Line | 1px | **1.3** — it has been 1.4, 1.5, then 1, and this is the one that holds full `--wire` without becoming a second frame |
+
+**The wire stopped being an alpha.** *"Connector line should not have any
+opacity."* Same colour on screen; it fixes a real artefact. Two wires crossing
+composited into a third, darker value — and the fan out of one card overlaps
+along its trunk before it splits, so the shared stretch rendered **heavier than
+the branches it splits into**.
+
+### And the node's line is the hairline
+
+Both strokes were `--border-subtle` (6%) and the card's was a `border` — an
+exception taken to protect the tray's arithmetic from an outline drawn outside
+the box. Jaseem pulled both. On a canvas the node is the only object there is,
+and 6% is the rung for a surface whose edge is doing nothing because a shadow
+holds it up; measured against the dot grid, it was the lighter of the two marks.
+The tray now reads 3px rather than 4, which is the honest cost of §8 having no
+exception for arithmetic.
+
+**The ground dropped back in the same pass** — the dot grid to 82% of its
+measured value, both themes, because the objects standing on it just got firmer
+and a ground has to stay quieter than what stands on it.
+
+### The bug the board turned up
+
+`NODE_CARD` set `outline outline-1`, and §12 already records that
+`tailwind-merge` collapses those into one group and drops the first. Verified in
+the browser: the rendered class list came out `outline-1 outline-border` with the
+style class gone. It has been working anyway, because Tailwind v4's `outline-1`
+sets `outline-style` itself. The bare class is removed rather than left in — a
+class that is always stripped is a class that lies about what holds the line up.
+
+### A day of token work was destroyed getting here
+
+Reverting `frontend/src/index.css` with `git checkout --` to undo a two-line
+shadow experiment took the whole file back to HEAD, and that file carried
+unpushed work. `--text-column`, `--grid`, the two-layer `--shadow-sm` and
+`--edge-hairline` all went. Their values were recoverable — they had been read
+aloud earlier in the same session — but the prose beside them was not, and
+**`--shadow-2xl` is still lost**: §5 records the measured RESULT of its fix
+(edge 15.9 → 31.0 light) rather than the declaration, so every dialog is
+currently running the pre-fix single blur.
+
+There was no safety net. No stash, no APFS snapshot, no editor local-history
+entry, and both running Vite servers had already re-read the file. The rule that
+came out of it: **never revert a shared file to undo your own edit** — snapshot
+it first, or put the lines back by hand.
