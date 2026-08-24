@@ -112,15 +112,16 @@ export function ConnectionEdge({ id, source, target, data }: EdgeProps) {
 
   return (
     <>
-      {/* **1px, off the connector board** (node 1063:51590). It ran at 1.5 for
-          two passes on Jaseem's own earlier call and he settled on the board's
-          value; at full `--wire` — 34% ink, opaque — a single pixel still
-          measures firmer than the dot grid it crosses, which is the floor a
-          connection has to clear.
+      {/* **1.2px.** It has been 1.4, 1.5, the board's 1, and 1.3; this is where
+          it settled. At full `--wire` — 34% ink, opaque — it still measures
+          firmer than the dot grid it crosses, which is the floor a connection
+          has to clear, and it stays under the node's own hairline, which is the
+          ceiling: a wire between two cards should not draw a heavier line than
+          the cards.
 
           Full token, no second opacity. At 1.4px × 0.7 the old wire resolved to
           ~0.2 alpha and was lighter than the ground it was drawn on. */}
-      <BaseEdge id={id} path={geo.path} style={{ stroke: "var(--wire)", strokeWidth: 1.3 }} />
+      <BaseEdge id={id} path={geo.path} style={{ stroke: "var(--wire)", strokeWidth: 1.2 }} />
       {/* The port the line leaves from — SOLID, the way the board draws it, and
           floating clear of both the card and the line so nothing has to align. */}
       <circle cx={geo.portX} cy={geo.portY} r={PORT_RADIUS} fill="var(--wire)" />
