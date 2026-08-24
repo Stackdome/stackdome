@@ -22,8 +22,10 @@ import type React from "react";
  * source — if someone widens the charset on one side, that test fails rather
  * than a user discovering it.
  *
- * Keep in step with `pkg/validator/messages.go` and the patterns in
- * `pkg/validator/{stack,stackresource}`.
+ * Keep in step with the server's own rule in `pkg/validator/{stack,
+ * stackresource}`. A parity test used to hold the two together by reading the
+ * Go source; it went with the rename work this branch pulled out, so the pairing
+ * is a convention again rather than something enforced.
  */
 export const NAME_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
@@ -32,7 +34,7 @@ export const MAX_NAME_LENGTH = 63;
 /**
  * The rule at rest — **the server's wording, mirrored.**
  *
- * Kept complete because it is pinned to `pkg/validator/messages.go`, and the
+ * Kept complete because it mirrors what the server says, and the
  * server answers clients that have none of the browser's typing rules. A CLI
  * can still POST `My Service`, and the sentence it gets back has to name the
  * whole rule.

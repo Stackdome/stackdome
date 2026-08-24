@@ -81,8 +81,10 @@ func (v *stackValidator) ValidateForCreate(ctx context.Context, spec *models.Sta
 }
 
 func (v *stackValidator) ValidateForUpdate(ctx context.Context, existing *models.Stack, spec *models.Stack) *errors.ServiceError {
-	// Validate immutable fields. The NAME is not one of them — see
-	// validateStackRename.
+	// Validate immutable fields
+	if spec.Name != existing.Name {
+		return errors.BadRequest("stack name cannot be updated")
+	}
 	if spec.UserID != existing.UserID {
 		return errors.BadRequest("stack user cannot be updated")
 	}
@@ -92,7 +94,6 @@ func (v *stackValidator) ValidateForUpdate(ctx context.Context, existing *models
 
 	var ferrs []errors.FieldError
 
-	ferrs = append(ferrs, validateStackRename(existing, spec)...)
 	ferrs = append(ferrs, v.validateUniqueResourceNames(spec)...)
 
 	resourceErrs, serr := v.validateResources(ctx, spec)
@@ -127,21 +128,14 @@ func (v *stackValidator) ValidateConnections(ctx context.Context, spec *models.S
 }
 
 // ValidateShell runs only the rules scoped to the stack's own columns
-// (the rename rule and validateStackSettings), skipping validateResources,
+// (validateStackSettings), skipping validateResources,
 // validateUniqueResourceNames, and connection validation entirely. It backs
-// thin shell update (PUT /stacks/{id}), which never carries children — and
-// which is the path a RENAME arrives on, so it takes `existing` to compare
-// against.
-//
-// The name is still not re-validated when it is unchanged. It used to be
-// skipped outright, on the reasoning that the name was immutable anyway; the
-// real reason survives the name becoming mutable — a stack created before the
-// current name pattern would otherwise fail every unrelated update to a field
-// it has nothing to do with. Grandfathering is saying nothing about a name
-// nobody touched.
-func (v *stackValidator) ValidateShell(_ context.Context, existing *models.Stack, spec *models.Stack) *errors.ServiceError {
-	ferrs := validateStackRename(existing, spec)
-	ferrs = append(ferrs, validateStackSettings(spec)...)
+// thin shell update (PUT /stacks/{id}), which never carries children. Name
+// rules are create-only (ValidateForCreate): the name is immutable on every
+// update path, so re-validating it here would only brick updates of stacks
+// created before the current name rules.
+func (v *stackValidator) ValidateShell(_ context.Context, spec *models.Stack) *errors.ServiceError {
+	ferrs := validateStackSettings(spec)
 	ferrs = dedupeFieldErrors(ferrs)
 	if len(ferrs) > 0 {
 		return errors.ValidationFailed(ferrs)
@@ -205,41 +199,10 @@ func validateStackName(spec *models.Stack) []errors.FieldError {
 		return []errors.FieldError{{
 			Field:   fieldName,
 			Code:    errors.VErrStackNameInvalid,
-			Message: validator.NameRuleBroken,
+			Message: "stack name can only contain lowercase letters, numbers, and hyphens, and must start and end with a letter or number",
 		}}
 	}
 	return nil
-}
-
-// validateStackRename is the whole of the stack's rename rule.
-//
-// **A stack used to be unrenameable**, on a flat "the name is immutable" guard
-// that returned BadRequest the moment the two strings differed. It was the only
-// entity in the product with that rule: a project renames, and so does every
-// resource inside a stack.
-//
-// The reason it looked structural is that the stack's Kubernetes namespace is
-// built from the name — but only as a PREFIX. `namespaceNameForStack` produces
-// `<name>-<uuid>`, and the uuid is what makes it unique; the name contributes
-// readability and nothing else. The namespace column is `<-:create` and stays
-// exactly as it was, so a rename touches no cluster object at all. The stack
-// carries a namespace whose prefix is its old name, which is cosmetic and
-// visible only to someone reading `kubectl`.
-//
-// **The rules run only when the name actually changed.** That is deliberate and
-// load-bearing: stacks created before the current name pattern would otherwise
-// fail every unrelated update — the same reason ValidateShell skips name rules
-// entirely. An unchanged name is grandfathered by saying nothing about it.
-//
-// Uniqueness is NOT checked here. This validator is network-free by
-// construction (see the type comment) and uniqueness needs the project's other
-// stacks; the store's unique index on (project, name) is what enforces it, and
-// the service maps that conflict to a field error.
-func validateStackRename(existing *models.Stack, spec *models.Stack) []errors.FieldError {
-	if spec.Name == existing.Name {
-		return nil
-	}
-	return validateStackName(spec)
 }
 
 func validateStackSettings(spec *models.Stack) []errors.FieldError {

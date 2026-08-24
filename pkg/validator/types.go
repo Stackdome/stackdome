@@ -25,7 +25,7 @@ type StackValidator interface {
 	// (currently the settings limits), skipping resource, uniqueness, and
 	// connection validation entirely. Used for thin shell mutations, which
 	// never carry children.
-	ValidateShell(ctx context.Context, existing *models.Stack, spec *models.Stack) *errors.ServiceError
+	ValidateShell(ctx context.Context, spec *models.Stack) *errors.ServiceError
 }
 
 type PostgresAddonValidator interface {

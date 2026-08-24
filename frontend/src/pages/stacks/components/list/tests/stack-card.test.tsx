@@ -49,12 +49,6 @@ describe("DeployStackCard", () => {
     expect(screen.getByText(/^Last change /)).toBeTruthy();
   });
 
-  it("carries no chart — a sparkline with no axis reports nothing anyone can act on", () => {
-    renderCard({ ...healthy, deploy_history: [1, 0, 4, 2, 0, 1, 3] } as Stack);
-    expect(document.querySelector("[data-slot='deploy-sparkline']")).toBeNull();
-    expect(screen.queryByText(/deploys/i)).toBeNull();
-  });
-
   it("shows the trash action only when onDelete is wired", () => {
     const { rerender } = renderCard(baseStack);
     expect(screen.queryByLabelText("Delete tooljet")).toBeNull();

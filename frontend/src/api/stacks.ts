@@ -59,32 +59,6 @@ export async function updateStack(orgId: string, projectName: string, stackId: s
   return response.data;
 }
 
-/**
- * Rename a stack, and nothing else.
- *
- * Goes through the **shell** PUT, which updates the stack's own columns and
- * ignores any children in the payload — so a rename can never carry a stray
- * resource edit with it. The spec is sent because the request type requires
- * one; the server strips it.
- *
- * The name is the only mutable identity a stack has. Its Kubernetes namespace
- * keeps the old name as a prefix (it is `<name>-<uuid>` and create-only), which
- * is invisible outside `kubectl`, and the Stack CR under the old name is pruned
- * by the next apply.
- */
-export async function renameStack(
-  orgId: string,
-  projectName: string,
-  stack: Stack,
-  name: string,
-): Promise<Stack> {
-  return updateStack(orgId, projectName, stack.id as string, {
-    ...(stack as unknown as StackUpdateRequest),
-    name,
-    spec: { stack_resources: [] },
-  });
-}
-
 // Declarative reconcile: the only endpoint that accepts a full stack document
 // (resources/volumes/connections inline). POST/PUT stacks ignore inline children.
 export async function applyStack(orgId: string, projectName: string, stackId: string, input: StackUpdateRequest): Promise<Stack> {

@@ -405,25 +405,10 @@ func (s *stackService) InternalUpdateShellStack(ctx context.Context, ID string, 
 		return nil, err
 	}
 
-	// **A stack can be renamed**, and the CR that used to make that impossible
-	// is now cleaned up like any other.
-	//
-	// The old rule read: the cluster Stack CR is keyed by the name, so a rename
-	// would orphan the existing CR at the next release apply. That was true and
-	// it is exactly the problem `pruneStackResources` already solves one level
-	// down — a resource rename orphans a StackResource CR in the same way, and
-	// the apply reconciler lists by `LabelStackID` and deletes whatever is no
-	// longer current. The Stack CR carries the same label, so the same sweep
-	// covers it (see pruneStackCR).
-	//
-	// The NAMESPACE is untouched and stays `<old-name>-<uuid>`. That is
-	// cosmetic: `namespaceNameForStack` only uses the name as a readable
-	// prefix, and the uuid is what makes it unique.
+	// The stack name is immutable: the cluster Stack CR is keyed by it, so a
+	// rename would orphan the existing CR at the next release apply.
 	if spec.Name != existingStack.Name {
-		conflicting, _ := s.stackStore.GetByNameAndProjectID(ctx, spec.Name, existingStack.ProjectID)
-		if conflicting != nil && conflicting.ID != existingStack.ID {
-			return nil, errors.Conflict("stack with name '%s' already exists", spec.Name)
-		}
+		return nil, errors.BadRequest("stack name cannot be updated")
 	}
 
 	// set namespace
@@ -440,7 +425,7 @@ func (s *stackService) InternalUpdateShellStack(ctx context.Context, ID string, 
 	spec.Volumes = nil
 	spec.Connections = nil
 
-	if verr := s.stackValidator.ValidateShell(ctx, existingStack, spec); verr != nil {
+	if verr := s.stackValidator.ValidateShell(ctx, spec); verr != nil {
 		return nil, verr
 	}
 

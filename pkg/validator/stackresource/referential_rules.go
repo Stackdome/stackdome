@@ -14,7 +14,7 @@ import (
 // DB lookups only - never the network. A non-nil ServiceError means a
 // lookup failed for a reason other than not-found and validation was
 // aborted.
-func (v *stackResourceValidator) validateReferences(ctx context.Context, stack *models.Stack, resource *models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
+func (v *validator) validateReferences(ctx context.Context, stack *models.Stack, resource *models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
 	var errs []errors.FieldError
 
 	volumeErrs, serr := v.validateMountedVolumes(ctx, stack, resource)
@@ -44,7 +44,7 @@ func (v *stackResourceValidator) validateReferences(ctx context.Context, stack *
 	return errs, nil
 }
 
-func (v *stackResourceValidator) validateMountedVolumes(ctx context.Context, stack *models.Stack, resource *models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
+func (v *validator) validateMountedVolumes(ctx context.Context, stack *models.Stack, resource *models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
 	var errs []errors.FieldError
 	payload := stackVolumeIndexOf(stack)
 	for i, m := range resource.VolumeMounts {
@@ -105,7 +105,7 @@ func stackVolumeIndexOf(stack *models.Stack) stackVolumeIndex {
 // empty, by ID - first against the stack's own declared volumes, then via
 // the DB seam. Returns false (no error) on a 404 from the DB lookup path;
 // any other error is propagated so the caller aborts validation.
-func (v *stackResourceValidator) volumeExists(ctx context.Context, payload stackVolumeIndex, namespace, name, id string) (bool, *errors.ServiceError) {
+func (v *validator) volumeExists(ctx context.Context, payload stackVolumeIndex, namespace, name, id string) (bool, *errors.ServiceError) {
 	if name != "" {
 		if _, ok := payload.byName[name]; ok {
 			return true, nil
@@ -147,7 +147,7 @@ func volumeRef(name, id string) string {
 	return id
 }
 
-func (v *stackResourceValidator) validateEnvSecrets(ctx context.Context, stack *models.Stack, resource *models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
+func (v *validator) validateEnvSecrets(ctx context.Context, stack *models.Stack, resource *models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
 	if resource.ExecutionConfig == nil {
 		return nil, nil
 	}
@@ -170,7 +170,7 @@ func (v *stackResourceValidator) validateEnvSecrets(ctx context.Context, stack *
 	return errs, nil
 }
 
-func (v *stackResourceValidator) validateCredentialRefs(ctx context.Context, stack *models.Stack, resource *models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
+func (v *validator) validateCredentialRefs(ctx context.Context, stack *models.Stack, resource *models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
 	var errs []errors.FieldError
 	if id := resource.RegistryPullCredentialID(); id != "" {
 		if _, serr := v.credentials.RegistryCredentials(ctx, stack.OrganisationID, resource.ImageConfig.Image,
@@ -210,7 +210,7 @@ func (v *stackResourceValidator) validateCredentialRefs(ctx context.Context, sta
 	return errs, nil
 }
 
-func (v *stackResourceValidator) validateExposedPortDomain(ctx context.Context, stack *models.Stack, resource *models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
+func (v *validator) validateExposedPortDomain(ctx context.Context, stack *models.Stack, resource *models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
 	exposedIdx := -1
 	for i, p := range resource.Ports {
 		if p.ExposedToPublic {

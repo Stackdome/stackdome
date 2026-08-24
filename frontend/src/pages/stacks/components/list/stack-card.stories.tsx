@@ -457,28 +457,6 @@ export const HoverIsAWashNotALift: Story = {
   },
 }
 
-/**
- * The card carries **no chart**, and `deploy_history` being present must not
- * conjure one.
- *
- * A fortnight of deploy volume was tried here and cut: fourteen bars with no
- * axis, no baseline and no unit cannot distinguish eleven deploys from four, so
- * it reported "there has been activity" and nothing anyone acts on. It drew the
- * *shape* of substance without supplying any.
- */
-export const HistoryDrawsNoChart: Story = {
-  args: {
-    stack: makeStack({
-      ...released,
-      deploy_history: [3, 1, 0, 4, 2, 0, 0, 6, 1, 2, 0, 3, 5, 1],
-    } as Partial<Stack>),
-    onDelete: fn(),
-  },
-  play: async ({ canvas, canvasElement }) => {
-    await expect(canvas.queryByText(/deploys/i)).toBeNull()
-    await expect(canvasElement.querySelector("[data-slot='deploy-sparkline']")).toBeNull()
-  },
-}
 
 /**
  * What the card carries instead: every component **by name**, and nothing else.

@@ -34,7 +34,7 @@ import {
   resourceRenameFingerprint,
   volumeRenameFingerprint,
 } from "@/pages/stacks/lib/stack-diff";
-import { applyStackByName, getStackById, deleteStack, getStacksByOrg, renameStack } from "@/api/stacks";
+import { applyStackByName, getStackById, deleteStack, getStacksByOrg } from "@/api/stacks";
 import { stackNameConflictError } from "@/pages/stacks/lib/stack-name-conflict";
 import { createStackFetchGate } from "@/pages/stacks/lib/canvas/stack-fetch-gate";
 import { draftToSnapshot } from "@/pages/stacks/lib/draft-sync/draft-snapshot";
@@ -457,45 +457,22 @@ export default function CanvasEditorPage() {
   }, [setStacks]);
 
   /**
-   * **The title in the sheet header renames the stack.**
+   * **Renaming a saved stack is not in this branch, and the reason is the
+   * server.**
    *
-   * Registered rather than rendered: the header is drawn once by `AppLayout`
-   * and does not know which page is under it, so a page that CAN be renamed
-   * says so by handing up a handler. Nothing registers on a draft — it has no
-   * server-side stack yet, and its name is the field on the canvas — and
-   * nothing registers for a viewer without write access, so the affordance is
-   * absent rather than present-and-refusing.
+   * `main` refuses a rename on the update path — "stack name cannot be updated"
+   * — because the cluster Stack CR is keyed by name and a rename would orphan
+   * it. Allowing it needs validator rules, a rename path in `stack_service` and
+   * the release worker following the new name, which is a backend change, and
+   * this is a design pass. Shipping the affordance without them would put a
+   * title on screen that refuses every edit.
    *
-   * Rejecting with a message is how a name is refused; `RenameableTitle` shows
-   * it under the field and keeps you in it.
+   * **The mechanism stays and is deliberately dormant.** `registerRename`,
+   * `RenameableTitle` and the header wiring are all here; nothing registers a
+   * handler for a stack, so §12a's "absent rather than present-and-refusing"
+   * holds — the crumb is a plain title. When the backend lands, the rename is
+   * this one effect.
    */
-  useEffect(() => {
-    if (isNewStack || !id || !savedStack || !defaultProjectName || !canWriteStack) return;
-    const orgId = getCurrentOrganizationId();
-    if (!orgId) return;
-
-    return registerRename(`/stacks/${id}`, async (name: string) => {
-      const fresh = await renameStack(orgId, defaultProjectName, savedStack, name).catch((e) => {
-        // The server's own words — a name conflict and a broken name rule are
-        // different problems and only it knows which one this is.
-        throw new Error(getErrorMessage(e) || "That name could not be saved.");
-      });
-      lastAppliedStackRef.current = fresh;
-      setFetchedStack(fresh);
-      setStacks((prev) => prev.map((st) => (st.id === fresh.id ? fresh : st)));
-      // The crumb is the title, so it has to be the thing that changes.
-      setCustomLabel(`/stacks/${id}`, fresh.name || "Stack Details");
-    });
-  }, [
-    isNewStack,
-    id,
-    savedStack,
-    defaultProjectName,
-    canWriteStack,
-    registerRename,
-    setStacks,
-    setCustomLabel,
-  ]);
 
   /** Push-style writer for a stack payload the caller just received from its
    *  own mutation response (initial load). Fetch-then-apply flows must use
