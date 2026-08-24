@@ -95,15 +95,21 @@ describe("TimelineNode", () => {
         <Wrap release={{ id: "r1", sequence: 12, state: "Released" } as StackRelease} isOpen onRollback={onRollback} />
       </ConfirmProvider>,
     );
-    await userEvent.click(screen.getByRole("button", { name: /Rollback to this/ }));
+    // main put this on the detail card; this branch keeps it in the row's
+    // actions menu, so the menu opens first. The GUARDS main added — confirm
+    // before rolling back, and never on the live release — are the half that
+    // came across, and they are what these two specs actually pin.
+    await userEvent.click(screen.getByRole("button", { name: /release actions/i }));
+    await userEvent.click(await screen.findByText("Rollback to this"));
     expect(onRollback).not.toHaveBeenCalled();
     await userEvent.click(await screen.findByRole("button", { name: /^Roll back$/ }));
     await waitFor(() => expect(onRollback).toHaveBeenCalledWith("r1"));
   });
 
-  it("offers no rollback on the live release — it is already serving traffic", () => {
+  it("offers no rollback on the live release — it is already serving traffic", async () => {
     render(<Wrap release={{ id: "r1", sequence: 13, state: "Released" } as StackRelease} isOpen isLive />);
-    expect(screen.queryByRole("button", { name: /Rollback to this/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /release actions/i }));
+    expect(screen.queryByText("Rollback to this")).not.toBeInTheDocument();
   });
 
   it("renders the historical post-mortem for a non-active node when open", async () => {

@@ -6,7 +6,9 @@ import { ReleaseState } from "../release-states";
 
 export interface ReleaseMenuProps {
   release: StackRelease;
-  onRollback: (id: string) => void;
+  /** Omitted when this release cannot be rolled back TO — the live one already
+   *  is what rolling back would produce. */
+  onRollback?: (id: string) => void;
   onCancel: (id: string) => void;
 }
 
@@ -20,7 +22,9 @@ export function ReleaseMenu({ release, onRollback, onCancel }: ReleaseMenuProps)
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[180px]">
-        {state === ReleaseState.Released && release.id && <DropdownMenuItem onClick={() => onRollback(release.id!)}>Rollback to this</DropdownMenuItem>}
+        {state === ReleaseState.Released && release.id && onRollback && (
+          <DropdownMenuItem onClick={() => onRollback(release.id!)}>Rollback to this</DropdownMenuItem>
+        )}
         {/* Only a Pending release can be cancelled — once InProgress the backend
             rejects it (the rollout is already applied to the cluster). */}
         {state === ReleaseState.Pending && release.id && (

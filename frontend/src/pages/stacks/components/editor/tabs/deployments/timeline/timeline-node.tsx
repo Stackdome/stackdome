@@ -4,6 +4,7 @@ import type { Stack } from "@/api/stacks";
 import type { EditSessionTab } from "@/pages/stacks/hooks/use-stack-edit-session";
 import { causeLabel, releaseGitSha, formatDuration, formatReleaseTime } from "../derive";
 import { ReleaseState, isDeploying } from "../release-states";
+import { useConfirm } from "@/components/branded/confirm";
 import type { ReleaseDetail } from "../use-release-detail";
 import { ReleaseMenu } from "./release-menu";
 import { ReleasePostMortem } from "./release-post-mortem";
@@ -38,7 +39,28 @@ export function TimelineNode(props: TimelineNodeProps) {
   const { release, prevReleaseId, prevSeq, detail, isOpen, onToggle, onRollback, onCancel, isActive, isLive, stack, logContext, onJumpToResource, refetchReleases } = props;
   const id = release.id ?? "";
   const state = release.state ?? "";
+  const confirm = useConfirm();
   const deploying = isDeploying(state);
+
+  /**
+   * **Rolling back asks first, and it is never offered on the live release.**
+   * Both came from main at the merge. It put the control on the detail card;
+   * this branch keeps it in the row's actions menu, so only the guards move —
+   * and they are the half that matters. A rollback redeploys an old snapshot
+   * over what is serving traffic, which is not something a single click should
+   * do; and offering to roll back TO the release already live is an act with no
+   * effect, which §11 says should not be offered at all rather than offered and
+   * ignored.
+   */
+  const canRollback = state === ReleaseState.Released && !!release.id && !isLive;
+  const requestRollback = async () => {
+    const ok = await confirm({
+      title: `Roll back to release #${release.sequence}?`,
+      description: "The stack redeploys this release's snapshot, replacing what is currently live.",
+      confirmLabel: "Roll back",
+    });
+    if (ok) onRollback(id);
+  };
 
   const sha = releaseGitSha(release);
   const dur = formatDuration(release.rendered_at, release.completed_at);
@@ -97,7 +119,7 @@ export function TimelineNode(props: TimelineNodeProps) {
             onClick={(e) => e.stopPropagation()}
             className="flex-none opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
           >
-            <ReleaseMenu release={release} onRollback={onRollback} onCancel={onCancel} />
+            <ReleaseMenu release={release} onRollback={canRollback ? requestRollback : undefined} onCancel={onCancel} />
           </span>
           <span className="min-w-0 flex-1" />
         </div>

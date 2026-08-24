@@ -42,6 +42,13 @@ const meta = {
   // what the next one renders. Each story starts from the documented default.
   beforeEach: () => {
     localStorage.removeItem('stackdome.view.stacks')
+    // **And the tour flag, for the same reason.** An empty list offers the
+    // welcome tour, which is a modal — it marks the page inert, so a story
+    // asserting what the empty PAGE shows finds nothing behind it. Whether it
+    // fired depended on which story had run first and happened to complete the
+    // tour, which is the leak the line above already documents. These stories
+    // are about the page; the tour has its own.
+    localStorage.setItem('stackdome.onboarding-tour.done', '1')
   },
 } satisfies Meta<typeof StacksPage>
 

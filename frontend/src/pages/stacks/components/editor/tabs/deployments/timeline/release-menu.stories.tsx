@@ -21,7 +21,8 @@ export const Default: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Release actions' }))
     const body = within(canvasElement.ownerDocument.body)
     await expect(await body.findByText('Rollback to this')).toBeInTheDocument()
-    await expect(body.getByText('Copy release ID')).toBeInTheDocument()
+    // Copy release ID went with main's removal of `onCopyId` from the whole
+    // deployments chain at the merge.
     await userEvent.click(body.getByText('Rollback to this'))
     await expect(args.onRollback).toHaveBeenCalledWith('rel-12')
   },

@@ -212,12 +212,34 @@ export function useCanvasDraft({
     [confirm, applyDraft, currentDraft, onCloseDrawers],
   );
 
+  /**
+   * **Remove from the drawer, and it asks first — it did not.**
+   *
+   * This deleted a service on one click and left every `depends_on` and env var
+   * pointing at a name that no longer existed. The canvas context menu ran the
+   * confirmed, reference-repairing path all along; the drawer's own button ran
+   * this, and nothing said so. Found when main's delete suite came across at the
+   * merge: it expects a confirm here, because on main both routes were one.
+   *
+   * The index/name split is main's and it is load-bearing. A NAMED service that
+   * nothing shares a name with can be deleted by name, which is what lets the
+   * references be repaired. An unnamed one, or one of several holding the same
+   * name, has only its index as identity — and a reference to a name a sibling
+   * still holds stays valid, so nothing should be repaired at all.
+   */
   const removeResource = useCallback(
     (idx: number) => {
+      const draft = currentDraft();
+      const name = draft.resources[idx]?.name;
+      const shared = !!name && draft.resources.filter((r) => r.name === name).length > 1;
+      if (name && !shared) {
+        void onRequestDeleteResource(name);
+        return;
+      }
       session.updateResources((prev) => prev.filter((_, i) => i !== idx));
       onCloseDrawers();
     },
-    [session, onCloseDrawers],
+    [session, onCloseDrawers, currentDraft, onRequestDeleteResource],
   );
 
   const onCreateVolume = useCallback(
