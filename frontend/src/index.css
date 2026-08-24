@@ -262,8 +262,38 @@
      on it have a tint to climb out of. Sampled off the board's own render:
      `rgb(251, 251, 248)`, to the byte. */
   --surface-canvas: #FBFBF8;
-  --wire: rgba(25, 23, 20, 0.28);
+  /* The canvas connection. Ink, and DARKER than the hairline family it was
+     briefly bound to — a wire has to clear the dot grid it crosses, and that
+     grid is `--grid` at 0.248. `--border` (0.11) and `--border-strong` (0.18)
+     both sit under it, so a connection drawn at either reads as fainter than
+     the ground, which is the one thing a connection may never be.
+
+     0.34 is the first rung that is unmistakably a drawn line over the field
+     without becoming a second frame. The accent blue was tried here and pulled
+     — Jaseem, Aug 2026: too strong. It also spent the system's state mark (§5)
+     on decoration.
+
+     **OPAQUE, via `color-mix` rather than an alpha** — Jaseem, Aug 2026. It is
+     the same colour on screen and it stops a real artefact: with an alpha, two
+     wires crossing composite into a THIRD, darker value, and the fan out of one
+     card overlaps along its trunk, so the shared stretch rendered heavier than
+     the branches it splits into. A connector may not change weight because
+     another one happens to run under it.
+
+     Mixed against `--surface-canvas`, and it follows `--line-ink`, so it flips
+     with the theme on its own. */
+  --wire: color-mix(in srgb, rgb(var(--line-ink)) 34%, var(--surface-canvas));
   --surface-node: #FFFFFF;
+  /* **The node SHELL — the tray a card sits in, and it is opaque.**
+     Jaseem, Aug 2026: *no transparent bg, make the bg solid so the dots don't
+     poke through*. It was `--well` straight, and `--well` is a 4% tint: the
+     canvas dot grid read through the tray, so a node had a field of dots inside
+     its own frame and the shell looked like a hole rather than a surface.
+     A node is an object ON the canvas — the canvas does not continue through it.
+
+     Same 4% ink as `--well`, flattened onto the ground it sits on, so it stays
+     the recessed rung of the ladder while being a colour rather than a film. */
+  --surface-shell: color-mix(in srgb, var(--foreground) 4%, var(--surface-canvas));
   /* Dot-grid tokens: dots need far firmer alpha than hairlines — a 1-1.5px
      disc at hairline alpha is invisible (see website design-system gotchas).
      
@@ -278,7 +308,14 @@
      `rgb(173,173,170)` and the 2px one at `rgb(105,105,102)` — 0.35 and 0.65
      effective, which is a 0.5 paint antialiased and a 0.75 stack antialiased.
      The alphas below are the paint, not the peaks. */
-  --grid: rgba(25, 23, 20, 0.5);
+  /* RESTORED — this and the three tokens below were lost when I reverted this
+     file on 24 Aug 2026; the values are exact, the prose that stood with them
+     is not recovered. See the note in docs/design/redesign-log.md.
+
+     The dot is painted at a fraction of its token: measured, a 2px disc lands
+     ~0.749 of the alpha it is given, so 0.248 is what puts a visible dot on the
+     canvas without the field reading as ruled. */
+  --grid: rgb(var(--line-ink) / 0.248);
   --grid-bold: rgba(25, 23, 20, 0.5);
 
   /* ── Terminal / code surfaces — dark in both themes ── */
@@ -325,7 +362,12 @@
   --drawer-enter: 260ms;
   --drawer-exit: 180ms;
 
-  --shadow-sm: 0 1px 2px rgba(16, 20, 26, 0.035);                                                  /* raised */
+  /* RESTORED. §5: every rung is a CONTACT layer (small, dark, seats the object)
+     plus an AMBIENT one (large, soft, the light's falloff) — one blur can only
+     draw one of them. As a single blur `sm` measured 2.0 of edge luminance and
+     reached ONE pixel: a shadow in the stylesheet and nothing on the screen.
+     Two layers put it at 6.0 and 5px. */
+  --shadow-sm: 0 3px 8px -3px rgba(16, 20, 26, 0.05), 0 1px 1px rgba(16, 20, 26, 0.08);            /* raised */
   --shadow-md: 0 4px 16px -5px rgba(16, 20, 26, 0.06), 0 2px 6px -3px rgba(16, 20, 26, 0.035);     /* small overlay */
   --shadow-lg: 0 20px 50px -22px rgba(16, 20, 26, 0.11), 0 8px 22px -12px rgba(16, 20, 26, 0.06);  /* popover, dropdown */
   --shadow-2xl: 0 28px 64px -20px rgba(16, 20, 26, 0.14);                                          /* modal */
@@ -349,6 +391,10 @@
      more layer, named for its one caller, so §5's ladder still has four
      entries. Jaseem's call, 16 Aug 2026. */
   --shadow-toast: var(--shadow-lg), 0 2px 6px -1px rgba(16, 20, 26, 0.10);
+  /* RESTORED. §12 — a raised surface gets its own edge as well as its shadow:
+     `shadow-[var(--edge-hairline),var(--shadow-lg)]` on menus, popovers and
+     tooltips, `--shadow-2xl` on dialogs. */
+  --edge-hairline: 0 0 0 1px var(--border-subtle);
 
   /* **`elevation/lg` cast sideways, for the one panel whose only free edge is
      vertical.** The inspector is a *region* of the sheet, not a float over it:
@@ -567,14 +613,20 @@
      read as a black hole, because dark grounds are compressed into a far
      shorter range and there is no room for a fourth rung under the frame. */
   --surface-canvas: var(--card);
-  --wire: rgba(255, 253, 247, 0.3);
   --surface-node: var(--card);           /* = --card, the way light has it */
+  /* Dark's `--well` is 16% BLACK, not an ink tint — a dark ground has no room
+     to go lighter, so its recess is cut rather than washed. Flattened here for
+     the same reason as light. `--wire` needs no dark value: it mixes
+     `--line-ink` into `--surface-canvas`, and both are already redefined here. */
+  --surface-shell: color-mix(in srgb, black 16%, var(--surface-canvas));
   /* Dark is not the light alpha flipped: white dots on the near-black field
      separate less, so they run firmer than the light values.
      **Unchanged when light was raised to 0.24/0.34** — measured over the dark
      sheet these already clear 16.1 and 23.9 L, against light's 17.0 and 24.2.
      The two modes were already matched; only light was short. */
-  --grid: rgba(255, 253, 247, 0.2);
+  /* RESTORED. Dark is not the light alpha flipped: white dots on a near-black
+     field separate less, so they run firmer than the light values. */
+  --grid: rgba(255, 253, 247, 0.177);
   --grid-bold: rgba(255, 253, 247, 0.3);
 
   /* ── Terminal / code surfaces — dark in both themes ── */
@@ -582,7 +634,8 @@
   --code-fg: #A9A399;
 
   /* Same four rungs, same aliases — see the light block. */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  /* RESTORED — 2.9 → 5.1 of edge, 2px → 9px of reach. */
+  --shadow-sm: 0 3px 8px -3px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(0, 0, 0, 0.6);
   --shadow-md: 0 6px 18px -5px rgba(0, 0, 0, 0.55), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.7), 0 10px 24px -10px rgba(0, 0, 0, 0.55);
   --shadow-2xl: 0 28px 64px -20px rgba(0, 0, 0, 0.7);
@@ -679,6 +732,7 @@
   --color-control: var(--control);
   --color-control-hover: var(--control-hover);
   --color-surface-node: var(--surface-node);
+  --color-surface-shell: var(--surface-shell);
   --color-surface-canvas: var(--surface-canvas);
 
   --color-code-bg: var(--code-bg);
@@ -708,6 +762,12 @@
      Weights: 400 default · 500 interactive/emphasis · 600 titles. Only three. */
   --text-label: 11px;
   --text-label--line-height: 16px;
+  /* RESTORED. `text-column` is used by the stack list's headers, DataList, the
+     deployments timeline, the split console and the canvas node's summary —
+     without this token the utility is never generated and all of them silently
+     fall back to inherited size. */
+  --text-column: 11.5px;
+  --text-column--line-height: 16px;
   --text-meta: 12px;
   --text-meta--line-height: 16px;
   --text-body: 13px;
