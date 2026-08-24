@@ -8,12 +8,12 @@ import {
 } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getStacksByOrg } from "@/api/stacks";
-// **`deleteStack` is NOT imported, and that is a gap this merge inherits.**
-// main's list page could delete a stack from a row menu; this branch removed
-// row menus in favour of drawers, and no drawer picked the action back up — so
-// after the merge nothing in the UI calls `deleteStack`, though the API client
-// still exports it. Flagged rather than fixed here: where a stack gets deleted
-// from is a design decision, not a merge one.
+// **`deleteStack` is not imported here, and that is deliberate.** main deleted
+// a stack from a row menu on this page; the row-actions sweep took menus off
+// every list, and deleting a stack moved to the editor's ⋮ — a danger zone in a
+// popover, where §10 says an act that lands on every service, volume and
+// preview built from the stack belongs. The list opens a stack; the stack's own
+// screen is where you destroy it.
 import { buildHelloStackSeed } from "@/pages/stacks/lib/onboarding/hello-stack-seed";
 import {
   startCanvasStage,
