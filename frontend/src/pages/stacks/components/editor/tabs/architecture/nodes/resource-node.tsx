@@ -37,12 +37,14 @@ function ResourceNodeImpl({ data, selected }: NodeProps<ResourceFlowNode>) {
 
   const portLines = data.details ?? [];
 
-  // **Every node at rest draws the same line, and it is `--border-subtle`.**
+  // **Every node at rest draws the same line, and it is `--border` — the
+  // hairline.**
   //
-  // 6%, not 11%: the ladder splits by job — `--border-subtle` (6%) for a surface
-  // that floats and carries its own shadow, `--border` (11%) for a hairline doing
-  // the separating on its own, `--border-strong` (18%) for hover and emphasis.
-  // The shell carries a shadow, so the line is not what holds it off the ground.
+  // 11%, not the 6% `--border-subtle` it shipped with for one pass. Jaseem's
+  // call: on a canvas the node is the only thing there is, and 6% is the rung
+  // for a surface whose edge is doing nothing on its own because a shadow is
+  // holding it up. Measured against a `--grid` at 20%, a 6% stroke was a lighter
+  // mark than the dots the node sits on.
   //
   // **A dirty node used to take `strong`, and that was the same fact twice.**
   // Two cards side by side — one `Failed`, one `Edited` — drew visibly different
@@ -58,7 +60,7 @@ function ResourceNodeImpl({ data, selected }: NodeProps<ResourceFlowNode>) {
     ? NODE_CARD.selected
     : dirty === "removed"
       ? "outline-danger/50"
-      : "outline-border-subtle";
+      : "outline-border";
 
   return (
     <div

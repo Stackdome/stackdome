@@ -313,9 +313,14 @@
      is not recovered. See the note in docs/design/redesign-log.md.
 
      The dot is painted at a fraction of its token: measured, a 2px disc lands
-     ~0.749 of the alpha it is given, so 0.248 is what puts a visible dot on the
-     canvas without the field reading as ruled. */
-  --grid: rgb(var(--line-ink) / 0.248);
+     ~0.749 of the alpha it is given, so 0.248 was what put a visible dot on the
+     canvas without the field reading as ruled.
+
+     **Now 0.203 — 82% of that**, Jaseem, Aug 2026. The node cards took the
+     `--border` hairline in the same pass, and the ground has to stay quieter
+     than the objects standing on it. Dark takes the same 82% (0.177 → 0.145) so
+     the two themes keep the relationship they were measured into. */
+  --grid: rgb(var(--line-ink) / 0.203);
   --grid-bold: rgba(25, 23, 20, 0.5);
 
   /* ── Terminal / code surfaces — dark in both themes ── */
@@ -626,7 +631,7 @@
      The two modes were already matched; only light was short. */
   /* RESTORED. Dark is not the light alpha flipped: white dots on a near-black
      field separate less, so they run firmer than the light values. */
-  --grid: rgba(255, 253, 247, 0.177);
+  --grid: rgba(255, 253, 247, 0.145);
   --grid-bold: rgba(255, 253, 247, 0.3);
 
   /* ── Terminal / code surfaces — dark in both themes ── */

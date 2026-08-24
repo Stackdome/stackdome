@@ -49,7 +49,7 @@ function AttachmentNodeImpl({ data, selected }: NodeProps<AttachmentFlowNode>) {
         NODE_CARD.shell,
         NODE_CARD.cursor,
         NODE_CARD.clip,
-        selected ? NODE_CARD.selected : "outline-border-subtle",
+        selected ? NODE_CARD.selected : "outline-border",
         !selected && NODE_CARD.hover,
       )}
     >

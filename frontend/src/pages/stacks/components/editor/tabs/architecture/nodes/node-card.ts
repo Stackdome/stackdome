@@ -36,16 +36,25 @@ export const NODE_CARD = {
    * over a dot grid a 4% film let the field read straight through the tray, so
    * the shell looked like a hole cut in the node rather than a surface under it.
    */
-  shell: "rounded-xl bg-surface-shell p-1 outline outline-1 shadow-md transition-[outline-color]",
+  shell: "rounded-xl bg-surface-shell p-1 outline-1 shadow-md transition-[outline-color]",
   /**
-   * **The card, inside the shell.** `border`, not `outline` — the one place the
-   * product's stroke rule (§8, the hairline is an outline) is deliberately
-   * inverted, and the reason is arithmetic: an outline is drawn OUTSIDE the box,
-   * so it would eat a quarter of the 4px of shell that is the entire visual idea
-   * here. Inside the box, `box-sizing: border-box` keeps the card 232 wide and
-   * the gap reads as the 4 it is.
+   * **The card, inside the shell.** An `outline`, like every other stroke in the
+   * product (§8) — it shipped for one pass as a `border` to protect the tray's
+   * arithmetic, and Jaseem pulled that: the rule is the rule.
+   *
+   * **The tray now reads 3, not 4.** An outline is drawn OUTSIDE the box, so it
+   * takes a pixel of the shell's 4px padding on every side. That is the honest
+   * cost of the rule; the alternative was one surface in the product measuring
+   * itself differently from all the others.
+   *
+   * **No bare `outline` beside `outline-1`.** §12 records that `tailwind-merge`
+   * collapses the two into one group and drops the first — verified here, the
+   * rendered class list comes out `outline-1 outline-border` with the style
+   * class gone. It works anyway because Tailwind v4's `outline-1` sets
+   * `outline-style` itself, but a class that is always stripped is a class that
+   * lies about what is holding the line up.
    */
-  card: "rounded-lg border border-border-subtle bg-surface-node",
+  card: "rounded-lg bg-surface-node outline-1 outline-border",
   /**
    * **Hover lifts the LINE, never the fill.** The same rule the `outline` button
    * follows, and here it is load-bearing: selection is a line too, so a hover

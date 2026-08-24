@@ -71,7 +71,7 @@ export function ConnectionEdge({ id, source, target, data }: EdgeProps) {
 
           Full token, no second opacity. At 1.4px × 0.7 the old wire resolved to
           ~0.2 alpha and was lighter than the ground it was drawn on. */}
-      <BaseEdge id={id} path={geo.path} style={{ stroke: "var(--wire)", strokeWidth: 1 }} />
+      <BaseEdge id={id} path={geo.path} style={{ stroke: "var(--wire)", strokeWidth: 1.3 }} />
       {/* The port the line leaves from — SOLID, the way the board draws it, and
           floating clear of both the card and the line so nothing has to align. */}
       <circle cx={geo.portX} cy={geo.portY} r={PORT_RADIUS} fill="var(--wire)" />
