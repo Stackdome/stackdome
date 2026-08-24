@@ -51,22 +51,22 @@ describe("connectionEdgeGeometry", () => {
   });
 
   it("keeps the radius when the offset is too small for two quarter turns — it sweeps LESS", () => {
-    // 40px of offset cannot hold two 48px quarters. The old fillet answered by
-    // cutting the radius to 20; now the arcs stay 48 and turn through a
-    // shallower angle instead.
-    const [first, second] = arcs(connectionEdgeGeometry(rect(0, 0), rect(700, 40)).path);
+    // 20px of offset cannot hold two full quarter turns at a 16px radius. The
+    // old fillet answered by cutting the radius; now the arcs keep it and turn
+    // through a shallower angle instead.
+    const [first, second] = arcs(connectionEdgeGeometry(rect(0, 0), rect(700, 20)).path);
     expect(first.radius).toBeCloseTo(ARC_RADIUS);
     expect(second.radius).toBeCloseTo(ARC_RADIUS);
-    // Both ends sit on y=52 and y=92 — the first arc ends exactly halfway,
+    // Both ends sit on y=52 and y=72 — the first arc ends exactly halfway,
     // which is where the second one starts. No straight between.
-    expect(first.y).toBeCloseTo(72);
-    expect(second.y).toBeCloseTo(92);
+    expect(first.y).toBeCloseTo(62);
+    expect(second.y).toBeCloseTo(72);
   });
 
   it.each([
-    ["barely offset", rect(700, 60)],
-    ["under two radii", rect(700, 130)],
-    ["exactly two radii", rect(700, 96)],
+    ["barely offset", rect(700, 58)],
+    ["under two radii", rect(700, 70)],
+    ["exactly two radii", rect(700, 84)],
     ["well past two radii", rect(700, 500)],
     ["offset the other way", rect(700, -400)],
   ])("turns at ONE radius whatever the offset (%s)", (_case, target) => {

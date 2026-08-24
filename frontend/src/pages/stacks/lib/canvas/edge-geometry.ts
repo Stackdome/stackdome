@@ -17,16 +17,19 @@ export interface NodeRect {
  * IS the character of the connector: at 16 it reads as a wire that got bent,
  * at 48 as one that was routed.
  *
- * **48, not 64.** Both read well alone. 48 is the largest radius at which more
- * than one edge on a real board actually GETS it: a turn needs twice the
- * radius of perpendicular offset to stay a full quarter, and the canvas lays
- * ranks out at `RANK_SEP` 140. Past 48 most edges are running a clamped radius
- * and "one radius everywhere" stops being true in the only place it matters —
- * on screen.
+ * **16.** It ran at 48 for a pass, which is a generous sweep and reads as a
+ * routed cable; Jaseem cut it to a corner. At 16 the turn is small enough that
+ * the eye reads the connector as two straight runs meeting, and the arc is
+ * doing nothing more than taking the hard point off the join — which is what a
+ * bend on a 1.3px line should be.
  *
- * It shrinks only where a route physically cannot hold it — see `fillet`.
+ * **It also makes the promise cheap to keep.** Two arcs need `2 · R sin θ` of
+ * space along the route; at 16 that is at most 32, which every pair of cards on
+ * a `RANK_SEP` 140 board can hold. At 48 the last-resort clamp was reachable.
+ * See `arcRoute` for the mechanism that keeps the radius fixed and varies the
+ * sweep instead.
  */
-export const ARC_RADIUS = 48;
+export const ARC_RADIUS = 16;
 
 /**
  * **Arrowhead length.** Jaseem's connector board (`Shape + Hierarchy Pass`,
