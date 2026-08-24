@@ -3,107 +3,127 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { ExternalLink, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ResourceNodeData } from "@/pages/stacks/lib/canvas/graph-from-connections";
-import type { StatusVariant } from "@/components/branded/status-variant";
 import { NodeGlyph } from "./node-glyph";
+import { DOT_CLASS, DOT_SIZE, DRAFT_WORD, NODE_CARD, STATE_WORD, STATE_WORD_CLASS } from "./node-card";
 
 export type ResourceFlowNode = Node<ResourceNodeData, "resource">;
 
 /** Edges are derived, not hand-drawn, so the handles are anchors only. */
 const HIDDEN_HANDLE = { opacity: 0, pointerEvents: "none" as const };
 
-/** Live status dot per variant. Ready breathes (slow pulse = heartbeat);
- *  pending uses the standard motion pulse; error/info/neutral hold still. */
-const DOT_CLASS: Record<StatusVariant, string> = {
-  ready: "bg-success animate-breathe",
-  pending: "bg-warn animate-pulse",
-  error: "bg-danger",
-  info: "bg-info",
-  neutral: "bg-fg-muted",
-};
-
 /**
- * **Every state that asks you to act says its word.**
+ * The workload node — a **shell with a card in it**, from Jaseem's Figma
+ * (`Shape + Hierarchy Pass`, node 1063:51565).
  *
- * A 6px dot is legal as the fast read and illegal as the only one — colour is
- * not a channel everybody has, and "amber" does not tell you whether to wait or
- * to do something. So the second line carries the word for every state except
- * the one that wants nothing from you: a Ready card shows its image, because
- * "Ready" on four cards at once is four words nobody reads.
+ * **What the shape says.** A service's identity, its source and its state are
+ * the service: they sit on the raised white card. Its volumes are things
+ * ATTACHED to it: they sit in the recessed shell below the card, in the 4px of
+ * tray that runs all the way round. The old card said the same thing with a
+ * divider and a flush-to-the-edge row, which is as far as one surface can go.
+ *
+ * **The identity row keeps its own order, not the board's.** The board draws
+ * glyph · name · dot with the dot flush right; here the dot stays beside the
+ * name and the far-right slot belongs to the state word — Jaseem's call when
+ * asked. The dot is a fact ABOUT the name, so it reads with it; the word is a
+ * separate fact and takes the end of the row. On a Ready card the slot is empty
+ * and the row is exactly the board's.
  */
-const STATE_WORD: Partial<Record<StatusVariant, string>> = {
-  pending: "Pending",
-  error: "Failed",
-  neutral: "Not deployed",
-  info: "Unknown",
-};
-
 function ResourceNodeImpl({ data, selected }: NodeProps<ResourceFlowNode>) {
   const dirty = data.dirtyState;
-  // Unsaved changes read as a left accent stripe + tinted border; removal is
-  // crimson + dimmed. Selection wins the border colour with an ink wash, not
-  // an orange ring — brand orange stays reserved for wires/eyebrows/mark.
-  // No orange anywhere on the canvas — a draft mark is ink, the same as
-  // selection, because "changed" is a fact about the card and not an alarm.
-  const stripeColor = dirty === "removed" ? "bg-danger" : dirty ? "bg-foreground/40" : null;
-  const borderClass = selected
-    ? "outline-border-strong"
+  // A draft fact outranks a live one — see `DRAFT_WORD`. There is no stripe: the
+  // 3px ink bar down the left edge was this same fact, drawn a second time.
+  const stateWord = (dirty && DRAFT_WORD[dirty]) ?? STATE_WORD[data.dotVariant];
+  const wordClass = dirty && DRAFT_WORD[dirty] ? "text-fg-muted" : STATE_WORD_CLASS[data.dotVariant];
+
+  const portLines = data.details ?? [];
+
+  // **Every node at rest draws the same line, and it is `--border-subtle`.**
+  //
+  // 6%, not 11%: the ladder splits by job — `--border-subtle` (6%) for a surface
+  // that floats and carries its own shadow, `--border` (11%) for a hairline doing
+  // the separating on its own, `--border-strong` (18%) for hover and emphasis.
+  // The shell carries a shadow, so the line is not what holds it off the ground.
+  //
+  // **A dirty node used to take `strong`, and that was the same fact twice.**
+  // Two cards side by side — one `Failed`, one `Edited` — drew visibly different
+  // borders, and nothing on either explained why the EDITED one was the heavier.
+  // `DRAFT_WORD` already carries the draft state in the header slot. Worse, 18%
+  // is the HOVER token, so a node with unsaved changes at rest was drawn
+  // identically to a clean one with the pointer on it.
+  //
+  // `removed` keeps its tone. Red is not a weight — it is the instrument the
+  // `Failed` word already uses, and a node on its way out has to say so in a way
+  // 60% opacity cannot do on its own.
+  const outlineClass = selected
+    ? NODE_CARD.selected
     : dirty === "removed"
       ? "outline-danger/50"
-      : dirty
-        ? "outline-border-strong"
-        : "outline-border";
-
-  const stateWord = STATE_WORD[data.dotVariant];
+      : "outline-border-subtle";
 
   return (
     <div
       className={cn(
-        // **240, and `outline` rather than `border`.** The card is elevated, and
-        // §8's rule is that a stroke on something that floats sits OUTSIDE the
-        // box — a border would eat 2px of the 240 and put the text column half a
-        // pixel off the grid on every card.
-        //
-        // **`shadow-md` is the one elevation content gets.** A hairline cannot
-        // separate a white card from a near-white ground: it needs 49% ink to
-        // clear 3:1 against it, measured — which is a black line, not a
-        // hairline. A canvas is a space, so the objects in it are the one
-        // content allowed to float. Do not generalise this past the canvas.
-        "relative w-[240px] cursor-grab overflow-hidden rounded-lg outline outline-1 bg-surface-node shadow-md transition-colors",
-        borderClass,
-        // Ink, not orange. A drop target is a state of the card, and the canvas
-        // spends no orange — the wash and the ring are the same ink the
-        // selection uses, one rung firmer.
-        data.dropTarget && "outline-foreground/40 ring-[3px] ring-foreground/10",
+        // 240 wide. See `node-card.ts` for the shell, the card inside it, and
+        // why the shell's stroke is an outline while the card's is a border.
+        "relative w-[240px]",
+        NODE_CARD.shell,
+        NODE_CARD.cursor,
+        NODE_CARD.clip,
+        outlineClass,
+        !selected && NODE_CARD.hover,
+        // **The ladder's tokens, not hand-mixed ink.** Selection, hover and the
+        // drop target were `foreground/[0.06]`, `/[0.03]` and `/40` + `ring/10`
+        // — four alphas invented at the call site for states §4 already defines
+        // and names. No orange anywhere: a drop target is a state of the node,
+        // and the canvas spends no orange.
+        data.dropTarget && "outline-border-strong ring-[3px] ring-[var(--wash-selected)]",
         dirty === "removed" && "opacity-60",
       )}
     >
-      {selected && <span className="pointer-events-none absolute inset-0 bg-foreground/[0.06]" aria-hidden />}
-      {stripeColor && <span className={cn("absolute inset-y-0 left-0 w-[3px]", stripeColor)} aria-hidden />}
       <Handle type="target" position={Position.Left} style={HIDDEN_HANDLE} isConnectable={false} />
       <Handle type="source" position={Position.Right} style={HIDDEN_HANDLE} isConnectable={false} />
 
-      {/* Board geometry: glyph at 12, the text column at 36, the kind label's
-          right edge at 228. The dot sits AFTER the name — it is a fact about
-          this service, so it reads with the name rather than in front of it. */}
-      <div className="px-3 pb-3 pt-0">
-        <div className="flex h-8 items-center gap-2">
-          <NodeGlyph glyph={data.glyph} brandSlug={data.brandSlug} size={16} className="size-4 shrink-0 text-fg-2" />
+      {/* The card. 16 top and bottom, a 4px gap between the two rows — the
+          board's 72-tall block, exactly. */}
+      <div className={cn(NODE_CARD.card, NODE_CARD.padY, "flex flex-col gap-1")}>
+        {/* Board geometry: glyph at 16, the text column at 40. */}
+        <div className={cn("flex items-center", NODE_CARD.inset, NODE_CARD.gap)}>
+          <NodeGlyph
+            glyph={data.glyph}
+            brandSlug={data.brandSlug}
+            size={16}
+            className={cn(NODE_CARD.glyph, "shrink-0 text-fg-2")}
+          />
           <span className="min-w-0 truncate text-body font-medium text-foreground">{data.name}</span>
-          <span className={cn("size-1.5 shrink-0 rounded-full", DOT_CLASS[data.dotVariant])} aria-hidden />
-          <span className="ml-auto shrink-0 text-meta text-fg-muted">
-            {data.kindLabel}
-          </span>
+          <span className={cn(DOT_SIZE, "shrink-0 rounded-full", DOT_CLASS[data.dotVariant])} aria-hidden />
+          {/* **The state, where the kind word used to be.** The kind is gone:
+              the glyph carries it, and on a branded card it was the word `Redis`
+              sitting beside the Redis logo. Empty on a Ready card. */}
+          {stateWord && (
+            <span className={cn("ml-auto shrink-0 text-meta", wordClass)}>
+              {stateWord}
+            </span>
+          )}
         </div>
-        <div className="pl-6 text-meta text-muted-foreground">
-          {/* The word, not the dot alone. Ready is the exception: it wants
-              nothing from you, so the line spends itself on the image instead. */}
-          <div className={cn("truncate", !stateWord && data.summaryIsRef && "font-mono")}>
-            {stateWord ?? data.summary}
-          </div>
-          {(data.details ?? []).length > 0 && (
+        {/* 40 to reach the name's column, 16 on the right — the board's
+            `pl-[40px] pr-[16px]`, and `text-column` (11.5) is what it sets this
+            line in. It was `text-meta` (12), half a step heavier than the
+            secondary line it is. */}
+        <div className="pl-10 pr-4 text-column text-fg-muted">
+          {/* **The source line survives every state.** It used to be replaced by
+              the state word, so a card stopped saying what it was built from at
+              the one moment that matters.
+
+              **And it is not mono.** `summaryIsRef` set `font-mono` for any
+              image reference — but `buildSummary` strips the registry and the
+              org before it gets here, so what lands is always a bare
+              `redis:7`. A tag is not a URL, and by construction this string can
+              never be one, so the mono could only ever have been decoration. */}
+          <div className="truncate">{data.summary}</div>
+          {portLines.length > 0 && (
             <div className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5">
               <span>ports:</span>
-              {(data.details ?? []).map((line, i) => {
+              {portLines.map((line, i) => {
                 const url = data.portUrls?.[line.port];
                 const sep = i > 0 && <span className="opacity-40">·</span>;
                 if (!url) {
@@ -138,20 +158,34 @@ function ResourceNodeImpl({ data, selected }: NodeProps<ResourceFlowNode>) {
         </div>
       </div>
 
+      {/* **Docked volumes live in the tray, under the card.** */}
       {data.volumes.map((v) => (
-        <div
+        // **A button, because it opens something.** It was a `<div>` wearing
+        // `cursor-pointer`: no role, no accessible name, and no way to reach it
+        // from a keyboard — the mount path was in a `title` that only a mouse
+        // could find. The name alone does not say what clicking does, so the
+        // label says it.
+        <button
           key={v.name}
-          title={v.mountPath}
+          type="button"
+          aria-label={`Open volume ${v.name}`}
           data-volume-chip={v.name}
-          // **Indent only — no rule, no fill.** A docked volume is part of this
-          // service, and a card divided by a line reads as two objects stacked.
-          // The 24 indent is the same text column the summary uses, so the
-          // volume lines up under what it belongs to.
-          className="flex cursor-pointer items-center gap-2 px-3 pb-2 pl-6 transition-colors hover:bg-foreground/[0.03]"
+          // **32 tall, and the mount path is now on the row.** The board puts it
+          // at the right end of the row (`column/400`, muted) — it used to be a
+          // `title` attribute, which is a fact the card HAS and does not show,
+          // and only a mouse could ever find it.
+          className={cn(
+            "flex h-8 w-full items-center text-left transition-colors hover:bg-[var(--wash-hover)]",
+            NODE_CARD.inset,
+            NODE_CARD.gap,
+          )}
         >
-          <HardDrive className="size-3.5 shrink-0 text-fg-muted" aria-hidden />
-          <span className="truncate text-meta text-fg-2">{v.name}</span>
-        </div>
+          <HardDrive className={cn(NODE_CARD.glyph, "shrink-0 text-fg-muted")} aria-hidden />
+          <span className="min-w-0 flex-1 truncate text-meta text-fg-2">{v.name}</span>
+          {v.mountPath && (
+            <span className="shrink-0 text-column text-fg-muted">{v.mountPath}</span>
+          )}
+        </button>
       ))}
     </div>
   );
