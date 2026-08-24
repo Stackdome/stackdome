@@ -37,7 +37,7 @@ var _ = Describe("validateReferences", func() {
 
 		domains := oneDomainLister(ctrl)
 
-		v := &validator{volumes: volumes, domains: domains}
+		v := &stackResourceValidator{volumes: volumes, domains: domains}
 		r := validImageResource()
 		r.VolumeMounts = []*models.VolumeMount{{SourceVolumeName: "data", TargetPath: "/data"}}
 
@@ -54,7 +54,7 @@ var _ = Describe("validateReferences", func() {
 			GetByVolumeNameAndNamespace(gomock.Any(), "data", "ns-1").
 			Return(nil, errors.GeneralError("db unavailable"))
 
-		v := &validator{volumes: volumes}
+		v := &stackResourceValidator{volumes: volumes}
 		r := validImageResource()
 		r.VolumeMounts = []*models.VolumeMount{{SourceVolumeName: "data", TargetPath: "/data"}}
 
@@ -76,7 +76,7 @@ var _ = Describe("validateReferences", func() {
 
 		domains := oneDomainLister(ctrl)
 
-		v := &validator{volumes: volumes, domains: domains}
+		v := &stackResourceValidator{volumes: volumes, domains: domains}
 		stack := testStack()
 		stack.Volumes = []*models.Volume{{Name: "data"}}
 		r := validImageResource()
@@ -96,7 +96,7 @@ var _ = Describe("validateReferences", func() {
 
 		domains := oneDomainLister(ctrl)
 
-		v := &validator{volumes: volumes, domains: domains}
+		v := &stackResourceValidator{volumes: volumes, domains: domains}
 		stack := testStack()
 		stack.Volumes = []*models.Volume{{Name: "data"}} // "bogus" is not declared here
 		r := validImageResource()
@@ -113,7 +113,7 @@ var _ = Describe("validateReferences", func() {
 
 		domains := oneDomainLister(ctrl)
 
-		v := &validator{volumes: volumes, domains: domains}
+		v := &stackResourceValidator{volumes: volumes, domains: domains}
 		stack := testStack()
 		stack.Volumes = []*models.Volume{{ID: "vol-1", Name: "data", Namespace: "ns-1"}}
 		r := validImageResource()
@@ -133,7 +133,7 @@ var _ = Describe("validateReferences", func() {
 
 		domains := oneDomainLister(ctrl)
 
-		v := &validator{secrets: secrets, domains: domains}
+		v := &stackResourceValidator{secrets: secrets, domains: domains}
 		r := validImageResource()
 		r.ExecutionConfig = &models.ExecutionConfig{Env: []models.EnvVar{{
 			Name: "KEY", SecretKeyRef: &models.EnvSecretRef{SecretName: "api-secrets", Key: "k"},
@@ -152,7 +152,7 @@ var _ = Describe("validateReferences", func() {
 			GetByName(gomock.Any(), "org-1", "api-secrets").
 			Return(nil, errors.GeneralError("db unavailable"))
 
-		v := &validator{secrets: secrets}
+		v := &stackResourceValidator{secrets: secrets}
 		r := validImageResource()
 		r.ExecutionConfig = &models.ExecutionConfig{Env: []models.EnvVar{{
 			Name: "KEY", SecretKeyRef: &models.EnvSecretRef{SecretName: "api-secrets", Key: "k"},
@@ -170,7 +170,7 @@ var _ = Describe("validateReferences", func() {
 			ListByOrganisationID(gomock.Any(), "org-1").
 			Return([]*models.OrganisationDomain{}, nil)
 
-		v := &validator{domains: domains}
+		v := &stackResourceValidator{domains: domains}
 		r := validImageResource()
 		r.Ports[0].ExposedToPublic = true
 
@@ -234,7 +234,7 @@ var _ = Describe("validateReferences", func() {
 			ListByOrganisationID(gomock.Any(), "org-1").
 			Return(nil, errors.GeneralError("db unavailable"))
 
-		v := &validator{domains: domains}
+		v := &stackResourceValidator{domains: domains}
 		r := validImageResource()
 		r.Ports[0].ExposedToPublic = true
 
@@ -253,7 +253,7 @@ var _ = Describe("validateReferences", func() {
 
 		domains := oneDomainLister(ctrl)
 
-		v := &validator{credentials: mockCreds, domains: domains}
+		v := &stackResourceValidator{credentials: mockCreds, domains: domains}
 		r := validImageResource()
 		r.ImageConfig.RegistryCredentialID = "cred-1"
 
@@ -271,7 +271,7 @@ var _ = Describe("validateReferences", func() {
 				credentials.RegistryAuthSelector{RegistryCredentialID: "cred-1"}).
 			Return(nil, errors.GeneralError("db unavailable"))
 
-		v := &validator{credentials: mockCreds}
+		v := &stackResourceValidator{credentials: mockCreds}
 		r := validImageResource()
 		r.ImageConfig.RegistryCredentialID = "cred-1"
 
@@ -288,7 +288,7 @@ var _ = Describe("validateReferences", func() {
 				credentials.RegistryAuthSelector{RegistryCredentialID: "cred-2"}).
 			Return(nil, errors.NotFound("registry credential not found"))
 
-		v := &validator{credentials: mockCreds}
+		v := &stackResourceValidator{credentials: mockCreds}
 		r := validBuildResource()
 		r.BuildConfig.PushRegistryCredentialID = "cred-2"
 		r.BuildConfig.BuildImageRepository.ExternalImageRef = "registry.example.com/app"
@@ -306,7 +306,7 @@ var _ = Describe("validateReferences", func() {
 			InternalGetByID(gomock.Any(), "gi-1").
 			Return(nil, errors.NotFound("git integration not found"))
 
-		v := &validator{gitIntegrations: gitIntegrations}
+		v := &stackResourceValidator{gitIntegrations: gitIntegrations}
 		r := validBuildResource()
 		r.BuildConfig.SourceContext.Git.IntegrationID = "gi-1"
 
@@ -323,7 +323,7 @@ var _ = Describe("validateReferences", func() {
 			InternalGetByID(gomock.Any(), "gi-1").
 			Return(&models.GitIntegration{ID: "gi-1", OrganisationID: "org-other"}, nil)
 
-		v := &validator{gitIntegrations: gitIntegrations}
+		v := &stackResourceValidator{gitIntegrations: gitIntegrations}
 		r := validBuildResource()
 		r.BuildConfig.SourceContext.Git.IntegrationID = "gi-1"
 
@@ -340,7 +340,7 @@ var _ = Describe("validateReferences", func() {
 			InternalGetByID(gomock.Any(), "gi-1").
 			Return(nil, errors.GeneralError("db unavailable"))
 
-		v := &validator{gitIntegrations: gitIntegrations}
+		v := &stackResourceValidator{gitIntegrations: gitIntegrations}
 		r := validBuildResource()
 		r.BuildConfig.SourceContext.Git.IntegrationID = "gi-1"
 
@@ -358,7 +358,7 @@ var _ = Describe("validateReferences", func() {
 
 		domains := oneDomainLister(ctrl)
 
-		v := &validator{volumes: volumes, domains: domains}
+		v := &stackResourceValidator{volumes: volumes, domains: domains}
 		r := validImageResource()
 		r.VolumeMounts = []*models.VolumeMount{{SourceVolumeID: "vol-bogus", TargetPath: "/data"}}
 
@@ -377,7 +377,7 @@ var _ = Describe("validateReferences", func() {
 
 		domains := oneDomainLister(ctrl)
 
-		v := &validator{volumes: volumes, domains: domains}
+		v := &stackResourceValidator{volumes: volumes, domains: domains}
 		r := validImageResource()
 		r.VolumeMounts = []*models.VolumeMount{{SourceVolumeID: "vol-1", TargetPath: "/data"}}
 
@@ -395,7 +395,7 @@ var _ = Describe("validateReferences", func() {
 
 		domains := oneDomainLister(ctrl)
 
-		v := &validator{volumes: volumes, domains: domains}
+		v := &stackResourceValidator{volumes: volumes, domains: domains}
 		r := validImageResource()
 		r.VolumeMounts = []*models.VolumeMount{{SourceVolumeID: "vol-1", TargetPath: "/data"}}
 
@@ -411,7 +411,7 @@ var _ = Describe("validateReferences", func() {
 			GetByID(gomock.Any(), "vol-1").
 			Return(nil, errors.GeneralError("db unavailable"))
 
-		v := &validator{volumes: volumes}
+		v := &stackResourceValidator{volumes: volumes}
 		r := validImageResource()
 		r.VolumeMounts = []*models.VolumeMount{{SourceVolumeID: "vol-1", TargetPath: "/data"}}
 
@@ -427,7 +427,7 @@ var _ = Describe("validateReferences", func() {
 			GetByVolumeNameAndNamespace(gomock.Any(), "build-src", "ns-1").
 			Return(nil, errors.NotFound("volume not found"))
 
-		v := &validator{volumes: volumes}
+		v := &stackResourceValidator{volumes: volumes}
 		r := validBuildResourceWithVolumeSource()
 		r.BuildConfig.SourceContext.Volume.SourceVolumeName = "build-src"
 
@@ -444,7 +444,7 @@ var _ = Describe("validateReferences", func() {
 			GetByID(gomock.Any(), "vol-bogus").
 			Return(nil, errors.NotFound("volume not found"))
 
-		v := &validator{volumes: volumes}
+		v := &stackResourceValidator{volumes: volumes}
 		r := validBuildResourceWithVolumeSource()
 		r.BuildConfig.SourceContext.Volume.SourceVolumeName = ""
 		r.BuildConfig.SourceContext.Volume.SourceVolumeID = "vol-bogus"
@@ -478,7 +478,7 @@ var _ = Describe("validateReferences", func() {
 				credentials.RegistryAuthSelector{RegistryCredentialID: "cred-1"}).
 			Return(&credentials.ResolvedRegistryCredential{}, nil)
 
-		v := &validator{volumes: volumes, secrets: secrets, domains: domains, credentials: mockCreds}
+		v := &stackResourceValidator{volumes: volumes, secrets: secrets, domains: domains, credentials: mockCreds}
 		r := validImageResource()
 		r.ImageConfig.RegistryCredentialID = "cred-1"
 		r.Ports[0].ExposedToPublic = true

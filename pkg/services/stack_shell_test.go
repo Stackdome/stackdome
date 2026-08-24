@@ -56,7 +56,10 @@ func TestInternalUpdateShellStack_RejectsInvalidSettings(t *testing.T) {
 	verr := errors.ValidationFailed([]errors.FieldError{{
 		Field: "spec.settings", Code: errors.VErrStackSettingsInvalid, Message: "release_retention_limit must be at most 50",
 	}})
-	mockValidator.EXPECT().ValidateShell(ctx, spec).Return(verr)
+	// Three arguments since this branch gave ValidateShell the EXISTING stack to
+	// compare the spec against; the production caller has passed three all along
+	// and only this expectation lagged.
+	mockValidator.EXPECT().ValidateShell(ctx, existing, spec).Return(verr)
 	// No WithTransaction / UpdateShellWithTx expectations: any write attempt
 	// fails via gomock's controller.
 
@@ -91,8 +94,8 @@ func TestInternalUpdateShellStack_ValidSettings_Updates(t *testing.T) {
 	}
 
 	mockStackStore.EXPECT().GetByID(ctx, stackID).Return(existing, nil)
-	mockValidator.EXPECT().ValidateShell(ctx, spec).
-		DoAndReturn(func(_ context.Context, got *models.Stack) *errors.ServiceError {
+	mockValidator.EXPECT().ValidateShell(ctx, existing, spec).
+		DoAndReturn(func(_ context.Context, _ *models.Stack, got *models.Stack) *errors.ServiceError {
 			// Children are stripped before validation; the shell path never
 			// validates (or writes) them.
 			assert.Nil(t, got.StackResources)
@@ -112,13 +115,17 @@ func TestInternalUpdateShellStack_ValidSettings_Updates(t *testing.T) {
 	assert.Equal(t, updated, got)
 }
 
-// TestInternalUpdateShellStack_RenameRejected asserts the stack name is
-// immutable on the shell path: the cluster Stack CR is keyed by name, so a
-// rename would orphan it at the next release apply.
-func TestInternalUpdateShellStack_RenameRejected(t *testing.T) {
+// TestInternalUpdateShellStack_RenameOntoTakenName asserts a rename is refused
+// when another stack in the project already holds the name.
+//
+// **This asserted the opposite until now** — that the name was immutable on the
+// shell path — and it was still asserting it after the branch made a stack
+// renameable, because it had never been run. Renaming is allowed; taking a
+// sibling's name is not, and the refusal lands before validation or any write.
+func TestInternalUpdateShellStack_RenameOntoTakenName(t *testing.T) {
 	ctx := context.Background()
 	stackID := "stack-123"
-	existing := &models.Stack{ID: stackID, Name: "demo", Namespace: "ns-demo"}
+	existing := &models.Stack{ID: stackID, Name: "demo", Namespace: "ns-demo", ProjectID: "proj-1"}
 	spec := &models.Stack{Name: "renamed"}
 
 	ctrl := gomock.NewController(t)
@@ -133,11 +140,15 @@ func TestInternalUpdateShellStack_RenameRejected(t *testing.T) {
 	}
 
 	mockStackStore.EXPECT().GetByID(ctx, stackID).Return(existing, nil)
-	// No ValidateShell / WithTransaction expectations: the rename is rejected
-	// before validation or any write.
+	// A DIFFERENT stack already answers to the new name.
+	mockStackStore.EXPECT().
+		GetByNameAndProjectID(ctx, "renamed", "proj-1").
+		Return(&models.Stack{ID: "stack-999", Name: "renamed"}, nil)
+	// No ValidateShell / WithTransaction expectations: the conflict is caught
+	// before validation and before any write.
 
 	got, serr := svc.InternalUpdateShellStack(ctx, stackID, spec)
 	assert.Nil(t, got)
 	assert.NotNil(t, serr)
-	assert.Equal(t, "stack name cannot be updated", serr.Reason)
+	assert.Contains(t, serr.Reason, "already exists")
 }

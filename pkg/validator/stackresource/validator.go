@@ -56,7 +56,7 @@ type ValidatorSpec struct {
 	PlatformBaseDomain string
 }
 
-type validator struct {
+type stackResourceValidator struct {
 	volumes            volumeGetter
 	secrets            secretGetter
 	domains            domainLister
@@ -88,7 +88,7 @@ func NewValidator(spec ValidatorSpec) Validator {
 	if spec.GitIntegrations == nil {
 		panic("stackresource.NewValidator: GitIntegrations is required")
 	}
-	return &validator{
+	return &stackResourceValidator{
 		volumes:            spec.Volumes,
 		secrets:            spec.Secrets,
 		domains:            spec.Domains,
@@ -98,7 +98,7 @@ func NewValidator(spec ValidatorSpec) Validator {
 	}
 }
 
-func (v *validator) Validate(ctx context.Context, stack *models.Stack, resource *models.StackResource, siblings []*models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
+func (v *stackResourceValidator) Validate(ctx context.Context, stack *models.Stack, resource *models.StackResource, siblings []*models.StackResource) ([]errors.FieldError, *errors.ServiceError) {
 	var errs []errors.FieldError
 	errs = append(errs, validateInputRules(resource)...)
 
