@@ -3,6 +3,7 @@ import { ExternalLink, Copy, Check } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { StatusVariant } from "@/components/branded/status-variant";
+import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 
 const COPY_FLASH_MS = 1400;
@@ -39,20 +40,6 @@ function hostOf(url: string): string {
   } catch {
     return url;
   }
-}
-
-async function copyText(text: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-  // Clipboard API unavailable (insecure context): textarea fallback.
-  const ta = document.createElement("textarea");
-  ta.value = text;
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand("copy");
-  ta.remove();
 }
 
 function useCopyFlash() {
@@ -235,9 +222,13 @@ function EndpointChip({ endpoint: { service, url, port, variant, urls }, reveal,
           aria-hidden
           className="flex items-center text-foreground/90 hover:text-foreground"
         >
-          <span className="flex max-w-0 items-center overflow-hidden whitespace-nowrap opacity-0 transition-[max-width,opacity] duration-200 group-focus-within:max-w-[360px] group-focus-within:opacity-100 group-hover:max-w-[360px] group-hover:opacity-100">
-            <span className="px-1 text-border">|</span>
-            <span className="pr-1 hover:underline">{hostOf(url)}</span>
+          {/* 0fr→1fr animates to the hostname's own width; a max-width would
+              need a fixed ceiling and clip the long ones. */}
+          <span className="grid grid-cols-[0fr] overflow-hidden opacity-0 transition-[grid-template-columns,opacity] duration-200 group-focus-within:grid-cols-[1fr] group-focus-within:opacity-100 group-hover:grid-cols-[1fr] group-hover:opacity-100">
+            <span className="flex min-w-0 items-center overflow-hidden whitespace-nowrap">
+              <span className="px-1 text-border">|</span>
+              <span className="pr-1 hover:underline">{hostOf(url)}</span>
+            </span>
           </span>
         </a>
       )}

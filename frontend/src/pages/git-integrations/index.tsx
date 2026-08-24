@@ -13,6 +13,7 @@ import {
 import { getErrorMessage } from "@/api/client";
 import { getCurrentOrganizationId } from "@/lib/common";
 import { useBreadcrumb } from "@/hooks/use-breadcrumb";
+import { useGithubConnect } from "@/hooks/use-github-connect";
 import { GIT_INTEGRATION_TYPE_GITHUB_APP } from "@/lib/git-integrations";
 import { IntegrationsErrorState, IntegrationsEmptyState } from "./components/page-states";
 import {
@@ -35,11 +36,44 @@ export default function GitIntegrationsPage() {
   const confirm = useConfirm();
   const [wizardOpen, setWizardOpen] = useState(false);
   const { setCustomLabel, setPathLoading } = useBreadcrumb();
+  const github = useGithubConnect();
+
 
   useEffect(() => {
     setCustomLabel("/git-integrations", "Git providers");
     setPathLoading("/git-integrations", loading);
   }, [setCustomLabel, setPathLoading, loading]);
+
+  // A failed install callback lands back here with the reason in the URL
+  // (the popup itself relays it to its opener and closes).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const setupError = params.get("setup_error");
+    if (!setupError) return;
+    toast({ title: "GitHub App install failed", description: setupError, variant: "destructive" });
+    params.delete("setup_error");
+    const query = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (query ? `?${query}` : ""));
+  }, [toast]);
+
+  // "Add GitHub account" runs the same connect flow as the wizard; the hook
+  // polls until the new installation is bound.
+  useEffect(() => {
+    if (github.state === "connected") void refresh();
+    if (github.state === "error" && github.error) {
+      toast({ title: "GitHub App install failed", description: github.error, variant: "destructive" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [github.state, github.error]);
+
+  /** Install the GitHub App on ANOTHER account. main's, kept whole — it hung
+   *  off the row menu this branch replaced with a drawer, so it is handed to
+   *  the drawer instead. Platform rows only: a BYO row carries `install_url`
+   *  and links straight out to GitHub. */
+  const addAccount = () => {
+    void github.connect();
+    toast({ title: "Finish the install in the GitHub popup", description: "Pick the account or organization to add." });
+  };
 
   const refresh = useCallback(async () => {
     const orgId = getCurrentOrganizationId();
@@ -151,6 +185,7 @@ export default function GitIntegrationsPage() {
       {/* The list stays on screen behind it — which is the whole reason one
           object's detail is a drawer and not a page (§13). */}
       <GitIntegrationDrawer
+        onAddAccount={addAccount}
         integration={openFor}
         onOpenChange={(o) => !o && setOpenFor(null)}
         onUpdated={() => void refresh()}

@@ -1,6 +1,13 @@
 DOCKER ?= docker
+OPENAPI_GENERATOR_IMAGE ?= openapitools/openapi-generator-cli:v6.0.1
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
+
+PROMETHEUS_VERSION ?= 3.13.2
+PROMETHEUS_RELEASE_URL := https://github.com/prometheus/prometheus/releases/download/v$(PROMETHEUS_VERSION)
+PROMTOOL := bin/promtool
+PROMTOOL_OS ?= $(shell go env GOHOSTOS)
+PROMTOOL_ARCH ?= $(shell go env GOHOSTARCH)
 
 # Image config
 IMAGE_REPO ?= quay.io/stackdome/stackdome
@@ -9,11 +16,28 @@ IMAGE_TAG ?= $(IMAGE_REPO):$(VERSION)
 
 generate:
 	rm -rf pkg/api/openapi
-	$(DOCKER) run -v ${PWD}:/local:rw openapitools/openapi-generator-cli:v6.0.1 generate -i /local/config/openapi/stackdome_api.yaml -g go -o /local/pkg/api/openapi
+	# Run as the invoking user so generated files are not root-owned on Linux
+	# (root-owned output breaks the gofmt step and the CI regen check).
+	$(DOCKER) run --user $(shell id -u):$(shell id -g) -v ${PWD}:/local:rw $(OPENAPI_GENERATOR_IMAGE) generate -i /local/config/openapi/stackdome_api.yaml -g go -o /local/pkg/api/openapi
 	gofmt -w pkg/api/openapi
 	rm pkg/api/openapi/go.mod
 	rm pkg/api/openapi/go.sum
 .PHONY: generate
+
+docs-openapi:
+	cp pkg/api/openapi/api/openapi.yaml docs/openapi.yaml
+.PHONY: docs-openapi
+
+docs-openapi-source-check:
+	@$(DOCKER) run --rm -v ${PWD}:/local:ro --entrypoint /bin/sh $(OPENAPI_GENERATOR_IMAGE) -c '\
+		docker-entrypoint.sh generate -i /local/config/openapi/stackdome_api.yaml -g go -o /tmp/stackdome-openapi >/dev/null && \
+		cmp -s /tmp/stackdome-openapi/api/openapi.yaml /local/pkg/api/openapi/api/openapi.yaml' || \
+		(echo "pkg/api/openapi is stale; run make generate" && exit 1)
+.PHONY: docs-openapi-source-check
+
+docs-openapi-check: docs-openapi-source-check
+	cmp -s pkg/api/openapi/api/openapi.yaml docs/openapi.yaml || (echo "docs/openapi.yaml is stale; run make docs-openapi" && exit 1)
+.PHONY: docs-openapi-check
 
 frontend:
 	corepack enable pnpm
@@ -25,7 +49,7 @@ frontend:
 
 MOCKGEN := $(shell go env GOPATH)/bin/mockgen
 mocks: $(MOCKGEN)
-	go generate ./pkg/stores/... ./pkg/logger/... ./pkg/validator/... ./pkg/services/... ./pkg/auth/... ./pkg/worker/stack/... ./pkg/worker/release/... ./pkg/clients/... ./pkg/credentials/... ./pkg/clustermanager/... ./pkg/handlers/... ./pkg/resourceaccess/...
+	go generate ./pkg/controllers ./pkg/stores/... ./pkg/logger/... ./pkg/validator/... ./pkg/services/... ./pkg/auth/... ./pkg/worker/stack/... ./pkg/worker/release/... ./pkg/clients/... ./pkg/credentials/... ./pkg/clustermanager/... ./pkg/handlers/... ./pkg/resourceaccess/...
 .PHONY: mocks
 
 $(MOCKGEN):
@@ -38,6 +62,51 @@ fmt:
 lint: ## Run golangci-lint (installs pinned version if needed)
 	mage lint
 .PHONY: lint
+
+promtool: ## Install the pinned promtool release into bin/
+	@set -eu; \
+	case "$(PROMTOOL_OS)/$(PROMTOOL_ARCH)" in \
+		darwin/amd64|darwin/arm64|linux/amd64|linux/arm64) ;; \
+		*) echo "unsupported promtool platform: $(PROMTOOL_OS)/$(PROMTOOL_ARCH)" >&2; exit 1 ;; \
+	esac; \
+	if [ -x "$(PROMTOOL)" ] && "$(PROMTOOL)" --version 2>&1 | grep -q "version $(PROMETHEUS_VERSION)"; then \
+		echo "promtool $(PROMETHEUS_VERSION) already installed at $(PROMTOOL)"; \
+		exit 0; \
+	fi; \
+	archive="prometheus-$(PROMETHEUS_VERSION).$(PROMTOOL_OS)-$(PROMTOOL_ARCH).tar.gz"; \
+	tmp_dir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp_dir"' EXIT; \
+	echo "Installing promtool $(PROMETHEUS_VERSION) to $(PROMTOOL)..."; \
+	curl --fail --location --silent --show-error \
+		-o "$$tmp_dir/$$archive" "$(PROMETHEUS_RELEASE_URL)/$$archive"; \
+	curl --fail --location --silent --show-error \
+		-o "$$tmp_dir/sha256sums.txt" "$(PROMETHEUS_RELEASE_URL)/sha256sums.txt"; \
+	expected=$$(awk -v archive="$$archive" '$$2 == archive { print $$1 }' "$$tmp_dir/sha256sums.txt"); \
+	[ -n "$$expected" ] || { echo "checksum not found for $$archive" >&2; exit 1; }; \
+	if command -v sha256sum >/dev/null 2>&1; then \
+		actual=$$(sha256sum "$$tmp_dir/$$archive" | awk '{ print $$1 }'); \
+	else \
+		actual=$$(shasum -a 256 "$$tmp_dir/$$archive" | awk '{ print $$1 }'); \
+	fi; \
+	[ "$$actual" = "$$expected" ] || { echo "checksum mismatch for $$archive" >&2; exit 1; }; \
+	tar -xzf "$$tmp_dir/$$archive" -C "$$tmp_dir"; \
+	mkdir -p "$(dir $(PROMTOOL))"; \
+	cp "$$tmp_dir/prometheus-$(PROMETHEUS_VERSION).$(PROMTOOL_OS)-$(PROMTOOL_ARCH)/promtool" "$(PROMTOOL)"; \
+	chmod 0755 "$(PROMTOOL)"; \
+	echo "Installed $(PROMTOOL)"
+.PHONY: promtool
+
+observability-check: promtool ## Validate the alpha dashboard and Prometheus rules
+	@set -eu; \
+	tmp_rules=$$(mktemp); \
+	trap 'rm -f "$$tmp_rules"' EXIT; \
+	sed -n '/^spec:$$/,$$p' deploy/observability/prometheus-rules.yaml | \
+		tail -n +2 | sed 's/^  //' > "$$tmp_rules"; \
+	"$(PROMTOOL)" check rules "$$tmp_rules"; \
+	jq empty deploy/observability/grafana/alpha-overview.json; \
+	sh deploy/observability/grafana/alpha-overview_test.sh; \
+	echo "Observability artifacts are valid"
+.PHONY: observability-check
 
 binary:
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o bin/stackdome-server cmd/main.go
@@ -116,3 +185,11 @@ test-integration: ensure-postgres ## Run integration tests. Optional: FOCUS="My 
 		$(if $(FOCUS),-ginkgo.focus="$(FOCUS)") \
 		2>&1 | tee last-run.log; \
 		EXIT_CODE=$$?; rm -f integration.test; exit $$EXIT_CODE
+
+.PHONY: test-cloud-integration
+test-cloud-integration: SHELL := /usr/bin/env bash
+test-cloud-integration: ensure-postgres ## Run the focused Stackdome Cloud/shared integration suite.
+	@go test -tags=cloud_e2e -c -o test/cloudint/cloud-integration.test ./test/cloudint
+	@cd test/cloudint && set -o pipefail && ./cloud-integration.test -test.v -ginkgo.v -test.timeout 1h -test.count 1 \
+		2>&1 | tee last-run.log; \
+		EXIT_CODE=$$?; rm -f cloud-integration.test; exit $$EXIT_CODE

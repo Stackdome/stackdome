@@ -40,7 +40,6 @@ const meta = {
     onToggle: fn(),
     onRollback: fn(),
     onCancel: fn(),
-    onCopyId: fn(),
   },
   decorators: [
     (Story) => (

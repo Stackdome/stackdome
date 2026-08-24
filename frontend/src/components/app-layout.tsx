@@ -5,6 +5,9 @@ import { Outlet, useLocation } from "react-router-dom";
 import { BreadcrumbProvider } from "@/contexts/breadcrumb-context";
 import { SheetHeader } from "@/components/sheet-header";
 import { PEER_SHEET_SLOT_ID } from "@/components/ui/drawer";
+// The provider stays mounted here; the crumb building it feeds moved into
+// `SheetHeader`, and `stacks/editor` sets the lineage.
+import { PreviewLineageProvider } from "@/contexts/preview-lineage-context";
 import { useGithubSetupLanding } from "@/hooks/use-github-setup-landing";
 import { NEW_STACK_PATH } from "@/pages/stacks/lib/routes";
 
@@ -158,8 +161,10 @@ export function AppLayout({
   defaultSidebarOpen?: boolean;
 }) {
   return (
-    <BreadcrumbProvider>
-      <AppLayoutContent defaultSidebarOpen={defaultSidebarOpen}>{children}</AppLayoutContent>
-    </BreadcrumbProvider>
+    <PreviewLineageProvider>
+      <BreadcrumbProvider>
+        <AppLayoutContent defaultSidebarOpen={defaultSidebarOpen}>{children}</AppLayoutContent>
+      </BreadcrumbProvider>
+    </PreviewLineageProvider>
   );
 }

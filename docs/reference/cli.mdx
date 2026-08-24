@@ -1,0 +1,82 @@
+---
+title: "CLI reference"
+description: "Stackdome CLI commands, global flags, structured output behavior, environment variables, and exit codes."
+keywords: ["Stackdome CLI reference", "command reference", "structured output", "exit codes", "CLI environment variables"]
+---
+
+The `stackdome` CLI deploys, inspects, and operates stacks. Run `stackdome --help` for the command inventory in your installed release and `stackdome <command> --help` before adding flags to automation.
+
+## Command inventory
+
+The CLI groups commands by action. Use a plural resource name for a list and a singular resource name for one item.
+
+| Group | Commands | Examples |
+| --- | --- | --- |
+| Read resources | `get`, `list`, `describe` | `stackdome list builds`, `stackdome describe release <id>` |
+| Change resources | `create`, `update`, `delete` | `stackdome create secret app-secrets`, `stackdome delete volume data --yes` |
+| Deploy and release | `apply`, `deploy`, `cancel`, `rollback` | `stackdome deploy --wait`, `stackdome rollback release <id> --wait` |
+| Observe and operate | `backup`, `logs`, `open`, `restart`, `status` | `stackdome logs build <id>`, `stackdome status web` |
+| Authentication and context | `ctx`, `login`, `logout`, `signup`, `use`, `whoami` | `stackdome whoami -o json` |
+| Local tools | `api`, `completion`, `doctor`, `export`, `init`, `validate`, `version` | `stackdome doctor -o json`, `stackdome validate` |
+
+Run the action's help to see its resource names. For example, `stackdome list --help` shows `builds`, `releases`, `secrets`, `stacks`, `tokens`, and `volumes`.
+
+## Global flags
+
+These flags are available on every command:
+
+| Flag | Default | Behavior |
+| --- | --- | --- |
+| `--log-level <level>` | `warn` | Set logging to `debug`, `info`, `warn`, or `error`. |
+| `--no-color` | off | Disable colored output. |
+| `-o, --output <format>` | `table` | Select `table`, `json`, or `yaml` output. |
+
+Command-specific flags belong to that command. Check them with `stackdome <command> --help`; do not assume that a flag on one command exists on another.
+
+## Automation and non-interactive use
+
+For agent and CI workflows:
+
+- Authenticate with an API token and provide required values through flags or environment variables.
+- Use `-o json` or `-o yaml` for machine-readable results.
+- Pass `--yes` when a destructive command's help offers it. A confirmation cannot be answered through non-interactive standard input; without `--yes`, the command exits with invalid-input status.
+- Do not depend on interactive login or signup prompts.
+- Run `stackdome whoami -o json` before making changes to confirm the server and scope in use.
+
+`stackdome login` uses a Full access API token. Without `--token`, it prints links for signing in and creating one. Agents and CI should pass a token directly or use environment authentication. See [authentication](/reference/authentication) and [CLI workflows](/reference/cli-workflows).
+
+## Standard output and standard error
+
+With `-o json` or `-o yaml`, `stdout` contains only the structured result. Prompts, progress, warnings, and other prose go to `stderr`. Parse `stdout`; retain `stderr` for diagnostics.
+
+Some commands stream results. For example, `stackdome status --watch -o json` emits one object with `stack` and `live_status` per refresh rather than one JSON array.
+
+`stackdome status -o json` includes current resource conditions under `live_status.resources.<resource>.conditions`. The `--conditions` flag expands the human-readable table; it does not change the structured object.
+
+## Environment variables
+
+Environment values overlay the saved CLI configuration for the current process.
+
+| Variable | Behavior |
+| --- | --- |
+| `STACKDOME_TOKEN` | Supplies the API access token. It is not refreshable and is not written to the config file by ordinary commands. |
+| `STACKDOME_URL` | Overrides the Stackdome server URL for the process. |
+| `STACKDOME_ORG` | Supplies the organization ID. Use it with `STACKDOME_PROJECT` to skip scope discovery. |
+| `STACKDOME_PROJECT` | Supplies the internal project scope. This is `default` during alpha. Use it with `STACKDOME_ORG` to skip scope discovery. |
+| `STACKDOME_CONFIG` | Overrides the default config path, `~/.stackdome/config.json`. |
+
+Set both `STACKDOME_ORG` and `STACKDOME_PROJECT=default` for a narrowly scoped token that cannot discover its scope. Setting only one still requires the CLI to discover the missing value. Organization and project selection are not exposed during alpha.
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success |
+| `1` | General error |
+| `2` | Authentication or authorization failure |
+| `3` | Not found |
+| `4` | Invalid input or usage |
+| `5` | Conflict |
+| `130` | Canceled |
+
+Exit code `130` applies when you interrupt a running command or decline a confirmation. A bad flag or wrong argument count exits with code `4`.

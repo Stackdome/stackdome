@@ -25,6 +25,27 @@ interface CanvasControlsProps {
  */
 const VIEWPORT_MS = 200;
 
+/**
+ * **Zen mode did not survive the merge, and that is recorded rather than
+ * quietly dropped.**
+ *
+ * `main` shipped it while this branch was rebuilding the controls island: ⌘. or
+ * a button in the island collapsed the editor header and the sidebar together,
+ * then refit the graph into the space that freed up. It needs three things —
+ * `HeaderCollapseContext` (restored, in `lib/canvas/header-collapse.ts`), the
+ * shell owning and persisting the collapsed flag, and the button here.
+ *
+ * This branch's redesigned shell has **no collapse state at all** — its own doc
+ * comment describes zen, but the code went in a rewrite and auto-merge had
+ * nothing to conflict with. Porting only the button would give a control that
+ * folds the sidebar and leaves the header, which is worse than no control.
+ *
+ * To bring it back: give `CanvasEditorShell` the collapsed flag (main persisted
+ * it per stack under `stackdome.editor-header-collapsed.<id>`), provide the
+ * context around the canvas, and add the toggle to the tools island beside
+ * Auto layout, where main had it.
+ */
+
 /** Reset target for the zoom readout — 1:1, the scale the nodes are drawn at. */
 const ZOOM_RESET = 1;
 

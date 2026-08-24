@@ -3,19 +3,38 @@ title: "Postgres"
 description: "Create a managed Postgres instance and connect it to your resources."
 ---
 
+## Outcome
+
+Create a managed PostgreSQL database and connect it to an application without copying database passwords.
+
+Stackdome Postgres is powered by CloudNativePG (CNPG).
+
+## Prerequisites
+
+- A database name and the environment variable your application expects.
+- On self-hosted Stackdome, connected compute and a working storage class.
+- For scheduled backups, an object store configured in the dashboard or API.
+
+## Use the CLI
+
+For terminal, coding-agent, or CI steps, use [Manage Postgres with the CLI](/reference/cli-workflows#postgres).
+
+## Dashboard workflow
+
+
 An **addon** is a database Stackdome runs and looks after for you. It lives outside any **stack** — you create it once from the **Addons** page, and any **resource** in any stack can then read its credentials. Postgres is the only addon type available today.
 
 This is not the same thing as the **Postgres** tile in a stack's **+ Add resource** panel. That tile adds an ordinary **resource** running the `postgres:16` image: your container, your **volume**, your problem when it comes to backups and upgrades. An addon is the managed path — Stackdome provisions the database, holds its credentials, and hands out only the fields you ask for.
 
-## Prerequisites
+### Dashboard prerequisites
 
-- **A registered cluster.** An addon is placed on your organization's cluster automatically — the create form has no cluster field, and the API rejects one (`cluster_id` is read-only). See [Add a cluster](/self-host/add-a-cluster).
-- **A storage class named `standard`, or the override below.** The form always asks for that name, and it cannot be changed after creation. If your cluster names its class something else, expect creation to fail — see the warning below.
+- **Connected compute on self-hosted Stackdome.** An addon is placed on your organization's compute automatically — the create form has no destination field, and the API rejects `cluster_id` because it is read-only. See [Connect compute](/self-host/connect-compute).
+- **A compatible storage class on self-hosted Stackdome.** The form initially asks for `standard`, and the choice cannot be changed after creation. If your cluster uses another name, use the self-hosted note below.
 - **An Object Store, if you want backups.** Scheduled backups cannot be enabled without one. See [Volumes and object stores](/guides/volumes-and-object-stores).
 - **An account that can create addons.** If yours cannot, the **Add Addon** button is not rendered at all.
 
 <Warning>
-**Storage class is hardcoded to `standard`.** Three things are true of it: the create form has no storage-class field and always sends `standard`, the hub requires the field and never substitutes a default, and the value cannot be changed once the instance exists (`Storage class cannot be changed`). Kubernetes distributions disagree about the name — a k3s cluster, which is what the Stackdome installer builds, calls its default class `local-path`. So unless your cluster really has a class called `standard`, expect creation to fail, and set the real name under **Advanced** before you create it:
+**Self-hosted storage class.** The create form sends `standard` unless Advanced JSON overrides it, and the value cannot be changed once the instance exists (`Storage class cannot be changed`). Kubernetes distributions disagree about the name — a k3s cluster, which is what the Stackdome installer builds, calls its default class `local-path`. Set the real name under **Advanced** before you create it:
 
 ```json
 {
@@ -180,6 +199,8 @@ Two details that catch people out. The cron expression has **six** fields, not f
 
 On the detail page, once a destination is set, **Run backup now** triggers one immediately and the table below lists what has run: **Name**, **Type** (`Scheduled` or `Manual`), **Phase** (`pending`, `running`, `completed`, `failed` — a failure carries its error in a tooltip), **Started**, **Completed** and **Size**. It pages when there is more than one page of history.
 
+The button confirms that Stackdome accepted the request. It does not prove the backup finished. Wait for that row's phase to become **completed**. A **failed** phase means the backup did not complete.
+
 <Note>
 **Retention is not exposed.** There is no field in the form or the API for how long backups are kept or how many to keep, and nothing in the dashboard deletes one. Whatever your object store's own lifecycle rules do is what happens.
 </Note>
@@ -250,3 +271,15 @@ Open the instance from **Addons** and choose **Delete**. The confirmation is blu
 </Warning>
 
 A referenced instance cannot be deleted. The API refuses with `addon '<id>' is in use by <references> and cannot be deleted`, and the dashboard adds *"Remove the stack references first, then try again."* Unbind the variables in every stack that reads it, deploy those stacks, then delete. Once accepted, the instance moves to **Deleting** and is torn down in the background — *"&lt;name&gt; is being torn down."*
+
+
+## Related tasks
+
+<CardGroup cols={2}>
+  <Card title="Environment variables and secrets" icon="key" href="/guides/environment-variables">
+    Map addon outputs and secret keys into an application.
+  </Card>
+  <Card title="Volumes and object stores" icon="hard-drive" href="/guides/volumes-and-object-stores">
+    Configure persistent application data and Postgres backup destinations.
+  </Card>
+</CardGroup>

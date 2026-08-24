@@ -13,23 +13,30 @@ const (
 )
 
 type ApplicationConfig struct {
-	Server        *ServerConfig      `json:"server"`
-	Database      *DatabaseConfig    `json:"database"`
-	JwtSecret     string             `json:"jwt_secret"`
-	EncryptionKey string             `json:"encryption_key"`
-	LogLevel      string             `json:"log_level"`
-	LogFormat     string             `json:"log_format"`
-	GitHubOAuth   *GitHubOAuthConfig `json:"github_oauth"`
+	Server                   *ServerConfig         `json:"server"`
+	Database                 *DatabaseConfig       `json:"database"`
+	JwtSecret                string                `json:"jwt_secret"`
+	EncryptionKey            string                `json:"encryption_key"`
+	LogLevel                 string                `json:"log_level"`
+	LogFormat                string                `json:"log_format"`
+	RuntimeMode              RuntimeMode           `json:"runtime_mode"`
+	ComputeMode              ComputeMode           `json:"compute_mode"`
+	StackdomeCloudConfigPath string                `json:"stackdome_cloud_config_path"`
+	StackdomeCloud           *StackdomeCloudConfig `json:"stackdome_cloud,omitempty"`
+	TurnstileSecret          string                `json:"-"`
+	GitHubOAuth              *GitHubOAuthConfig    `json:"github_oauth"`
+	// GitHubApp is the platform-wide GitHub App; unset means per-org apps.
+	GitHubApp *GitHubAppConfig `json:"github_app"`
 	// ServerExternalURL is the externally reachable base URL of the hub,
 	// required for the GitHub App manifest flow (browser redirects, webhooks).
 	ServerExternalURL string `json:"server_external_url"`
 	// GitHubAPIBaseURL overrides the GitHub API endpoint (tests, GHES).
 	GitHubAPIBaseURL string `json:"github_api_base_url"`
-	// PlatformCluster holds the PLATFORM_CLUSTER_* config seeded at boot.
-	PlatformCluster *ClusterConfig `json:"platform_cluster"`
+	// SharedComputeCluster holds the SHARED_COMPUTE_CLUSTER_* configuration.
+	SharedComputeCluster *ClusterConfig `json:"shared_compute_cluster"`
 }
 
-func (c *ApplicationConfig) LoadEnvVariables() {
+func (c *ApplicationConfig) LoadEnvVariables() error {
 	c.Server.LoadEnvVariables()
 	c.Database.LoadEnvVariables()
 
@@ -49,8 +56,24 @@ func (c *ApplicationConfig) LoadEnvVariables() {
 		c.EncryptionKey = val
 	}
 
+	if val, ok := EnvRuntimeMode.Lookup(); ok {
+		c.RuntimeMode = RuntimeMode(val)
+	}
+	if val, ok := EnvComputeMode.Lookup(); ok {
+		c.ComputeMode = ComputeMode(val)
+	}
+	if val, ok := EnvStackdomeCloudConfig.Lookup(); ok {
+		c.StackdomeCloudConfigPath = val
+	}
+	if val, ok := EnvTurnstileSecret.Lookup(); ok {
+		c.TurnstileSecret = val
+	}
+
 	c.GitHubOAuth.LoadEnvVariables()
-	c.PlatformCluster.LoadEnvVariables()
+	c.GitHubApp.LoadEnvVariables()
+	if err := c.SharedComputeCluster.LoadEnvVariables(); err != nil {
+		return err
+	}
 
 	if val, ok := EnvServerExternalURL.Lookup(); ok {
 		c.ServerExternalURL = val
@@ -65,17 +88,24 @@ func (c *ApplicationConfig) LoadEnvVariables() {
 	if c.GitHubOAuth.RedirectURI == "" && c.ServerExternalURL != "" {
 		c.GitHubOAuth.RedirectURI = strings.TrimSuffix(c.ServerExternalURL, "/") + gitHubOAuthCallbackPath
 	}
+
+	return nil
 }
 
-// gitHubOAuthCallbackPath is the route the GitHub OAuth handler is mounted on;
-// it must match the "/github/callback" route under /api/v1/auth in
-// cmd/server/routes.go.
-const gitHubOAuthCallbackPath = "/api/v1/auth/github/callback"
+// gitHubOAuthCallbackPath is the SPA route GitHub sends the browser back to
+// (frontend/src/App.tsx). That page reads code+state and calls the hub's
+// /api/v1/auth/github/callback itself, so the API route is never GitHub's
+// redirect target — sending the browser there would render raw JSON and no
+// session would be established.
+const gitHubOAuthCallbackPath = "/auth/github/callback"
 
 func (c *ApplicationConfig) Validate() error {
 	validateFuncs := []func() error{
 		c.Server.Validate,
 		c.Database.Validate,
+		c.validateRuntimeMode,
+		c.validateComputeMode,
+		c.validateStackdomeCloudConfig,
 		func() error {
 			if c.JwtSecret == "" {
 				return fmt.Errorf("jwt secret is required")
@@ -107,6 +137,26 @@ func (c *ApplicationConfig) Validate() error {
 	return nil
 }
 
+func (c *ApplicationConfig) validateStackdomeCloudConfig() error {
+	if !c.IsStackdomeCloud() {
+		return nil
+	}
+	if c.StackdomeCloud == nil {
+		return fmt.Errorf("stackdome Cloud config is required in %q runtime mode", RuntimeModeStackdomeCloud)
+	}
+	if err := c.StackdomeCloud.Validate(); err != nil {
+		return fmt.Errorf("validate Stackdome Cloud config: %w", err)
+	}
+	return nil
+}
+
+func (c *ApplicationConfig) validateRuntimeMode() error {
+	if c.RuntimeMode != RuntimeModeSelfHosted && c.RuntimeMode != RuntimeModeStackdomeCloud {
+		return fmt.Errorf("runtime mode must be %q or %q", RuntimeModeSelfHosted, RuntimeModeStackdomeCloud)
+	}
+	return nil
+}
+
 type ClusterConfig struct {
 	ClusterURL    string `yaml:"cluster_url"`
 	ClusterCAData string `yaml:"cluster_ca_data"`
@@ -129,18 +179,27 @@ func (c *ClusterConfig) Validate() error {
 	return nil
 }
 
-func (c *ClusterConfig) LoadEnvVariables() {
-	if val, ok := EnvPlatformClusterAPIURL.Lookup(); ok {
-		c.ClusterURL = val
-	}
+func (c *ClusterConfig) LoadEnvVariables() error {
+	*c = clusterConfigFromEnv(
+		EnvSharedComputeClusterAPIURL,
+		EnvSharedComputeClusterCAData,
+		EnvSharedComputeClusterToken,
+	)
+	return nil
+}
 
-	if val, ok := EnvPlatformClusterCAData.Lookup(); ok {
-		c.ClusterCAData = val
+func clusterConfigFromEnv(apiURL, caData, token EnvVar[string]) ClusterConfig {
+	config := ClusterConfig{}
+	if val, ok := apiURL.Lookup(); ok {
+		config.ClusterURL = val
 	}
-
-	if val, ok := EnvPlatformClusterToken.Lookup(); ok {
-		c.Token = val
+	if val, ok := caData.Lookup(); ok {
+		config.ClusterCAData = val
 	}
+	if val, ok := token.Lookup(); ok {
+		config.Token = val
+	}
+	return config
 }
 
 func (c *ClusterConfig) IsSet() bool {
@@ -210,13 +269,53 @@ type DBConnectionConfig struct {
 
 func NewApplicationConfig() *ApplicationConfig {
 	return &ApplicationConfig{
-		Server:          NewServerConfig(),
-		Database:        NewDatabaseConfig(),
-		LogLevel:        "info",
-		LogFormat:       "json",
-		GitHubOAuth:     NewGitHubOAuthConfig(),
-		PlatformCluster: &ClusterConfig{},
+		Server:               NewServerConfig(),
+		Database:             NewDatabaseConfig(),
+		LogLevel:             "info",
+		LogFormat:            "json",
+		GitHubOAuth:          NewGitHubOAuthConfig(),
+		GitHubApp:            &GitHubAppConfig{},
+		SharedComputeCluster: &ClusterConfig{},
+		RuntimeMode:          RuntimeModeSelfHosted,
+		ComputeMode:          ComputeModeBYOC,
 	}
+}
+
+func (c *ApplicationConfig) IsStackdomeCloud() bool {
+	return c.RuntimeMode == RuntimeModeStackdomeCloud
+}
+
+func (c *ApplicationConfig) CustomDomainsEnabled() bool {
+	return !c.IsStackdomeCloud() || (c.StackdomeCloud != nil && c.StackdomeCloud.Features.CustomDomains)
+}
+
+func (c *ApplicationConfig) ExternalPostgresImportEnabled() bool {
+	return !c.IsStackdomeCloud() || (c.StackdomeCloud != nil && c.StackdomeCloud.Features.ExternalPostgresImport)
+}
+
+func (c *ApplicationConfig) LoadStackdomeCloudConfig() error {
+	if !c.IsStackdomeCloud() {
+		if c.StackdomeCloudConfigPath != "" {
+			return fmt.Errorf("STACKDOME_CLOUD_CONFIG requires RUNTIME_MODE=%s", RuntimeModeStackdomeCloud)
+		}
+		if c.TurnstileSecret != "" {
+			return fmt.Errorf("TURNSTILE_SECRET requires RUNTIME_MODE=%s", RuntimeModeStackdomeCloud)
+		}
+		c.StackdomeCloud = nil
+		return nil
+	}
+	if c.StackdomeCloudConfigPath == "" {
+		return fmt.Errorf("STACKDOME_CLOUD_CONFIG is required in %q runtime mode", RuntimeModeStackdomeCloud)
+	}
+	cloudConfig, err := LoadStackdomeCloudConfig(c.StackdomeCloudConfigPath)
+	if err != nil {
+		return err
+	}
+	if cloudConfig.Signup.Turnstile.Enabled && c.TurnstileSecret == "" {
+		return fmt.Errorf("TURNSTILE_SECRET is required when signup Turnstile is enabled")
+	}
+	c.StackdomeCloud = cloudConfig
+	return nil
 }
 
 func NewGitHubOAuthConfig() *GitHubOAuthConfig {
@@ -231,6 +330,35 @@ type GitHubOAuthConfig struct {
 
 func (c *GitHubOAuthConfig) Enabled() bool {
 	return c.ClientID != "" && c.ClientSecret != ""
+}
+
+// GitHubAppConfig is the platform-wide GitHub App every org installs. Not
+// configured: each org creates its own app through the manifest flow. Login
+// uses the same app's client id/secret via the GITHUB_CLIENT_* vars.
+type GitHubAppConfig struct {
+	AppID         int64  `json:"app_id"`
+	Slug          string `json:"slug"`
+	PrivateKey    string `json:"private_key"`
+	WebhookSecret string `json:"webhook_secret"`
+}
+
+func (c *GitHubAppConfig) Configured() bool {
+	return c.AppID != 0 && c.Slug != "" && c.PrivateKey != "" && c.WebhookSecret != ""
+}
+
+func (c *GitHubAppConfig) LoadEnvVariables() {
+	if val, ok := EnvGitHubAppID.Lookup(); ok {
+		c.AppID = int64(val)
+	}
+	if val, ok := EnvGitHubAppSlug.Lookup(); ok {
+		c.Slug = val
+	}
+	if val, ok := EnvGitHubAppPrivateKey.Lookup(); ok {
+		c.PrivateKey = val
+	}
+	if val, ok := EnvGitHubAppWebhookSecret.Lookup(); ok {
+		c.WebhookSecret = val
+	}
 }
 
 func (c *GitHubOAuthConfig) LoadEnvVariables() {
@@ -248,8 +376,9 @@ func (c *GitHubOAuthConfig) LoadEnvVariables() {
 }
 
 type ServerConfig struct {
-	Hostname    string `json:"hostname"`
-	BindAddress string `json:"bind_address"`
+	Hostname           string `json:"hostname"`
+	BindAddress        string `json:"bind_address"`
+	MetricsBindAddress string `json:"metrics_bind_address"`
 }
 
 func (c *ServerConfig) Validate() error {
@@ -269,6 +398,9 @@ func (c *ServerConfig) LoadEnvVariables() {
 
 	if val, ok := EnvServerBindAddress.Lookup(); ok {
 		c.BindAddress = val
+	}
+	if val, ok := EnvMetricsBindAddress.Lookup(); ok {
+		c.MetricsBindAddress = val
 	}
 }
 

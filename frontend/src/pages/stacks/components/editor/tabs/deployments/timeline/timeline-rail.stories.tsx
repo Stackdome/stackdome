@@ -101,7 +101,6 @@ export const Default: Story = {
     logContext: { orgId: ORG_ID, projectName: DEFAULT_PROJECT, stackId: STACK_ID },
     onRollback: fn(),
     onCancel: fn(),
-    onCopyId: fn(),
   },
   parameters: {
     msw: [...releaseHandlers(details, events), ...baselineHandlers],

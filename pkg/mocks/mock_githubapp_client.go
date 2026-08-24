@@ -56,6 +56,35 @@ func (mr *MockGitHubAppClientMockRecorder) ConvertManifestCode(ctx, code any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConvertManifestCode", reflect.TypeOf((*MockGitHubAppClient)(nil).ConvertManifestCode), ctx, code)
 }
 
+// DeleteInstallation mocks base method.
+func (m *MockGitHubAppClient) DeleteInstallation(ctx context.Context, creds *githubapp.AppCredentials, installationID int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteInstallation", ctx, creds, installationID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteInstallation indicates an expected call of DeleteInstallation.
+func (mr *MockGitHubAppClientMockRecorder) DeleteInstallation(ctx, creds, installationID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInstallation", reflect.TypeOf((*MockGitHubAppClient)(nil).DeleteInstallation), ctx, creds, installationID)
+}
+
+// GetInstallation mocks base method.
+func (m *MockGitHubAppClient) GetInstallation(ctx context.Context, creds *githubapp.AppCredentials, installationID int64) (*githubapp.Installation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetInstallation", ctx, creds, installationID)
+	ret0, _ := ret[0].(*githubapp.Installation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetInstallation indicates an expected call of GetInstallation.
+func (mr *MockGitHubAppClientMockRecorder) GetInstallation(ctx, creds, installationID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstallation", reflect.TypeOf((*MockGitHubAppClient)(nil).GetInstallation), ctx, creds, installationID)
+}
+
 // GetRepo mocks base method.
 func (m *MockGitHubAppClient) GetRepo(ctx context.Context, creds *githubapp.AppCredentials, installationID int64, owner, repo string) (*githubapp.Repo, error) {
 	m.ctrl.T.Helper()

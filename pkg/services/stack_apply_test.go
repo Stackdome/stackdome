@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Stackdome/stackdome/pkg/auth"
+	"github.com/Stackdome/stackdome/pkg/computequota"
 	"github.com/Stackdome/stackdome/pkg/errors"
 	"github.com/Stackdome/stackdome/pkg/logger"
 	"github.com/Stackdome/stackdome/pkg/mocks"
@@ -48,6 +49,7 @@ func newApplyStackTestEnv(ctrl *gomock.Controller) *applyStackTestEnv {
 		stackResourceService: env.resourceService,
 		referenceService:     env.referenceService,
 		defaultingService:    NewStackDefaultingService(),
+		computePolicy:        computequota.NewSelfHostedPolicy(),
 		logger:               logger.NewLogger(),
 		BackgroundJobEnqueuerDep: BackgroundJobEnqueuerDep{
 			BackgroundJobEnqueuer: env.backgroundEnqueue,
@@ -92,7 +94,7 @@ func TestApplyStack_CreatesWhenMissing(t *testing.T) {
 	env.referenceService.EXPECT().ReprojectSpec(ctx, "stack-1").Return(nil)
 	created := &models.Stack{ID: "stack-1", Name: "demo", ProjectID: projectID}
 	env.stackStore.EXPECT().GetByID(ctx, "stack-1").Return(created, nil)
-	env.backgroundEnqueue.EXPECT().EnqueueAfterCommit(ctx, &models.Stack{ID: "stack-1"}).Return(nil)
+	env.backgroundEnqueue.EXPECT().EnqueueAfterCommit(ctx, models.StackOperand{ID: "stack-1"}).Return(nil)
 
 	got, wasCreated, serr := env.svc.ApplyStack(ctx, spec)
 	assert.Nil(t, serr)

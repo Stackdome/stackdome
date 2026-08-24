@@ -6,6 +6,7 @@ import StacksPage from "@/pages/stacks/components/list"
 import CanvasEditorPage from "@/pages/stacks/components/editor"
 import ClustersPage from "@/pages/clusters"
 import SecretsPage from "@/pages/secrets"
+import ApiTokensPage, { API_TOKENS_PATH } from "@/pages/api-tokens"
 import DomainsPage from "@/pages/domains"
 import AddonsPage from "@/pages/addons"
 import PostgresDetailPage from "@/pages/addons/postgres-detail-page"
@@ -75,6 +76,7 @@ const router = createBrowserRouter(
         <Route path="/previews/:configId" element={<PreviewsPage />} />
         <Route path="/git-integrations" element={<GitIntegrationsPage />} />
         <Route path="/image-registries" element={<ImageRegistriesPage />} />
+        <Route path={API_TOKENS_PATH} element={<ApiTokensPage />} />
         {/* Workspace collaboration (Users + Projects) shelved — redirect home. */}
         <Route path="/settings/*" element={<Navigate to="/" replace />} />
       </Route>

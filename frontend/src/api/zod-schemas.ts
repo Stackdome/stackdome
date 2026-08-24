@@ -23,6 +23,7 @@ const UserSignupRequest = z
     password: z.string(),
     organisation: Organisation.optional(),
     invite_token: z.string().optional(),
+    turnstile_token: z.string().optional(),
   })
   .passthrough();
 const UserRole = z.enum(["OrgAdmin", "OrgMember"]);
@@ -67,8 +68,14 @@ const Error = ObjectReference.and(
     .partial()
     .passthrough()
 );
+const TurnstileConfigResponse = z
+  .object({ enabled: z.boolean(), site_key: z.string(), action: z.string() })
+  .passthrough();
+const SignupConfigResponse = z
+  .object({ turnstile: TurnstileConfigResponse })
+  .passthrough();
 const AppConfigResponse = z
-  .object({ github_oauth: z.boolean() })
+  .object({ github_oauth: z.boolean(), signup: SignupConfigResponse })
   .partial()
   .passthrough();
 const Project = z
@@ -606,7 +613,6 @@ const StackSettings = z
   .object({
     release_retention_limit: z.number().int().default(10),
     min_successful_releases: z.number().int().default(5),
-    deploy_timeout_minutes: z.number().int().default(15),
   })
   .partial()
   .passthrough();
@@ -663,6 +669,201 @@ const StackList = z
   .object({ items: z.array(Stack), total: z.number().int() })
   .partial()
   .passthrough();
+const PostgresVersion = z
+  .object({
+    major: z.number().int().gte(13).lte(17),
+    minor: z.number().int().optional(),
+    enable_auto_minor_upgrade: z.boolean().optional().default(true),
+    enable_auto_major_upgrade: z.boolean().optional().default(false),
+  })
+  .passthrough();
+const PostgresInstances = z
+  .object({
+    count: z.number().int().gte(1).lte(5),
+    placement: z
+      .object({
+        topology_key: z.string().default("kubernetes.io/hostname"),
+        policy: z.enum(["preferred", "required"]).default("preferred"),
+        node_selector: z.record(z.string()),
+        tolerations: z.array(
+          z
+            .object({
+              key: z.string(),
+              operator: z.string(),
+              value: z.string(),
+              effect: z.string(),
+            })
+            .partial()
+            .passthrough()
+        ),
+      })
+      .partial()
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+const PostgresStorage = z
+  .object({
+    size: z.string().regex(/^[0-9]+[KMGTP]i?$/),
+    storage_class: z.string().optional(),
+  })
+  .passthrough();
+const PostgresResources = z
+  .object({
+    cpu: z
+      .object({ request: z.string(), limit: z.string() })
+      .partial()
+      .passthrough(),
+    memory: z
+      .object({ request: z.string(), limit: z.string() })
+      .partial()
+      .passthrough(),
+  })
+  .partial()
+  .passthrough();
+const PostgresBackupConfig = z
+  .object({
+    enabled: z.boolean().default(false),
+    object_store_id: z.string(),
+    schedule: z.string().default("0 0 0 * * 0"),
+    wal_archiving: z.boolean().default(false),
+  })
+  .partial()
+  .passthrough();
+const PostgresInitialization = z
+  .object({
+    type: z
+      .enum([
+        "new",
+        "restore_from_backup",
+        "restore_from_object_store",
+        "import_from_external",
+      ])
+      .default("new"),
+    restore_from_backup: z
+      .object({ backup_id: z.string() })
+      .partial()
+      .passthrough(),
+    restore_from_object_store: z
+      .object({
+        object_store_id: z.string(),
+        source_postgres_addon_id: z.string(),
+        recovery_target_time: z.string().datetime({ offset: true }),
+      })
+      .partial()
+      .passthrough(),
+    import_from_external: z
+      .object({
+        host: z.string(),
+        port: z.number().int().default(5432),
+        database: z.string(),
+        username: z.string(),
+        password_secret_id: z.string(),
+        ssl_mode: z
+          .enum(["disable", "require", "verify-ca", "verify-full"])
+          .optional()
+          .default("require"),
+        databases_to_import: z.array(z.string()).optional(),
+      })
+      .passthrough(),
+  })
+  .partial()
+  .passthrough();
+const PostgresDatabase = z
+  .object({
+    name: z.string(),
+    extensions: z.array(z.literal("vector")).optional(),
+  })
+  .passthrough();
+const PostgresConfiguration = z
+  .object({
+    enable_superuser_access: z.boolean().default(false),
+    parameters: z.record(z.string()),
+  })
+  .partial()
+  .passthrough();
+const PostgresAddonSpec = z
+  .object({
+    version: PostgresVersion,
+    instances: PostgresInstances,
+    storage: PostgresStorage,
+    resources: PostgresResources.optional(),
+    backup: PostgresBackupConfig.optional(),
+    initialization: PostgresInitialization.optional(),
+    databases: z.array(PostgresDatabase).optional(),
+    configuration: PostgresConfiguration.optional(),
+  })
+  .passthrough();
+const PostgresClusterInfo = z
+  .object({ version: z.string() })
+  .partial()
+  .passthrough();
+const PostgresConnectionInfo = z
+  .object({
+    host: z.string(),
+    port: z.number().int().default(5432),
+    databases: z.array(
+      z.object({ name: z.string(), owner: z.string() }).partial().passthrough()
+    ),
+    credentials: z
+      .object({
+        superuser_secret_id: z.string(),
+        app_user_secrets: z.record(z.string()),
+        ca_certificate_secret_id: z.string(),
+      })
+      .partial()
+      .passthrough(),
+  })
+  .partial()
+  .passthrough();
+const PostgresAddonStatus = z
+  .object({
+    state: z.enum([
+      "Pending",
+      "Creating",
+      "Initializing",
+      "Ready",
+      "Updating",
+      "Backing Up",
+      "Restoring",
+      "Error",
+      "Deleting",
+      "Hibernated",
+      "Fenced",
+    ]),
+    message: z.string(),
+    phase: z.string(),
+    conditions: z.array(Condition),
+    observed_revision: z.string(),
+    observed_generation: z.number().int(),
+    cluster_info: PostgresClusterInfo,
+    connection_info: PostgresConnectionInfo,
+  })
+  .partial()
+  .passthrough();
+const PostgresAddon = z
+  .object({
+    id: z.string().optional(),
+    organisation_id: z.string().optional(),
+    project_id: z.string().optional(),
+    user_id: z.string().optional(),
+    cluster_id: z.string().optional(),
+    name: z.string(),
+    namespace: z.string().optional(),
+    labels: z.array(Label).optional(),
+    annotations: z.array(Annotation).optional(),
+    revision: z.string().optional(),
+    outputs: z.array(OutputDescriptor).optional(),
+    spec: PostgresAddonSpec,
+    status: PostgresAddonStatus.optional(),
+    created_at: z.string().datetime({ offset: true }).optional(),
+    updated_at: z.string().datetime({ offset: true }).optional(),
+  })
+  .passthrough();
+const PostgresAddonList = z
+  .object({ items: z.array(PostgresAddon), total: z.number().int() })
+  .partial()
+  .passthrough();
 const ClusterImageRegistrySpec = z
   .object({
     backend_storage_size: z.string(),
@@ -674,6 +875,7 @@ const ClusterImageRegistryState = z.enum([
   "ImageRegistryPending",
   "ImageRegistryError",
   "ImageRegistryRunning",
+  "ImageRegistryDeleting",
 ]);
 const ClusterImageRegistryStatus = z
   .object({ state: ClusterImageRegistryState, conditions: z.array(Condition) })
@@ -696,6 +898,7 @@ const Cluster = z
     id: z.string().optional(),
     name: z.string(),
     organisation_id: z.string().optional(),
+    shared_compute: z.boolean().optional(),
     platform: z.boolean().optional(),
     cluster_url: z.string(),
     cluster_ca_data: z.string(),
@@ -863,6 +1066,10 @@ const StackTopology = z
   .passthrough();
 const StackConnectionList = z
   .object({ items: z.array(StackConnection), total: z.number().int() })
+  .partial()
+  .passthrough();
+const VolumeList = z
+  .object({ items: z.array(Volume), total: z.number().int() })
   .partial()
   .passthrough();
 const CreateReleaseRequest = z
@@ -1116,201 +1323,6 @@ const ReleaseEventList = z
   })
   .partial()
   .passthrough();
-const PostgresVersion = z
-  .object({
-    major: z.number().int().gte(13).lte(17),
-    minor: z.number().int().optional(),
-    enable_auto_minor_upgrade: z.boolean().optional().default(true),
-    enable_auto_major_upgrade: z.boolean().optional().default(false),
-  })
-  .passthrough();
-const PostgresInstances = z
-  .object({
-    count: z.number().int().gte(1).lte(5),
-    placement: z
-      .object({
-        topology_key: z.string().default("kubernetes.io/hostname"),
-        policy: z.enum(["preferred", "required"]).default("preferred"),
-        node_selector: z.record(z.string()),
-        tolerations: z.array(
-          z
-            .object({
-              key: z.string(),
-              operator: z.string(),
-              value: z.string(),
-              effect: z.string(),
-            })
-            .partial()
-            .passthrough()
-        ),
-      })
-      .partial()
-      .passthrough()
-      .optional(),
-  })
-  .passthrough();
-const PostgresStorage = z
-  .object({
-    size: z.string().regex(/^[0-9]+[KMGTP]i?$/),
-    storage_class: z.string().optional(),
-  })
-  .passthrough();
-const PostgresResources = z
-  .object({
-    cpu: z
-      .object({ request: z.string(), limit: z.string() })
-      .partial()
-      .passthrough(),
-    memory: z
-      .object({ request: z.string(), limit: z.string() })
-      .partial()
-      .passthrough(),
-  })
-  .partial()
-  .passthrough();
-const PostgresBackupConfig = z
-  .object({
-    enabled: z.boolean().default(false),
-    object_store_id: z.string(),
-    schedule: z.string().default("0 0 0 * * 0"),
-    wal_archiving: z.boolean().default(false),
-  })
-  .partial()
-  .passthrough();
-const PostgresInitialization = z
-  .object({
-    type: z
-      .enum([
-        "new",
-        "restore_from_backup",
-        "restore_from_object_store",
-        "import_from_external",
-      ])
-      .default("new"),
-    restore_from_backup: z
-      .object({ backup_id: z.string() })
-      .partial()
-      .passthrough(),
-    restore_from_object_store: z
-      .object({
-        object_store_id: z.string(),
-        source_postgres_addon_id: z.string(),
-        recovery_target_time: z.string().datetime({ offset: true }),
-      })
-      .partial()
-      .passthrough(),
-    import_from_external: z
-      .object({
-        host: z.string(),
-        port: z.number().int().default(5432),
-        database: z.string(),
-        username: z.string(),
-        password_secret_id: z.string(),
-        ssl_mode: z
-          .enum(["disable", "require", "verify-ca", "verify-full"])
-          .optional()
-          .default("require"),
-        databases_to_import: z.array(z.string()).optional(),
-      })
-      .passthrough(),
-  })
-  .partial()
-  .passthrough();
-const PostgresDatabase = z
-  .object({
-    name: z.string(),
-    extensions: z.array(z.literal("vector")).optional(),
-  })
-  .passthrough();
-const PostgresConfiguration = z
-  .object({
-    enable_superuser_access: z.boolean().default(false),
-    parameters: z.record(z.string()),
-  })
-  .partial()
-  .passthrough();
-const PostgresAddonSpec = z
-  .object({
-    version: PostgresVersion,
-    instances: PostgresInstances,
-    storage: PostgresStorage,
-    resources: PostgresResources.optional(),
-    backup: PostgresBackupConfig.optional(),
-    initialization: PostgresInitialization.optional(),
-    databases: z.array(PostgresDatabase).optional(),
-    configuration: PostgresConfiguration.optional(),
-  })
-  .passthrough();
-const PostgresClusterInfo = z
-  .object({ version: z.string() })
-  .partial()
-  .passthrough();
-const PostgresConnectionInfo = z
-  .object({
-    host: z.string(),
-    port: z.number().int().default(5432),
-    databases: z.array(
-      z.object({ name: z.string(), owner: z.string() }).partial().passthrough()
-    ),
-    credentials: z
-      .object({
-        superuser_secret_id: z.string(),
-        app_user_secrets: z.record(z.string()),
-        ca_certificate_secret_id: z.string(),
-      })
-      .partial()
-      .passthrough(),
-  })
-  .partial()
-  .passthrough();
-const PostgresAddonStatus = z
-  .object({
-    state: z.enum([
-      "Pending",
-      "Creating",
-      "Initializing",
-      "Ready",
-      "Updating",
-      "Backing Up",
-      "Restoring",
-      "Error",
-      "Deleting",
-      "Hibernated",
-      "Fenced",
-    ]),
-    message: z.string(),
-    phase: z.string(),
-    conditions: z.array(Condition),
-    observed_revision: z.string(),
-    observed_generation: z.number().int(),
-    cluster_info: PostgresClusterInfo,
-    connection_info: PostgresConnectionInfo,
-  })
-  .partial()
-  .passthrough();
-const PostgresAddon = z
-  .object({
-    id: z.string().optional(),
-    organisation_id: z.string().optional(),
-    project_id: z.string().optional(),
-    user_id: z.string().optional(),
-    cluster_id: z.string().optional(),
-    name: z.string(),
-    namespace: z.string().optional(),
-    labels: z.array(Label).optional(),
-    annotations: z.array(Annotation).optional(),
-    revision: z.string().optional(),
-    outputs: z.array(OutputDescriptor).optional(),
-    spec: PostgresAddonSpec,
-    status: PostgresAddonStatus.optional(),
-    created_at: z.string().datetime({ offset: true }).optional(),
-    updated_at: z.string().datetime({ offset: true }).optional(),
-  })
-  .passthrough();
-const PostgresAddonList = z
-  .object({ items: z.array(PostgresAddon), total: z.number().int() })
-  .partial()
-  .passthrough();
 const postApiv1organizationsOrg_idprojectsProject_nameaddonspostgresIdactionsfence_Body =
   z.object({ fence: z.boolean(), reason: z.string().optional() }).passthrough();
 const PostgresBackup = z
@@ -1345,39 +1357,6 @@ const PostgresCredentials = z
     caCertificate: z.string(),
   })
   .partial()
-  .passthrough();
-const WorkspaceUserStatus = z
-  .object({
-    observed_version: z.number().int(),
-    provisioned_namespaces: z.array(
-      z
-        .object({ workspace_name: z.string(), namespace: z.string() })
-        .partial()
-        .passthrough()
-    ),
-    service_account_name: z.string().nullable(),
-    serviceaccount_token: z.string().nullable(),
-    cluster_ca_cert: z.string().nullable(),
-    cluster_url: z.string().nullable(),
-    conditions: z.array(Condition),
-  })
-  .partial()
-  .passthrough();
-const WorkspaceUserState = z.enum(["Completed", "Error", "Pending"]);
-const WorkspaceUser = z
-  .object({
-    id: z.string().uuid().optional(),
-    user_id: z.string().optional(),
-    org_id: z.string().optional(),
-    project_id: z.string().optional(),
-    workspaces: z.array(z.string()).min(1),
-    version: z.number().int().optional(),
-    status: WorkspaceUserStatus.optional(),
-    state: WorkspaceUserState.optional(),
-    message: z.string().optional(),
-    created_at: z.string().datetime({ offset: true }).optional(),
-    updated_at: z.string().datetime({ offset: true }).optional(),
-  })
   .passthrough();
 const OrgInviteCreateRequest = z
   .object({
@@ -1569,10 +1548,6 @@ const PreviewStackSync = z
   })
   .partial()
   .passthrough();
-const VolumeList = z
-  .object({ items: z.array(Volume), total: z.number().int() })
-  .partial()
-  .passthrough();
 const SSHConfig = z.object({ public_key: z.string() });
 const FieldValidationError = z
   .object({
@@ -1666,6 +1641,8 @@ export const schemas = {
   UserSignupResponse,
   ObjectReference,
   Error,
+  TurnstileConfigResponse,
+  SignupConfigResponse,
   AppConfigResponse,
   Project,
   ProjectList,
@@ -1757,6 +1734,20 @@ export const schemas = {
   ReleaseSummary,
   Stack,
   StackList,
+  PostgresVersion,
+  PostgresInstances,
+  PostgresStorage,
+  PostgresResources,
+  PostgresBackupConfig,
+  PostgresInitialization,
+  PostgresDatabase,
+  PostgresConfiguration,
+  PostgresAddonSpec,
+  PostgresClusterInfo,
+  PostgresConnectionInfo,
+  PostgresAddonStatus,
+  PostgresAddon,
+  PostgresAddonList,
   ClusterImageRegistrySpec,
   ClusterImageRegistryState,
   ClusterImageRegistryStatus,
@@ -1786,6 +1777,7 @@ export const schemas = {
   TopologyEdge,
   StackTopology,
   StackConnectionList,
+  VolumeList,
   CreateReleaseRequest,
   ReleaseCauseKind,
   ReleaseCause,
@@ -1806,27 +1798,10 @@ export const schemas = {
   ReleaseEventLink,
   ReleaseEvent,
   ReleaseEventList,
-  PostgresVersion,
-  PostgresInstances,
-  PostgresStorage,
-  PostgresResources,
-  PostgresBackupConfig,
-  PostgresInitialization,
-  PostgresDatabase,
-  PostgresConfiguration,
-  PostgresAddonSpec,
-  PostgresClusterInfo,
-  PostgresConnectionInfo,
-  PostgresAddonStatus,
-  PostgresAddon,
-  PostgresAddonList,
   postApiv1organizationsOrg_idprojectsProject_nameaddonspostgresIdactionsfence_Body,
   PostgresBackup,
   PostgresBackupList,
   PostgresCredentials,
-  WorkspaceUserStatus,
-  WorkspaceUserState,
-  WorkspaceUser,
   OrgInviteCreateRequest,
   InviteStatus,
   OrgInviteCreateResponse,
@@ -1842,7 +1817,6 @@ export const schemas = {
   PreviewStack,
   PreviewStackList,
   PreviewStackSync,
-  VolumeList,
   SSHConfig,
   FieldValidationError,
   ValidationErrorDetail,
@@ -2049,7 +2023,7 @@ const endpoints = makeApi([
     alias: "getApiv1config",
     description: `Returns feature flags the web client needs before authentication, such as whether GitHub OAuth is enabled.`,
     requestFormat: "json",
-    response: z.object({ github_oauth: z.boolean() }).partial().passthrough(),
+    response: AppConfigResponse,
     errors: [
       {
         status: 500,
@@ -2085,6 +2059,47 @@ const endpoints = makeApi([
       {
         status: 400,
         description: `Invalid or expired state`,
+        schema: z.void(),
+      },
+      {
+        status: 500,
+        description: `Internal server error`,
+        schema: z.void(),
+      },
+    ],
+  },
+  {
+    method: "get",
+    path: "/api/v1/git-integrations/github/setup",
+    alias: "getApiv1gitIntegrationsgithubsetup",
+    requestFormat: "json",
+    parameters: [
+      {
+        name: "installation_id",
+        type: "Query",
+        schema: z.number().int(),
+      },
+      {
+        name: "state",
+        type: "Query",
+        schema: z.string(),
+      },
+    ],
+    response: z.void(),
+    errors: [
+      {
+        status: 302,
+        description: `Redirects the browser back to the git integrations page`,
+        schema: z.void(),
+      },
+      {
+        status: 400,
+        description: `Invalid or expired state`,
+        schema: z.void(),
+      },
+      {
+        status: 404,
+        description: `The installation was not found on the platform app`,
         schema: z.void(),
       },
       {
@@ -3375,6 +3390,37 @@ const endpoints = makeApi([
       {
         status: 401,
         description: `Unauthorized`,
+        schema: z.void(),
+      },
+      {
+        status: 500,
+        description: `Internal server error`,
+        schema: Error,
+      },
+    ],
+  },
+  {
+    method: "get",
+    path: "/api/v1/organizations/:org_id/postgres-addons",
+    alias: "getApiv1organizationsOrg_idpostgresAddons",
+    requestFormat: "json",
+    parameters: [
+      {
+        name: "org_id",
+        type: "Path",
+        schema: z.string(),
+      },
+    ],
+    response: PostgresAddonList,
+    errors: [
+      {
+        status: 401,
+        description: `Unauthorized`,
+        schema: z.void(),
+      },
+      {
+        status: 403,
+        description: `Forbidden`,
         schema: z.void(),
       },
       {
@@ -6620,6 +6666,52 @@ accepts a full stack document.
     ],
   },
   {
+    method: "get",
+    path: "/api/v1/organizations/:org_id/projects/:project_name/stacks/:id/volumes",
+    alias: "getApiv1organizationsOrg_idprojectsProject_namestacksIdvolumes",
+    requestFormat: "json",
+    parameters: [
+      {
+        name: "org_id",
+        type: "Path",
+        schema: z.string(),
+      },
+      {
+        name: "project_name",
+        type: "Path",
+        schema: z.string(),
+      },
+      {
+        name: "id",
+        type: "Path",
+        schema: z.string(),
+      },
+    ],
+    response: VolumeList,
+    errors: [
+      {
+        status: 401,
+        description: `Unauthorized`,
+        schema: z.void(),
+      },
+      {
+        status: 403,
+        description: `Forbidden`,
+        schema: z.void(),
+      },
+      {
+        status: 404,
+        description: `Stack not found`,
+        schema: z.void(),
+      },
+      {
+        status: 500,
+        description: `Internal server error`,
+        schema: Error,
+      },
+    ],
+  },
+  {
     method: "post",
     path: "/api/v1/organizations/:org_id/projects/:project_name/stacks/:id/volumes",
     alias: "postApiv1organizationsOrg_idprojectsProject_namestacksIdvolumes",
@@ -6730,52 +6822,6 @@ whether the stack already exists.
     ],
   },
   {
-    method: "post",
-    path: "/api/v1/organizations/:org_id/projects/:project_name/volumes",
-    alias: "postApiv1organizationsOrg_idprojectsProject_namevolumes",
-    requestFormat: "json",
-    parameters: [
-      {
-        name: "body",
-        type: "Body",
-        schema: Volume,
-      },
-      {
-        name: "org_id",
-        type: "Path",
-        schema: z.string(),
-      },
-      {
-        name: "project_name",
-        type: "Path",
-        schema: z.string(),
-      },
-    ],
-    response: Volume,
-    errors: [
-      {
-        status: 400,
-        description: `Invalid request payload`,
-        schema: z.void(),
-      },
-      {
-        status: 401,
-        description: `Unauthorized`,
-        schema: z.void(),
-      },
-      {
-        status: 403,
-        description: `Forbidden`,
-        schema: z.void(),
-      },
-      {
-        status: 500,
-        description: `Internal server error`,
-        schema: z.void(),
-      },
-    ],
-  },
-  {
     method: "get",
     path: "/api/v1/organizations/:org_id/projects/:project_name/volumes/:id",
     alias: "getApiv1organizationsOrg_idprojectsProject_namevolumesId",
@@ -6859,217 +6905,6 @@ whether the stack already exists.
         status: 409,
         description: `Volume is in use and cannot be deleted`,
         schema: Error,
-      },
-      {
-        status: 500,
-        description: `Internal server error`,
-        schema: z.void(),
-      },
-    ],
-  },
-  {
-    method: "post",
-    path: "/api/v1/organizations/:org_id/projects/:project_name/workspace-users",
-    alias: "postApiv1organizationsOrg_idprojectsProject_nameworkspaceUsers",
-    requestFormat: "json",
-    parameters: [
-      {
-        name: "body",
-        type: "Body",
-        schema: WorkspaceUser,
-      },
-      {
-        name: "org_id",
-        type: "Path",
-        schema: z.string(),
-      },
-      {
-        name: "project_name",
-        type: "Path",
-        schema: z.string(),
-      },
-    ],
-    response: WorkspaceUser,
-    errors: [
-      {
-        status: 400,
-        description: `Invalid request payload`,
-        schema: z.void(),
-      },
-      {
-        status: 401,
-        description: `Unauthorized`,
-        schema: z.void(),
-      },
-      {
-        status: 500,
-        description: `Internal server error`,
-        schema: z.void(),
-      },
-    ],
-  },
-  {
-    method: "get",
-    path: "/api/v1/organizations/:org_id/projects/:project_name/workspace-users/:id",
-    alias: "getApiv1organizationsOrg_idprojectsProject_nameworkspaceUsersId",
-    requestFormat: "json",
-    parameters: [
-      {
-        name: "org_id",
-        type: "Path",
-        schema: z.string(),
-      },
-      {
-        name: "project_name",
-        type: "Path",
-        schema: z.string(),
-      },
-      {
-        name: "id",
-        type: "Path",
-        schema: z.string(),
-      },
-    ],
-    response: WorkspaceUser,
-    errors: [
-      {
-        status: 401,
-        description: `Unauthorized`,
-        schema: z.void(),
-      },
-      {
-        status: 404,
-        description: `WorkspaceUser not found`,
-        schema: z.void(),
-      },
-      {
-        status: 500,
-        description: `Internal server error`,
-        schema: z.void(),
-      },
-    ],
-  },
-  {
-    method: "put",
-    path: "/api/v1/organizations/:org_id/projects/:project_name/workspace-users/:id",
-    alias: "putApiv1organizationsOrg_idprojectsProject_nameworkspaceUsersId",
-    requestFormat: "json",
-    parameters: [
-      {
-        name: "body",
-        type: "Body",
-        schema: WorkspaceUser,
-      },
-      {
-        name: "org_id",
-        type: "Path",
-        schema: z.string(),
-      },
-      {
-        name: "project_name",
-        type: "Path",
-        schema: z.string(),
-      },
-      {
-        name: "id",
-        type: "Path",
-        schema: z.string(),
-      },
-    ],
-    response: WorkspaceUser,
-    errors: [
-      {
-        status: 400,
-        description: `Invalid request payload`,
-        schema: z.void(),
-      },
-      {
-        status: 401,
-        description: `Unauthorized`,
-        schema: z.void(),
-      },
-      {
-        status: 404,
-        description: `WorkspaceUser not found`,
-        schema: z.void(),
-      },
-      {
-        status: 500,
-        description: `Internal server error`,
-        schema: z.void(),
-      },
-    ],
-  },
-  {
-    method: "delete",
-    path: "/api/v1/organizations/:org_id/projects/:project_name/workspace-users/:id",
-    alias: "deleteApiv1organizationsOrg_idprojectsProject_nameworkspaceUsersId",
-    requestFormat: "json",
-    parameters: [
-      {
-        name: "org_id",
-        type: "Path",
-        schema: z.string(),
-      },
-      {
-        name: "project_name",
-        type: "Path",
-        schema: z.string(),
-      },
-      {
-        name: "id",
-        type: "Path",
-        schema: z.string(),
-      },
-    ],
-    response: z.void(),
-    errors: [
-      {
-        status: 401,
-        description: `Unauthorized`,
-        schema: z.void(),
-      },
-      {
-        status: 404,
-        description: `WorkspaceUser not found`,
-        schema: z.void(),
-      },
-      {
-        status: 500,
-        description: `Internal server error`,
-        schema: z.void(),
-      },
-    ],
-  },
-  {
-    method: "get",
-    path: "/api/v1/organizations/:org_id/projects/:project_name/workspace-users/current",
-    alias:
-      "getApiv1organizationsOrg_idprojectsProject_nameworkspaceUserscurrent",
-    requestFormat: "json",
-    parameters: [
-      {
-        name: "org_id",
-        type: "Path",
-        schema: z.string(),
-      },
-      {
-        name: "project_name",
-        type: "Path",
-        schema: z.string(),
-      },
-    ],
-    response: WorkspaceUser,
-    errors: [
-      {
-        status: 401,
-        description: `Unauthorized`,
-        schema: z.void(),
-      },
-      {
-        status: 404,
-        description: `WorkspaceUser not found`,
-        schema: z.void(),
       },
       {
         status: 500,

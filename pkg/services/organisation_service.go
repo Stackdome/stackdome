@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/Stackdome/stackdome/pkg/auth"
@@ -19,13 +20,31 @@ import (
 //go:generate mockgen -destination=../mocks/mock_organisation_service.go -package=mocks github.com/Stackdome/stackdome/pkg/services OrganisationService
 
 const (
-	shortOrgIDLength      = 8
-	maxDomainSeedAttempts = 5
+	shortOrgIDLength = 8
 	// maxRegistryNameLength keeps the registry CR name inside Kubernetes
 	// limits on the cluster: the StatefulSet's controller-revision-hash pod
 	// label appends "-<10 char hash>" and must fit a 63-character label.
 	maxRegistryNameLength = 50
+	maxOrgNameLength      = 100
 )
+
+// Anything that is not a letter or a digit, so "!!!" is rejected but
+// "Acme Labs" is not.
+var orgNameFillerOnly = regexp.MustCompile(`^[^\p{L}\p{N}]+$`)
+
+func validateOrganisationName(name string) *errors.ServiceError {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.BadRequest("organisation name is required")
+	}
+	if len([]rune(name)) > maxOrgNameLength {
+		return errors.BadRequest("organisation name must be at most %d characters", maxOrgNameLength)
+	}
+	if orgNameFillerOnly.MatchString(name) {
+		return errors.BadRequest("organisation name must contain at least one letter or number")
+	}
+	return nil
+}
 
 type OrganisationService interface {
 	InternalCreate(ctx context.Context, spec *models.Organisation) (*models.Organisation, *errors.ServiceError)
@@ -52,6 +71,7 @@ type organisationService struct {
 	policyMgr                 resourceaccess.ResourceAccessPolicyManager
 	permissions               auth.PermissionService
 	logger                    logger.Logger
+	customDomainsDisabled     bool
 }
 
 func NewOrganisationService(spec OrganisationServiceSpec) OrganisationService {
@@ -74,6 +94,7 @@ func NewOrganisationService(spec OrganisationServiceSpec) OrganisationService {
 		policyMgr:                 spec.PolicyManager,
 		permissions:               spec.Permissions,
 		logger:                    spec.Logger,
+		customDomainsDisabled:     spec.CustomDomainsDisabled,
 	}
 }
 
@@ -87,11 +108,16 @@ type OrganisationServiceSpec struct {
 	PolicyManager             resourceaccess.ResourceAccessPolicyManager
 	Permissions               auth.PermissionService
 	Logger                    logger.Logger
+	CustomDomainsDisabled     bool
 }
 
 func (s *organisationService) InternalCreate(ctx context.Context, spec *models.Organisation) (*models.Organisation, *errors.ServiceError) {
-	if len(spec.Name) == 0 {
-		return nil, errors.BadRequest("organisation name is required")
+	if nameErr := validateOrganisationName(spec.Name); nameErr != nil {
+		return nil, nameErr
+	}
+	spec.Name = strings.TrimSpace(spec.Name)
+	if s.customDomainsDisabled && len(spec.Domains) > 0 {
+		return nil, errors.BadRequest(customDomainsDisabledInRuntime)
 	}
 
 	org, err := s.organisationStore.Create(ctx, spec)
@@ -108,7 +134,7 @@ func (s *organisationService) InternalCreate(ctx context.Context, spec *models.O
 	}
 
 	if !org.Platform {
-		if seedErr := s.seedPlatformInfra(ctx, org.ID, org.Name); seedErr != nil {
+		if seedErr := s.seedSharedComputeRegistry(ctx, org.ID, org.Name); seedErr != nil {
 			return nil, seedErr
 		}
 	}
@@ -116,51 +142,20 @@ func (s *organisationService) InternalCreate(ctx context.Context, spec *models.O
 	return s.organisationStore.Get(ctx, org.ID)
 }
 
-// seedPlatformInfra gives a new tenant org a subdomain of the platform base
-// domain and a seed registry on the shared platform cluster. No platform
-// cluster configured (self-hosted install) → no-op.
-func (s *organisationService) seedPlatformInfra(ctx context.Context, orgID, orgName string) *errors.ServiceError {
-	platformCluster, err := s.clusterStore.GetPlatformCluster(ctx)
+// seedSharedComputeRegistry gives a new tenant org a pending registry row on
+// the shared-compute cluster. No shared-compute cluster configured → no-op.
+func (s *organisationService) seedSharedComputeRegistry(ctx context.Context, orgID, orgName string) *errors.ServiceError {
+	sharedClusters, err := s.clusterStore.ListSharedComputeClusters(ctx)
 	if err != nil {
-		if err.Code == errors.ErrorNotFound {
-			return nil
-		}
 		return err
 	}
-	ctx = auth.SetIdentityInContext(ctx, &auth.Identity{IsSystem: true, OrgID: orgID})
-
-	platformOrg, pErr := s.InternalGetPlatformOrg(ctx)
-	if pErr != nil {
-		return pErr
+	if len(sharedClusters) == 0 {
+		return nil
 	}
-	baseDomain, dErr := s.organisationDomainService.GetDefaultDomainForOrganisation(ctx, platformOrg.ID)
-	if dErr != nil {
-		return dErr
+	if len(sharedClusters) > 1 {
+		return errors.GeneralError("multiple shared-compute clusters configured")
 	}
-
-	orgSlug := slug.FromOrgName(orgName)
-	if sErr := s.seedOrgDomain(ctx, orgID, orgSlug, baseDomain.Domain); sErr != nil {
-		return sErr
-	}
-	return s.seedOrgRegistry(ctx, orgID, orgName, platformCluster.ID)
-}
-
-func (s *organisationService) seedOrgDomain(ctx context.Context, orgID, orgSlug, baseDomain string) *errors.ServiceError {
-	candidate := fmt.Sprintf("%s.%s", orgSlug, baseDomain)
-	for attempt := 0; attempt < maxDomainSeedAttempts; attempt++ {
-		_, err := s.organisationDomainService.Create(ctx, &models.OrganisationDomain{
-			OrganisationID: orgID,
-			Domain:         candidate,
-		})
-		if err == nil {
-			return nil
-		}
-		if err.Code != errors.ErrorConflict {
-			return err
-		}
-		candidate = fmt.Sprintf("%s-%s.%s", orgSlug, slug.RandomSuffix(), baseDomain)
-	}
-	return errors.Conflict("could not allocate a unique domain for organisation")
+	return s.seedOrgRegistry(ctx, orgID, orgName, sharedClusters[0].ID)
 }
 
 func (s *organisationService) seedOrgRegistry(ctx context.Context, orgID, orgName, clusterID string) *errors.ServiceError {
@@ -256,6 +251,15 @@ func (s *organisationService) Update(ctx context.Context, ID string, spec *model
 	if len(spec.Name) == 0 {
 		spec.Name = existing.Name
 	}
+	if s.customDomainsDisabled {
+		existingDomains, domainErr := s.organisationDomainService.ListByOrganisationID(ctx, ID)
+		if domainErr != nil {
+			return nil, domainErr
+		}
+		if !sameOrganisationDomains(existingDomains, spec.Domains) {
+			return nil, errors.BadRequest(customDomainsDisabledInRuntime)
+		}
+	}
 	org, err := s.organisationStore.Update(ctx, ID, spec)
 	if err != nil {
 		s.logger.Error(ctx, "failed to update organisation: %v", err)
@@ -293,6 +297,23 @@ func (s *organisationService) Update(ctx context.Context, ID string, spec *model
 		}
 	}
 	return s.Get(ctx, org.ID)
+}
+
+func sameOrganisationDomains(existing, desired []*models.OrganisationDomain) bool {
+	if len(existing) != len(desired) {
+		return false
+	}
+	domainCounts := make(map[string]int, len(existing))
+	for _, domain := range existing {
+		domainCounts[domain.Domain]++
+	}
+	for _, domain := range desired {
+		if domainCounts[domain.Domain] == 0 {
+			return false
+		}
+		domainCounts[domain.Domain]--
+	}
+	return true
 }
 
 func (s *organisationService) PromoteToOrgAdmin(ctx context.Context, orgID, userID string) *errors.ServiceError {

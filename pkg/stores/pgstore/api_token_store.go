@@ -35,7 +35,7 @@ func (s *apiTokenStore) Create(ctx context.Context, token *models.APIToken) (*mo
 func (s *apiTokenStore) GetByID(ctx context.Context, id string) (*models.APIToken, *errors.ServiceError) {
 	session := s.sessionFactory.New(ctx)
 	token := &models.APIToken{}
-	if err := session.Where("id = ?", id).First(token).Error; err != nil {
+	if err := session.Where("id = ? AND revoked_at IS NULL", id).First(token).Error; err != nil {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NotFound("api token not found")
 		}
@@ -59,7 +59,7 @@ func (s *apiTokenStore) GetByTokenHash(ctx context.Context, hash string) (*model
 func (s *apiTokenStore) ListByUserID(ctx context.Context, userID string) ([]*models.APIToken, *errors.ServiceError) {
 	session := s.sessionFactory.New(ctx)
 	var tokens []*models.APIToken
-	if err := session.Where("user_id = ?", userID).Order("created_at DESC").Find(&tokens).Error; err != nil {
+	if err := session.Where("user_id = ? AND revoked_at IS NULL", userID).Order("created_at DESC").Find(&tokens).Error; err != nil {
 		return nil, errors.GeneralError("failed to list api tokens: %s", err.Error())
 	}
 	return tokens, nil

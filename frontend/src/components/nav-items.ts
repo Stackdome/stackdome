@@ -5,6 +5,7 @@ import {
   GitPullRequest,
   Globe,
   KeyRound,
+  KeySquare,
   Layers,
   Package,
   Puzzle,
@@ -59,6 +60,16 @@ export const navGroups: NavGroup[] = [
       { label: "Addons", path: "/addons", icon: Puzzle },
       { label: "Secrets", path: "/secrets", icon: KeyRound },
       { label: "Object Stores", path: "/object-stores", icon: Cloud },
+      // **Brought in from main during the merge, not designed into this board.**
+      // API Tokens did not exist when this branch diverged; main added it to the
+      // old sidebar as a tenth `Nav*` component, and this refactor replaced that
+      // file with a list — so taking "ours" wholesale would have dropped a
+      // shipped destination on the floor.
+      //
+      // Placed with Secrets because it is the same kind of thing: an org-level
+      // credential, held by whoever holds the other credentials. **Placement is
+      // a guess, not a decision** — it never went through the app shell board.
+      { label: "API Tokens", path: "/settings/api-tokens", icon: KeySquare },
     ],
   },
   {

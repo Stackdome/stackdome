@@ -26,6 +26,7 @@ type ProjectService interface {
 	UpdateProject(ctx context.Context, id string, project *models.Project) (*models.Project, *errors.ServiceError)
 	DeleteProject(ctx context.Context, id string) *errors.ServiceError
 	InternalCreateDefaultProject(ctx context.Context, orgID string) (*models.Project, *errors.ServiceError)
+	InternalGetProjectByOrgAndName(ctx context.Context, orgID, name string) (*models.Project, *errors.ServiceError)
 	InternalAddMember(ctx context.Context, projectID, userID string, role models.ProjectRole) (*models.ProjectMembership, *errors.ServiceError)
 
 	AddMember(ctx context.Context, projectID, userID string, role models.ProjectRole) (*models.ProjectMembership, *errors.ServiceError)
@@ -52,7 +53,6 @@ type projectService struct {
 	volumeStore        stores.VolumeStore
 	postgresAddonStore stores.PostgresAddonStore
 	objectStoreStore   stores.ObjectStoreStore
-	workspaceUserStore stores.WorkspaceUserStore
 	policyMgr          resourceaccess.ResourceAccessPolicyManager
 	permissions        auth.PermissionService
 	logger             logger.Logger
@@ -84,9 +84,6 @@ func NewProjectService(spec ProjectServiceSpec) ProjectService {
 		objectStoreStore: pgstore.NewObjectStoreStore(pgstore.ObjectStoreStoreSpec{
 			SessionFactory: spec.SessionFactory,
 		}),
-		workspaceUserStore: pgstore.NewWorkspaceUserStore(pgstore.WorkspaceUserStoreSpec{
-			SessionFactory: spec.SessionFactory,
-		}),
 		policyMgr:   spec.PolicyManager,
 		permissions: spec.Permissions,
 		logger:      spec.Logger,
@@ -100,6 +97,15 @@ func (s *projectService) CreateProject(ctx context.Context, orgID string, projec
 
 	if err := validateProjectName(project.Name); err != nil {
 		return nil, err
+	}
+
+	// Alpha ships one project per organisation: the default one made at signup.
+	existing, serr := s.projectStore.ListByOrgID(ctx, orgID)
+	if serr != nil {
+		return nil, serr
+	}
+	if len(existing) > 0 {
+		return nil, errors.Conflict("alpha organisations use the %q project; additional projects are not available yet", models.DefaultProjectName)
 	}
 
 	project.OrganisationID = orgID
@@ -136,6 +142,13 @@ func (s *projectService) GetProjectByOrgAndName(ctx context.Context, orgID, name
 		return nil, permErr
 	}
 	return res, nil
+}
+
+// Name -> ID lookup with no permission check. Callers use it to resolve a URL
+// path segment before authorizing the resource actually being requested; an
+// API token scoped to that resource must not need projects:read to get there.
+func (s *projectService) InternalGetProjectByOrgAndName(ctx context.Context, orgID, name string) (*models.Project, *errors.ServiceError) {
+	return s.projectStore.GetByOrgAndName(ctx, orgID, name)
 }
 
 func (s *projectService) ListProjects(ctx context.Context, orgID string) ([]*models.Project, *errors.ServiceError) {
@@ -259,14 +272,6 @@ func (s *projectService) checkProjectDependencies(ctx context.Context, projectID
 	}
 	if len(objectStores) > 0 {
 		blocking = append(blocking, fmt.Sprintf("object stores (%d)", len(objectStores)))
-	}
-
-	workspaceUsers, err := s.workspaceUserStore.ListByProjectID(ctx, projectID)
-	if err != nil {
-		return errors.InternalServerError("failed to check project dependencies: %s", err.Reason)
-	}
-	if len(workspaceUsers) > 0 {
-		blocking = append(blocking, fmt.Sprintf("workspace users (%d)", len(workspaceUsers)))
 	}
 
 	if len(blocking) > 0 {
@@ -465,11 +470,39 @@ func (s *projectService) ListUserProjects(ctx context.Context, userID string) ([
 	if permErr := s.permissions.Check(ctx, user.OrganisationID, auth.ResourceProjects, "", auth.ActionList); permErr != nil {
 		return nil, permErr
 	}
-	return s.membershipStore.ListByUserIDAndOrgID(ctx, userID, user.OrganisationID)
+	return s.listUserProjects(ctx, user)
 }
 
 func (s *projectService) InternalListUserProjects(ctx context.Context, userID, orgID string) ([]*models.ProjectMembership, *errors.ServiceError) {
-	return s.membershipStore.ListByUserIDAndOrgID(ctx, userID, orgID)
+	user, serr := s.userStore.GetByID(ctx, userID)
+	if serr != nil {
+		return nil, serr
+	}
+	return s.listUserProjects(ctx, user)
+}
+
+// Org admins have org-wide access without any membership row, so their list is
+// projected from the org's projects at read time. The API contract only knows
+// Developer and Viewer, so the projected role is Developer.
+func (s *projectService) listUserProjects(ctx context.Context, user *models.User) ([]*models.ProjectMembership, *errors.ServiceError) {
+	if !user.IsOrgAdmin() {
+		return s.membershipStore.ListByUserIDAndOrgID(ctx, user.ID, user.OrganisationID)
+	}
+
+	projects, serr := s.projectStore.ListByOrgID(ctx, user.OrganisationID)
+	if serr != nil {
+		return nil, serr
+	}
+	memberships := make([]*models.ProjectMembership, len(projects))
+	for i, project := range projects {
+		memberships[i] = &models.ProjectMembership{
+			ProjectID: project.ID,
+			UserID:    user.ID,
+			Role:      models.DeveloperRole,
+			Project:   project,
+		}
+	}
+	return memberships, nil
 }
 
 func (s *projectService) ensureOrgMemberGrouping(ctx context.Context, userID, orgID string) *errors.ServiceError {

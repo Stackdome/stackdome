@@ -47,7 +47,7 @@ Build system is **Mage** (`magefile.go`, namespaced targets); `Makefile` wraps s
 Notes:
 - `mage dev:setup` is idempotent; reads/writes `.env` (creates from `.env_template`), writes cluster creds to `dev_env.yaml`.
 - `mage build` skips `tsc -b` so unrelated frontend type errors don't block the binary; frontend's own `pnpm build` does run `tsc -b`.
-- Integration tests need `TEST_KUBECONFIG` pointing at a Mage-created Kind cluster (`mage cluster:create` / `cluster:delete`); state cached in `~/.cache/stackdome-api-server/clusters/`.
+- Integration tests need `TEST_KUBECONFIG` pointing at a Mage-created Kind cluster (`mage cluster:setup` / `cluster:delete`); state cached in `~/.cache/stackdome-api-server/clusters/`.
 - New DB migration: scaffold with `hack/create_migration.sh`; ordered files live in `pkg/db/migrations/`.
 - Full end-to-end demo env: `hack/run_local.sh [stack.json]`.
 - **Tests use Ginkgo.** All Go tests are written with Ginkgo v2 + Gomega (`Describe`/`It`/`Expect`), never bare `testing.T` test functions. Ginkgo allows exactly one `RunSpecs` per package — if a suite bootstrap (`*_suite_test.go` or any `RunSpecs` call) already exists, add `var _ = Describe(...)` blocks to new files instead of a second suite. Existing bare-`testing.T` tests may stay, but new tests never add to them.
@@ -61,10 +61,39 @@ Notes:
 - **Stories are tests.** `pnpm test:run` runs two vitest projects: the jsdom unit suite, then every story rendered in headless Chromium with its `play` function executed. Both run in CI, so a change that breaks a story fails the build. Keep the projects sequenced (`sequence.groupOrder` in `frontend/vitest.config.ts`) — run in parallel they starve each other into timeouts. Add a `play` only where it proves something the render doesn't (an interaction, async data arriving, an aria state, portal content); variant-only stories need none.
 - **Shared story setup lives in `frontend/.storybook/`,** not in story files: `fixtures.ts` (typed factories off the generated OpenAPI schemas), `msw-handlers.ts` (baseline auth/org handlers every story inherits), `sse.ts` (scripted `text/event-stream` frames for the EventSource hooks), `decorators.tsx` (providers, ReactFlow harness). Mock at the network boundary — never refactor a component just to make it story-able.
 - **No defensive programming.** Never write `if s.someValidator != nil { ... }` around work that must always happen (validation, authorization, persistence), and do NOT add explicit nil-check-and-panic guards in constructors either (`if spec.X == nil { panic(...) }`). A missing required dependency is a wiring bug: just use the dependency unconditionally and let the natural nil-pointer panic surface it — e2e tests catch mis-wiring. Nil-guards are only acceptable for genuinely optional behavior where nil substitutes a default implementation (e.g. `RegistryClients` → real client) — never where nil silently skips the work. Tests wire every seam with mocks instead of relying on skip-when-nil.
+- **Comments: simple, short, useful.** Write them in plain language a tired reader can parse. Use bullet points when the comment covers more than one thing. Add a short example when the code calls for it (a tricky format, a non-obvious input). Be brief — nobody reads a wall of LLM-generated prose, and a long comment is usually a sign the code should be clearer instead.
+
+  ```go
+  // Bad: one dense paragraph restating the code.
+  // recordResourceEvent records the observed resource state onto the active
+  // release timeline. It runs only inside the StatusHash-change gate, so each
+  // state transition is recorded at most once. A missing active release or a
+  // recorder failure is non-fatal: the status update has already been persisted...
+
+  // Good: says what matters, in bullets.
+  //   - Runs only when StatusHash changed, so each state is recorded once.
+  //   - TLS events fall back to the latest release: a cert can finish issuing
+  //     after the release is done.
+  //   - No release, or a failed record: log and move on. Status is already saved.
+  ```
+- **Don't comment for the sake of it. Code is the best comment.** A comment that restates the line below it is noise. Before writing one, try to make the comment unnecessary: a clearer name, a smaller function, an extracted helper, an early return. Comment only what the code genuinely cannot say — why a non-obvious choice was made, a constraint imposed from outside (an agent's behaviour, a k8s rule), a surprising ordering. Always strive for simplicity and readability.
+
+  ```go
+  // Noise — the code already says this.
+  // increment the retry count
+  retries++
+
+  // Better — no comment needed, the name carries it.
+  func currentGenCondition(cr *corev1alpha1.StackResource, condType string) *metav1.Condition
+
+  // Worth keeping — the reason is invisible from the code.
+  // Pre-0.6.11 agents set True on issuer discovery alone, so key on the reason.
+  case cond.Status == metav1.ConditionTrue && cond.Reason == controllers.ReasonTLSReady:
+  ```
 
 ## Agent skills
 
-Superpowers is the workflow **spine** for all tasks: `superpowers:brainstorming` → spec (`docs/superpowers/specs/`), `superpowers:writing-plans` → plan (`docs/superpowers/plans/`), `superpowers:executing-plans`/TDD/debugging per superpowers. The repo-local skills in `.claude/skills/` are permitted as below; some gate on a superpowers artifact, others are off-spine utilities. `tdd`, `write-a-skill`, `caveman` are intentionally absent — the superpowers / global-plugin equivalents are authoritative.
+Superpowers is the workflow **spine** for all tasks: `superpowers:brainstorming` → spec (`dev-docs/specs/`), `superpowers:writing-plans` → plan (`dev-docs/plans/`), which is git-ignored so neither lands in this repo; `superpowers:executing-plans`/TDD/debugging per superpowers. The repo-local skills in `.claude/skills/` are permitted as below; some gate on a superpowers artifact, others are off-spine utilities. `tdd`, `write-a-skill`, `caveman` are intentionally absent — the superpowers / global-plugin equivalents are authoritative.
 
 | Skill | Use only | Gate |
 |---|---|---|

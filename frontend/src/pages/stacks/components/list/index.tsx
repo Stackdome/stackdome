@@ -8,7 +8,12 @@ import {
 } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getStacksByOrg } from "@/api/stacks";
-import { getOrganization } from "@/api/organizations";
+// **`deleteStack` is NOT imported, and that is a gap this merge inherits.**
+// main's list page could delete a stack from a row menu; this branch removed
+// row menus in favour of drawers, and no drawer picked the action back up — so
+// after the merge nothing in the UI calls `deleteStack`, though the API client
+// still exports it. Flagged rather than fixed here: where a stack gets deleted
+// from is a design decision, not a merge one.
 import { buildHelloStackSeed } from "@/pages/stacks/lib/onboarding/hello-stack-seed";
 import {
   startCanvasStage,
@@ -28,12 +33,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PageHeader, EmptyState } from "@/components/branded";
+import { PageHeader, EmptyState, CloudAlphaBanner } from "@/components/branded";
 import {
   SearchGlyph,
   StackArchitectureGlyph,
 } from "@/components/branded/empty-state";
 import { ViewToggle, useViewMode } from "@/components/branded/view-toggle";
+// `StackCreateWizard` is not imported: this branch replaced the wizard with the
+// New stack drawer, and its files are gone.
 import type { Stack } from "@/api/stack-types";
 import {
   DeployStackCard,
@@ -123,8 +130,15 @@ export default function StacksPage() {
     }
   }, [setStacks]);
 
-  // The demo exposes a public port, so an org without a domain cannot finish
-  // the tour.
+  // The demo exposes a public port, and the org's own domain list has no
+  // bearing on whether that is allowed: the backend waives the requirement
+  // whenever a platform base domain is configured. Cloud configures one and
+  // adds the domain internally, so a Cloud org's list is empty by design.
+  //
+  // A self-hosted install with neither a base domain nor an org domain is the
+  // one case left where the tour is offered and Deploy then fails validation
+  // with "organisation has no domain configured". Gating that needs the base
+  // domain exposed on /api/v1/config, which the frontend cannot see today.
   const navigate = useNavigate();
 
   // **The URL is what opens the drawer**, not a piece of component state.
@@ -139,17 +153,8 @@ export default function StacksPage() {
   useEffect(() => {
     if (isLoading || error || stacks.length > 0 || tourOffered.current) return;
     if (!canWriteAnyProject || isTourDone()) return;
-    const orgId = getCurrentOrganizationId();
-    if (!orgId) return;
     tourOffered.current = true;
-    getOrganization(orgId)
-      .then((org) => {
-        if ((org.domains ?? []).length === 0) return;
-        setWelcomeOpen(true);
-      })
-      .catch(() => {
-        // No tour on a failed lookup — the normal empty state still shows.
-      });
+    setWelcomeOpen(true);
   }, [isLoading, error, stacks, canWriteAnyProject]);
 
   const acceptTour = () => {
@@ -330,6 +335,10 @@ export default function StacksPage() {
 
   return (
     <div className="flex flex-1 flex-col h-full">
+      {/* Kept from main at the merge: the hosted-alpha notice. Its own padding
+          comes from the page below it — this branch's shell owns the frame's
+          insets, so main's `p-8 space-y-6` on the container is not carried. */}
+      <CloudAlphaBanner />
       <PageHeader
         actions={
           canWriteAnyProject ? (

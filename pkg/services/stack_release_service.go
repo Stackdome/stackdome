@@ -8,6 +8,7 @@ import (
 
 	"github.com/Stackdome/stackdome/pkg/auth"
 	gitclient "github.com/Stackdome/stackdome/pkg/clients/git"
+	"github.com/Stackdome/stackdome/pkg/computequota"
 	"github.com/Stackdome/stackdome/pkg/credentials"
 	"github.com/Stackdome/stackdome/pkg/errors"
 	"github.com/Stackdome/stackdome/pkg/interfaces"
@@ -46,6 +47,7 @@ type StackReleaseService interface {
 	InternalGet(ctx context.Context, releaseID string) (*models.StackRelease, *errors.ServiceError)
 	InternalGetReleaseRefs(ctx context.Context, stacks []*models.Stack) (map[string]models.StackReleaseRefs, *errors.ServiceError)
 	InternalGetActiveByStackID(ctx context.Context, stackID string) (*models.StackRelease, *errors.ServiceError)
+	InternalGetLatestByStackID(ctx context.Context, stackID string) (*models.StackRelease, *errors.ServiceError)
 	InternalListActive(ctx context.Context) ([]*models.StackRelease, *errors.ServiceError)
 	MarkInProgress(ctx context.Context, id string) (bool, *errors.ServiceError)
 	SaveManifest(ctx context.Context, id string, m *models.ReleaseManifest, rev string, pins models.ReleasePins, rendererVersion string) (bool, *errors.ServiceError)
@@ -53,6 +55,7 @@ type StackReleaseService interface {
 	MarkCancelled(ctx context.Context, id string, reasons string) (bool, *errors.ServiceError)
 	MarkSuperseded(ctx context.Context, id string, reason string) (bool, *errors.ServiceError)
 	MarkFailed(ctx context.Context, id string, message string, outcome *models.ReleaseOutcome) (bool, *errors.ServiceError)
+	SetConvergeClockStartedAt(ctx context.Context, id string, startedAt *time.Time) *errors.ServiceError
 	MarkFailedWithValidationErrors(ctx context.Context, id, message string, verrs models.ReleaseValidationErrors) (bool, *errors.ServiceError)
 	AppendImageDigests(ctx context.Context, id string, digests map[string]string) *errors.ServiceError
 
@@ -68,7 +71,8 @@ type StackReleaseServiceSpec struct {
 	EventStore         stores.ReleaseEventStore
 	EventRecorder      ReleaseEventRecorder
 	// GitClients is optional; it defaults to real git clients.
-	GitClients sourceGitClientProvider
+	GitClients    sourceGitClientProvider
+	ComputePolicy computequota.Policy
 }
 
 type stackReleaseService struct {
@@ -80,6 +84,7 @@ type stackReleaseService struct {
 	eventStore         stores.ReleaseEventStore
 	eventRecorder      ReleaseEventRecorder
 	gitClients         sourceGitClientProvider
+	computePolicy      computequota.Policy
 	logger             logger.Logger
 	BackgroundJobEnqueuerDep
 }
@@ -98,6 +103,7 @@ func NewStackReleaseService(spec StackReleaseServiceSpec) StackReleaseService {
 		eventStore:         spec.EventStore,
 		eventRecorder:      spec.EventRecorder,
 		gitClients:         gitClients,
+		computePolicy:      spec.ComputePolicy,
 		logger:             logger.NewLoggerWithPrefix(context.Background(), "stack-release-service"),
 	}
 }
@@ -166,6 +172,18 @@ func (s *stackReleaseService) createReleaseForStack(ctx context.Context, stack *
 
 	var created *models.StackRelease
 	if txErr := s.store.WithTransaction(ctx, func(txCtx context.Context) *errors.ServiceError {
+		// Validate the exact release snapshot before it is persisted and enqueued for cluster reconciliation.
+		if accessErr := s.computePolicy.EnsureAccess(txCtx, stack.OrganisationID); accessErr != nil {
+			return accessErr
+		}
+		if limitErr := s.computePolicy.ValidateStackLimits(txCtx, computequota.StackLimitChange{
+			Operation:            computequota.StackLimitReplaceStack,
+			OrganisationID:       stack.OrganisationID,
+			ReplacedStackID:      stack.ID,
+			DesiredResourceCount: int64(len(snapshot.Resources)),
+		}); limitErr != nil {
+			return limitErr
+		}
 		var e *errors.ServiceError
 		created, e = s.store.Create(txCtx, release)
 		if e != nil {
@@ -179,7 +197,7 @@ func (s *stackReleaseService) createReleaseForStack(ctx context.Context, stack *
 		return nil, txErr
 	}
 
-	if err := s.BackgroundJobEnqueuer.EnqueueAfterCommit(ctx, &models.StackRelease{ID: created.ID}); err != nil {
+	if err := s.BackgroundJobEnqueuer.EnqueueAfterCommit(ctx, models.StackReleaseOperand{ID: created.ID}); err != nil {
 		return nil, errors.GeneralError("failed to enqueue release: %s", err.Error())
 	}
 	return created, nil
@@ -242,6 +260,18 @@ func (s *stackReleaseService) RollbackRelease(ctx context.Context, stackID, from
 
 	var created *models.StackRelease
 	if txErr := s.store.WithTransaction(ctx, func(txCtx context.Context) *errors.ServiceError {
+		// Validate the exact release snapshot before it is persisted and enqueued for cluster reconciliation.
+		if accessErr := s.computePolicy.EnsureAccess(txCtx, stack.OrganisationID); accessErr != nil {
+			return accessErr
+		}
+		if limitErr := s.computePolicy.ValidateStackLimits(txCtx, computequota.StackLimitChange{
+			Operation:            computequota.StackLimitReplaceStack,
+			OrganisationID:       stack.OrganisationID,
+			ReplacedStackID:      stack.ID,
+			DesiredResourceCount: int64(len(src.Snapshot.Resources)),
+		}); limitErr != nil {
+			return limitErr
+		}
 		var e *errors.ServiceError
 		created, e = s.store.Create(txCtx, release)
 		if e != nil {
@@ -255,7 +285,7 @@ func (s *stackReleaseService) RollbackRelease(ctx context.Context, stackID, from
 		return nil, txErr
 	}
 
-	if err := s.BackgroundJobEnqueuer.EnqueueAfterCommit(ctx, &models.StackRelease{ID: created.ID}); err != nil {
+	if err := s.BackgroundJobEnqueuer.EnqueueAfterCommit(ctx, models.StackReleaseOperand{ID: created.ID}); err != nil {
 		return nil, errors.GeneralError("failed to enqueue release: %s", err.Error())
 	}
 	return created, nil
@@ -510,6 +540,10 @@ func (s *stackReleaseService) InternalGetActiveByStackID(ctx context.Context, st
 	return s.store.GetActiveByStackID(ctx, stackID)
 }
 
+func (s *stackReleaseService) InternalGetLatestByStackID(ctx context.Context, stackID string) (*models.StackRelease, *errors.ServiceError) {
+	return s.store.GetLatestByStackID(ctx, stackID)
+}
+
 func (s *stackReleaseService) InternalListActive(ctx context.Context) ([]*models.StackRelease, *errors.ServiceError) {
 	return s.store.ListActive(ctx)
 }
@@ -556,6 +590,10 @@ func (s *stackReleaseService) MarkFailed(ctx context.Context, id string, message
 	}
 	s.recordTerminalEvent(ctx, id, models.ReleaseStateFailed, message)
 	return true, nil
+}
+
+func (s *stackReleaseService) SetConvergeClockStartedAt(ctx context.Context, id string, startedAt *time.Time) *errors.ServiceError {
+	return s.store.SetConvergeClockStartedAt(ctx, id, startedAt)
 }
 
 func (s *stackReleaseService) MarkFailedWithValidationErrors(ctx context.Context, id, message string, verrs models.ReleaseValidationErrors) (bool, *errors.ServiceError) {

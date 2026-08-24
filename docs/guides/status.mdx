@@ -1,0 +1,111 @@
+---
+title: "Inspect stack status"
+description: "Check release convergence, runtime health, resource state, and condition history with the Stackdome CLI."
+keywords: ["stackdome status", "release convergence", "runtime health", "converged_release", "latest_release"]
+---
+
+`stackdome status` answers two different questions: which release is serving, and whether that release is healthy now. Use structured output for automation and the table view for resource-level investigation.
+
+## Check the current stack
+
+```bash
+stackdome status
+```
+
+The table shows the serving release state followed by every resource, its runtime state, declared ports, and public URL. When the API reports a failure, the CLI also prints its captured details and the three most recent resource conditions.
+
+To inspect a stack other than the current context, pass its name:
+
+```bash
+stackdome status --stack storefront
+```
+
+Pass a resource name to filter both the table and structured result:
+
+```bash
+stackdome status web --stack storefront
+```
+
+## Prove convergence and health
+
+For an agent or CI job, request JSON:
+
+```bash
+stackdome status -o json
+```
+
+The result has two top-level fields: `stack` contains the saved stack and its release summaries, and `live_status` contains the current runtime state. The two release summaries under `stack` have different meanings:
+
+| Field | Meaning |
+| --- | --- |
+| `stack.converged_release` | The release currently serving. It can remain on an older successful release while a newer attempt progresses or fails. |
+| `stack.latest_release` | The newest release attempt, whether or not it became live. |
+
+A stack is serving a healthy release when all of these are true:
+
+- `stack.converged_release` is present.
+- `stack.converged_release.state` is `Released`.
+- `live_status.health` is `ok`.
+
+To verify a deployment you just created, retain `release.id` from `stackdome deploy --wait -o json` as the deployed release ID and also require `stack.converged_release.id` to equal it. This prevents an older healthy release from satisfying the check.
+
+To prove that this deployed release is also the **newest attempt**, require:
+
+- `stack.latest_release.id` equals the deployed release ID.
+- `stack.latest_release.state` is `Released`.
+
+Do not use a release-summary health field as the current runtime check. Current runtime health is `live_status.health`.
+
+<Visibility for="agents">
+  Do not claim that a deployment succeeded from `live_status.health == "ok"` alone. An older release can still be healthy after a newer attempt fails. Match `stack.converged_release.id` to the retained deployed release ID; when claiming that release is newest, match `stack.latest_release.id` to it too.
+</Visibility>
+
+The possible runtime health values are `ok`, `progressing`, `degraded`, `unavailable`, and `failed`. `ok` is the only value that proves the serving release is healthy.
+
+## Watch a rollout by hand
+
+```bash
+stackdome status --watch
+```
+
+The CLI refreshes every three seconds until interrupted. In table mode it redraws an interactive terminal. In structured mode it emits one complete Stack object per refresh:
+
+```bash
+stackdome status --watch -o json
+```
+
+This is a stream of objects with `stack` and `live_status`, not one JSON array. Stop it when you have the state you need.
+
+For an agent or CI job, use the bounded deploy command instead:
+
+```bash
+stackdome deploy --wait --timeout 15m -o json
+stackdome status -o json
+```
+
+Do not leave `status --watch` running in an unattended process.
+
+<Warning>
+Interrupting `stackdome status --watch` exits with code `130`. The exit only means the watch was stopped; inspect the last object before reporting the stack state.
+</Warning>
+
+## Read condition history
+
+Use the table to see every condition reported for each resource:
+
+```bash
+stackdome status --conditions
+```
+
+Each condition includes its status, type, reason, message, and transition age. Start with the newest false or failing condition, then compare its reason and message with [runtime logs](/guides/logs).
+
+Structured status already contains conditions under `live_status.resources.<resource>.conditions`. The `--conditions` flag expands the table; it does not change the JSON or YAML object.
+
+## Choose the next diagnostic
+
+| Status evidence | Next step |
+| --- | --- |
+| `stack.latest_release.state` is `Pending` or `InProgress` | Read its [release events](/concepts/releases#read-release-events). |
+| `stack.latest_release.state` is `Failed` | Inspect release info and events; if a build failed, use the [build-failure guide](/guides/build-failures). |
+| A resource is not ready or reports a captured failure | Run `stackdome status --conditions`, then inspect that resource's [runtime logs](/guides/logs). |
+| The newest release is serving and healthy, but the application misbehaves | Inspect application logs; status proves platform health, not application semantics. |

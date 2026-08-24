@@ -11,6 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { useBreadcrumb } from "@/hooks/use-breadcrumb";
+import { usePreviewLineage } from "@/hooks/use-preview-lineage";
 import { RenameableTitle } from "@/components/renameable-title";
 import { PageTitle } from "@/components/page-title";
 
@@ -71,6 +72,7 @@ export function SheetHeader({ leading }: { leading?: React.ReactNode }) {
     selectionPaths,
     renameHandlers,
   } = useBreadcrumb();
+  const { lineage } = usePreviewLineage();
 
   const pathSegments = location.pathname.split("/").filter(Boolean);
 
@@ -99,7 +101,30 @@ export function SheetHeader({ leading }: { leading?: React.ReactNode }) {
   // renaming the title, and a crumb is the same claim in the same band — it
   // would offer a way back to a screen you never left. The address still
   // resolves, because people have it bookmarked.
-  const placeItems = breadcrumbItems.filter((item) => !selectionPaths[item.path]);
+  // **A preview stack belongs to its preview config, not to Stacks.**
+  // Carried over from main at the merge, where it lived in `app-layout`'s own
+  // crumb builder — this branch had already moved crumb building in here, so
+  // neither side of that conflict had both halves. A preview environment sits
+  // at `/stacks/<id>` like any other stack, and without this its trail claims
+  // it came from the Stacks list, which is not where the reader was and not
+  // where Back should take them. The ancestors REPLACE the leading crumb
+  // rather than joining it, for the same reason.
+  const previewAncestors: BreadcrumbItemType[] | null = lineage
+    ? [
+      { name: "Previews", path: "/previews", clickable: true },
+      {
+        name: lineage.configName ?? "…",
+        path: `/previews/${lineage.configId}`,
+        clickable: !!lineage.configName,
+      },
+    ]
+    : null;
+
+  const withLineage = previewAncestors
+    ? [...previewAncestors, ...breadcrumbItems.slice(1)]
+    : breadcrumbItems;
+
+  const placeItems = withLineage.filter((item) => !selectionPaths[item.path]);
 
   // A journey shows its title alone (§12a). The trail's last segment IS the
   // title, so keep that and drop the wayfinding in front of it: the sidebar

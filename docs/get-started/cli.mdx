@@ -1,0 +1,89 @@
+---
+title: "Quickstart with the CLI"
+description: "Authenticate, create a Stackfile, deploy an application, and verify its status with the Stackdome CLI."
+keywords: ["Stackdome CLI quickstart", "stackdome deploy", "API token login", "JSON output", "deployment verification"]
+---
+
+Use this guide to deploy a repository from your terminal.
+
+Before you start, have:
+
+- The `stackdome` CLI installed.
+- Your Stackdome server URL. This can be Stackdome Cloud or your self-hosted installation.
+- An API token from your Stackdome account.
+
+The commands below sign you in, create a `stackfile.yaml` from the repository, check it, and deploy the application. See [authentication and API tokens](/reference/authentication) for token safety and the [Stackfile reference](/reference/stackfile) when you need to edit the generated file.
+
+## Deploy the repository
+
+Run these commands from the repository root:
+
+<Steps>
+  <Step title="Sign in">
+    ```bash
+    stackdome login --url https://<your-stackdome-host> --token <api-token>
+    stackdome whoami
+    ```
+
+    Check that `whoami` shows the server and account you intend to use.
+  </Step>
+
+  <Step title="Create the Stackfile">
+    Start with a generated `stackfile.yaml`:
+
+    ```bash
+    stackdome init
+    ```
+
+    If the repository has a Compose file, you can import it instead:
+
+    ```bash
+    stackdome init --file docker-compose.yml
+    ```
+
+    <Warning>
+      Compose import is experimental. Relative build paths such as `./app` are not supported.
+    </Warning>
+  </Step>
+
+  <Step title="Review and edit the Stackfile">
+    Open `stackfile.yaml` and match it to the application. Check its image or build source, command, ports, environment variables, dependencies, and storage.
+
+    Use the [Stackfile reference](/reference/stackfile) for available fields and examples.
+  </Step>
+
+  <Step title="Validate">
+    ```bash
+    stackdome validate
+    ```
+
+    Fix every reported problem before deploying.
+  </Step>
+
+  <Step title="Deploy">
+    ```bash
+    stackdome deploy --wait
+    ```
+
+    Wait until the release is marked `Released`.
+  </Step>
+
+  <Step title="Check the stack and open the app">
+    ```bash
+    stackdome status
+    stackdome open
+    ```
+
+    `stackdome open` opens the URL for a service with a public port.
+  </Step>
+</Steps>
+
+## Structured output
+
+With `-o json` or `-o yaml`, `stdout` contains only structured result data. Progress, prompts, warnings, and other prose are written to `stderr`, so automation can parse `stdout` without stripping human-readable messages.
+
+Use `stackdome <command> --help` to verify flags before adding commands to automation.
+
+<Card title="Stackdome Cloud during alpha" icon="cloud" href="/get-started/cloud-alpha">
+  Review Cloud availability, ephemerality, and the self-hosted fallback.
+</Card>

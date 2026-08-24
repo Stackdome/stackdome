@@ -11,7 +11,10 @@ import (
 	"github.com/Stackdome/stackdome/pkg/bootstrap"
 	"github.com/Stackdome/stackdome/pkg/builders"
 	"github.com/Stackdome/stackdome/pkg/clients/githubapp"
+	"github.com/Stackdome/stackdome/pkg/clients/turnstile"
 	"github.com/Stackdome/stackdome/pkg/clustermanager"
+	"github.com/Stackdome/stackdome/pkg/computeaccess"
+	"github.com/Stackdome/stackdome/pkg/computequota"
 	"github.com/Stackdome/stackdome/pkg/controllers/clusterimageregistry"
 	clusterinfocontroller "github.com/Stackdome/stackdome/pkg/controllers/clusterinfo"
 	imagebuildcontroller "github.com/Stackdome/stackdome/pkg/controllers/imagebuild"
@@ -20,17 +23,20 @@ import (
 	stackcontroller "github.com/Stackdome/stackdome/pkg/controllers/stack"
 	stackresourcecontroller "github.com/Stackdome/stackdome/pkg/controllers/stackresource"
 	volumecontroller "github.com/Stackdome/stackdome/pkg/controllers/volume"
-	workspaceusercontroller "github.com/Stackdome/stackdome/pkg/controllers/workspaceuser"
 	"github.com/Stackdome/stackdome/pkg/db"
 	emailpkg "github.com/Stackdome/stackdome/pkg/email"
 	applogger "github.com/Stackdome/stackdome/pkg/logger"
 	"github.com/Stackdome/stackdome/pkg/models"
+	"github.com/Stackdome/stackdome/pkg/observability"
 	"github.com/Stackdome/stackdome/pkg/resourceaccess"
 	"github.com/Stackdome/stackdome/pkg/services"
 	"github.com/Stackdome/stackdome/pkg/services/clusterresource"
+	"github.com/Stackdome/stackdome/pkg/signupprotection"
 	"github.com/Stackdome/stackdome/pkg/stackdeploy"
+	"github.com/Stackdome/stackdome/pkg/stores"
 	"github.com/Stackdome/stackdome/pkg/stores/pgstore"
 	stackresourcevalidator "github.com/Stackdome/stackdome/pkg/validator/stackresource"
+	clusterimageregistryworker "github.com/Stackdome/stackdome/pkg/worker/clusterimageregistry"
 	inviteworker "github.com/Stackdome/stackdome/pkg/worker/invite"
 	postgresaddonworker "github.com/Stackdome/stackdome/pkg/worker/postgresaddon"
 	previewworker "github.com/Stackdome/stackdome/pkg/worker/preview"
@@ -50,13 +56,15 @@ type environmentImpl struct {
 	spec envSpec
 }
 
+type configLoader func() error
+
 func newEnvironment(spec envSpec) *environmentImpl {
 	return &environmentImpl{
 		spec: spec,
 		Env: &Env{
-			Name:            spec.name,
-			Config:          config.NewApplicationConfig(),
-			BootstrapConfig: config.NewBootstrapConfig(),
+			Name:           spec.name,
+			Config:         config.NewApplicationConfig(),
+			PlatformConfig: config.NewPlatformConfig(),
 		},
 	}
 }
@@ -67,14 +75,14 @@ type EnvConfigOption interface {
 
 type ApplicationConfigOption func(*config.ApplicationConfig)
 
-type BootstrapConfigOption func(*config.BootstrapConfig)
+type PlatformConfigOption func(*config.PlatformConfig)
 
 func (o ApplicationConfigOption) ApplyToEnv(env *Env) {
 	o(env.Config)
 }
 
-func (o BootstrapConfigOption) ApplyToEnv(env *Env) {
-	o(env.BootstrapConfig)
+func (o PlatformConfigOption) ApplyToEnv(env *Env) {
+	o(env.PlatformConfig)
 }
 
 func WithApplicationConfig(cfg *config.ApplicationConfig) EnvConfigOption {
@@ -83,8 +91,8 @@ func WithApplicationConfig(cfg *config.ApplicationConfig) EnvConfigOption {
 	})
 }
 
-func WithBootstrapConfig(cfg *config.BootstrapConfig) EnvConfigOption {
-	return BootstrapConfigOption(func(env *config.BootstrapConfig) {
+func WithPlatformConfig(cfg *config.PlatformConfig) EnvConfigOption {
+	return PlatformConfigOption(func(env *config.PlatformConfig) {
 		*env = *cfg
 	})
 }
@@ -113,6 +121,10 @@ func (e *environmentImpl) Init(ctx context.Context) error {
 		e.loadEnvAndConfigs,
 		e.setupLogger,
 		e.setupDatabase,
+		e.initializeSignupProtection,
+		e.initializeComputePolicy,
+		e.auditPersistedComputeTopology,
+		e.setupObservability,
 		e.initializeResourceAccessPolicyManager,
 		e.initializePermissionService,
 		e.loadServices,
@@ -121,7 +133,7 @@ func (e *environmentImpl) Init(ctx context.Context) error {
 		e.injectClusterResourceServices,
 		e.initializeBaseResourceAccessPolicies,
 		e.startManagers,
-		e.bootstrapPlatformDefaults,
+		e.bootstrapSharedComputeInfrastructure,
 	}
 
 	for _, step := range initializerSteps {
@@ -141,30 +153,63 @@ func (e *environmentImpl) InitDatabase(ctx context.Context) error {
 }
 
 func (e *environmentImpl) loadEnvAndConfigs(ctx context.Context) error {
-	if e.spec.managed {
+	if e.spec.dependencySource.createsDependencies() {
 		_ = godotenv.Load()
-		e.Config.LoadEnvVariables()
-		e.BootstrapConfig.LoadEnvVariables()
+		loaders := []configLoader{
+			e.Config.LoadEnvVariables,
+			e.PlatformConfig.LoadEnvVariables,
+			e.Config.LoadStackdomeCloudConfig,
+		}
+		if err := runConfigLoaders(loaders); err != nil {
+			return err
+		}
 	} else {
-		e.loadTestDefaults()
+		if err := e.loadTestDefaults(); err != nil {
+			return fmt.Errorf("load test defaults: %w", err)
+		}
 	}
 
 	if err := e.Config.Validate(); err != nil {
 		return fmt.Errorf("invalid application config: %w", err)
 	}
 
-	if err := config.ValidatePlatformProvisioning(e.Config.PlatformCluster, e.BootstrapConfig.BaseDomain, e.BootstrapConfig.Email); err != nil {
-		return fmt.Errorf("invalid platform-provisioning config: %w", err)
+	if err := e.validateSharedComputeProvisioning(); err != nil {
+		return fmt.Errorf("invalid shared compute provisioning config: %w", err)
+	}
+	if err := e.validatePlatformRouting(); err != nil {
+		return fmt.Errorf("invalid platform routing config: %w", err)
 	}
 	return nil
 }
 
+func runConfigLoaders(loaders []configLoader) error {
+	for _, loader := range loaders {
+		if err := loader(); err != nil {
+			return fmt.Errorf("load configuration: %w", err)
+		}
+	}
+	return nil
+}
+
+func (e *environmentImpl) validateSharedComputeProvisioning() error {
+	return config.ValidateSharedComputeProvisioning(e.Config.ComputeMode, e.Config.SharedComputeCluster)
+}
+
+func (e *environmentImpl) validatePlatformRouting() error {
+	return config.ValidatePlatformRouting(e.Config.RuntimeMode, e.Config.ComputeMode, e.PlatformConfig)
+}
+
 // loadTestDefaults keeps tests runnable without a .env file while still letting
-// CI configure everything through environment variables. Platform-provisioning
-// config stays opt-in: unset in unit runs, set by the integration bootstrap.
-func (e *environmentImpl) loadTestDefaults() {
-	e.Config.PlatformCluster.LoadEnvVariables()
-	e.BootstrapConfig.LoadEnvVariables()
+// CI configure everything through environment variables. Shared-compute and
+// platform-routing configuration stays opt-in: unset in unit runs, set by the
+// integration bootstrap.
+func (e *environmentImpl) loadTestDefaults() error {
+	if err := e.Config.SharedComputeCluster.LoadEnvVariables(); err != nil {
+		return fmt.Errorf("load shared compute config: %w", err)
+	}
+	if err := e.PlatformConfig.LoadEnvVariables(); err != nil {
+		return fmt.Errorf("load platform config: %w", err)
+	}
 
 	if e.Config.JwtSecret == "" {
 		if val, ok := config.EnvTestJWTSecret.Lookup(); ok {
@@ -189,6 +234,7 @@ func (e *environmentImpl) loadTestDefaults() {
 			e.Config.LogLevel = "info"
 		}
 	}
+	return nil
 }
 
 func (e *environmentImpl) setupLogger(ctx context.Context) error {
@@ -198,7 +244,7 @@ func (e *environmentImpl) setupLogger(ctx context.Context) error {
 	}
 	e.Logger = applogger.NewLoggerWithPrefix(ctx, e.loggerName("api-server")).SetLevel(logLevel)
 
-	if !e.spec.managed {
+	if !e.spec.dependencySource.createsDependencies() {
 		logrus.SetOutput(os.Stdout)
 		logrus.SetFormatter(&logrus.TextFormatter{
 			FullTimestamp: true,
@@ -211,7 +257,7 @@ func (e *environmentImpl) setupLogger(ctx context.Context) error {
 }
 
 func (e *environmentImpl) setupDatabase(ctx context.Context) error {
-	if !e.spec.managed {
+	if !e.spec.dependencySource.createsDependencies() {
 		// The session factory is supplied by the test bootstrap.
 		return nil
 	}
@@ -221,6 +267,147 @@ func (e *environmentImpl) setupDatabase(ctx context.Context) error {
 		return fmt.Errorf("invalid database config: %w", err)
 	}
 	e.DBSession = db.NewSessionFactory(e.Config.Database)
+	return nil
+}
+
+func (e *environmentImpl) initializeSignupProtection(context.Context) error {
+	if !e.Config.IsStackdomeCloud() {
+		e.PasswordSignupProtection = signupprotection.NewDisabledPasswordSignupProtection()
+		return nil
+	}
+
+	cloudConfig := e.Config.StackdomeCloud
+	if cloudConfig == nil {
+		return fmt.Errorf("stackdome Cloud configuration is required")
+	}
+	turnstileVerifier := e.Clients.TurnstileVerifier
+	if e.spec.dependencySource.createsDependencies() {
+		var err error
+		turnstileVerifier, err = turnstile.NewClient(turnstile.ClientSpec{
+			Secret:           e.Config.TurnstileSecret,
+			ExpectedHostname: cloudConfig.Signup.Turnstile.ExpectedHostname,
+			ExpectedAction:   cloudConfig.Signup.Turnstile.ExpectedAction,
+			Timeout:          cloudConfig.Signup.Turnstile.VerificationTimeout.Duration(),
+		})
+		if err != nil {
+			return fmt.Errorf("create Turnstile verifier: %w", err)
+		}
+	} else if turnstileVerifier == nil {
+		return fmt.Errorf("injected Turnstile verifier is required")
+	}
+
+	passwordSignupProtection, err := signupprotection.NewPasswordSignupProtection(
+		signupprotection.PasswordSignupProtectionSpec{
+			Verifier: turnstileVerifier,
+			IPThrottle: signupprotection.ThrottleSpec{
+				MaxTrackedKeys: cloudConfig.Signup.Throttle.IP.MaxTrackedClients,
+				MaxAttempts:    cloudConfig.Signup.Throttle.IP.MaxAttempts,
+				Window:         cloudConfig.Signup.Throttle.IP.Window.Duration(),
+				Now:            time.Now,
+			},
+			EmailThrottle: signupprotection.ThrottleSpec{
+				MaxTrackedKeys: cloudConfig.Signup.Throttle.Email.MaxTrackedAddresses,
+				MaxAttempts:    cloudConfig.Signup.Throttle.Email.MaxAttempts,
+				Window:         cloudConfig.Signup.Throttle.Email.Window.Duration(),
+				Now:            time.Now,
+			},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("create password signup protection: %w", err)
+	}
+
+	clientIPResolver := e.SignupClientIPResolver
+	if e.spec.dependencySource.createsDependencies() {
+		switch cloudConfig.Signup.ClientIPSource {
+		case config.StackdomeCloudClientIPSourceCloudflare:
+			clientIPResolver = signupprotection.NewCloudflareClientIPResolver()
+		case config.StackdomeCloudClientIPSourceRemoteAddr:
+			clientIPResolver = signupprotection.NewDirectClientIPResolver()
+		default:
+			return fmt.Errorf("unsupported signup client IP source %q", cloudConfig.Signup.ClientIPSource)
+		}
+	} else if clientIPResolver == nil {
+		return fmt.Errorf("injected signup client IP resolver is required")
+	}
+
+	e.PasswordSignupProtection = passwordSignupProtection
+	e.SignupClientIPResolver = clientIPResolver
+	return nil
+}
+
+func (e *environmentImpl) initializeComputePolicy(context.Context) error {
+	e.ComputePolicy = computequota.NewSelfHostedPolicy()
+	if !e.Config.IsStackdomeCloud() {
+		return nil
+	}
+
+	cloudConfig := e.Config.StackdomeCloud
+	if cloudConfig == nil {
+		return fmt.Errorf("stackdome Cloud configuration is required")
+	}
+	computeAccess := computeaccess.NewService(computeaccess.ServiceSpec{
+		Store: pgstore.NewComputeAccessStore(pgstore.ComputeAccessStoreSpec{
+			SessionFactory:               e.DBSession,
+			MaxActiveSharedComputeLeases: cloudConfig.Access.MaxActiveSharedComputeLeases,
+		}),
+		DefaultEntitlementSource:   computeaccess.ComputeEntitlementSourceTrial,
+		DefaultEntitlementDuration: cloudConfig.Access.TrialEntitlementDuration.Duration(),
+	})
+	e.ComputePolicy = computequota.NewStackdomeCloudPolicy(computequota.StackdomeCloudPolicySpec{
+		ComputeAccess: computeAccess,
+		ComputeUsage:  pgstore.NewComputeUsageStore(),
+		Limits:        cloudConfig.Limits,
+	})
+	return nil
+}
+
+func (e *environmentImpl) auditPersistedComputeTopology(ctx context.Context) error {
+	clusterStore := pgstore.NewClusterStore(pgstore.ClusterStoreSpec{SessionFactory: e.DBSession})
+	return checkPersistedComputeTopology(ctx, e.Config.ComputeMode, clusterStore)
+}
+
+func checkPersistedComputeTopology(ctx context.Context, mode config.ComputeMode, clusterStore stores.ClusterStore) error {
+	var incompatibleSharedCompute bool
+	switch mode {
+	case config.ComputeModeBYOC:
+		incompatibleSharedCompute = true
+	case config.ComputeModeShared:
+		incompatibleSharedCompute = false
+	default:
+		return fmt.Errorf("check persisted compute topology: unsupported compute mode %q", mode)
+	}
+
+	clusterID, err := clusterStore.FindAnyClusterIDBySharedCompute(ctx, incompatibleSharedCompute)
+	if err != nil {
+		return fmt.Errorf("find incompatible persisted cluster: %w", err)
+	}
+	if clusterID == "" {
+		return nil
+	}
+	if mode == config.ComputeModeBYOC {
+		return fmt.Errorf(
+			"bring-your-own compute cannot start while shared-compute cluster %q exists; "+
+				"set COMPUTE_MODE=shared or remove the shared-compute cluster and dependent resources",
+			clusterID,
+		)
+	}
+	return fmt.Errorf(
+		"shared compute cannot start while tenant-owned cluster %q exists; "+
+			"set COMPUTE_MODE=bring_your_own or remove the tenant-owned cluster and dependent resources",
+		clusterID,
+	)
+}
+
+func (e *environmentImpl) setupObservability(context.Context) error {
+	e.Observability = observability.NewMetrics()
+	e.Observability.RegisterStackCollector(observability.NewDatabaseStackSnapshotSource(e.DBSession))
+	if e.Config.IsStackdomeCloud() {
+		e.Observability.RegisterComputeAccessCollector(
+			observability.NewDatabaseComputeAccessSnapshotSource(e.DBSession),
+			e.Config.StackdomeCloud.Access.MaxActiveSharedComputeLeases,
+		)
+	}
 	return nil
 }
 
@@ -256,14 +443,6 @@ func (e *environmentImpl) initializeClusterManager(ctx context.Context) error {
 				})
 			},
 			func(clusterID string) clustermanager.Controller {
-				return workspaceusercontroller.NewWorkspaceUserReconciler(workspaceusercontroller.WorkspaceUserReconcilerSpec{
-					Log:                  controllerLogger("workspace-user-controller", clusterID),
-					WorkspaceUserService: e.Services.WorkspaceUserService,
-					ClusterService:       e.Services.ClusterService,
-					Env:                  e.Name,
-				})
-			},
-			func(clusterID string) clustermanager.Controller {
 				return stackcontroller.NewStackReconciler(stackcontroller.StackReconcilerSpec{
 					Log:            controllerLogger("stack-controller", clusterID),
 					StackService:   e.Services.StackService,
@@ -278,7 +457,7 @@ func (e *environmentImpl) initializeClusterManager(ctx context.Context) error {
 					StackService:         e.Services.StackService,
 					StackResourceService: e.Services.StackResourceService,
 					Env:                  e.Name,
-					ReleaseChecker:       e.Services.StackReleaseService,
+					ReleaseResolver:      e.Services.StackReleaseService,
 					EventRecorder:        e.Services.ReleaseEventRecorder,
 				})
 			},
@@ -289,7 +468,7 @@ func (e *environmentImpl) initializeClusterManager(ctx context.Context) error {
 					DBImageBuildService:   e.Services.ImageBuildService,
 					DBResourceService:     e.Services.StackResourceService,
 					GitIntegrationService: e.Services.GitIntegrationService,
-					ReleaseChecker:        e.Services.StackReleaseService,
+					ReleaseResolver:       e.Services.StackReleaseService,
 					EventRecorder:         e.Services.ReleaseEventRecorder,
 					StackService:          e.Services.StackService,
 				})
@@ -359,7 +538,7 @@ func (e *environmentImpl) initializePermissionService(ctx context.Context) error
 // wiring and SMTP_HOST is set; otherwise a no-op client.
 func (e *environmentImpl) newEmailService(ctx context.Context) emailpkg.EmailService {
 	noop := emailpkg.NewNoopEmailService(applogger.NewLoggerWithPrefix(ctx, e.loggerName("email-service")).SetLevel(e.Logger.GetLevel()))
-	if !e.spec.managed {
+	if !e.spec.dependencySource.createsDependencies() {
 		return noop
 	}
 
@@ -382,6 +561,9 @@ func (e *environmentImpl) newEmailService(ctx context.Context) emailpkg.EmailSer
 
 func (e *environmentImpl) loadServices(ctx context.Context) error {
 	e.Logger.Debugf("Initializing services")
+	stackdomeCloudRuntime := e.Config.IsStackdomeCloud()
+	customDomainsDisabled := stackdomeCloudRuntime && !e.Config.CustomDomainsEnabled()
+	externalPostgresImportDisabled := stackdomeCloudRuntime && !e.Config.ExternalPostgresImportEnabled()
 
 	encryptionService, err := services.NewAESEncryptionService(services.EncryptionServiceSpec{
 		Masterkey: e.Config.EncryptionKey,
@@ -391,13 +573,16 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 	}
 	e.EncryptionService = encryptionService
 	stackDomainService := services.NewStackDomainsService(services.StackDomainsServiceSpec{
-		SessionFactory: e.DBSession,
-		Logger:         e.Logger,
+		SessionFactory:        e.DBSession,
+		Logger:                e.Logger,
+		PlatformBaseDomain:    e.PlatformConfig.BaseDomain,
+		CustomDomainsDisabled: customDomainsDisabled,
 	})
 
 	organisationDomainService := services.NewOrganisationDomainsService(services.OrganisationDomainsServiceSpec{
-		SessionFactory: e.DBSession,
-		Logger:         e.Logger,
+		SessionFactory:        e.DBSession,
+		Logger:                e.Logger,
+		CustomDomainsDisabled: customDomainsDisabled,
 	})
 
 	projectService := services.NewProjectService(services.ProjectServiceSpec{
@@ -413,16 +598,25 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 		Permissions:    e.PermissionService,
 	})
 
+	orgRegistryDefaults := e.PlatformConfig.OrgRegistry
+	if e.Config.IsStackdomeCloud() {
+		orgRegistryDefaults = models.OrgRegistryDefaults{
+			StorageSize:  e.Config.StackdomeCloud.Registry.StorageSize,
+			StorageClass: e.Config.StackdomeCloud.Registry.StorageClass,
+		}
+	}
+
 	organisationService := services.NewOrganisationService(services.OrganisationServiceSpec{
 		OrganisationDomainService: organisationDomainService,
 		ImageRegistryService:      imageRegistryService,
-		OrgRegistryDefaults:       e.BootstrapConfig.OrgRegistry,
+		OrgRegistryDefaults:       orgRegistryDefaults,
 		StackQueryService:         e.Services.StackService,
 		SessionFactory:            e.DBSession,
 		ProjectService:            projectService,
 		PolicyManager:             e.ResourceAccessPolicyManager,
 		Permissions:               e.PermissionService,
 		Logger:                    e.Logger,
+		CustomDomainsDisabled:     customDomainsDisabled,
 	})
 
 	stackStore := pgstore.NewStackStore(&pgstore.StackStoreSpec{SessionFactory: e.DBSession})
@@ -472,6 +666,7 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 			BaseURL: e.Config.GitHubAPIBaseURL,
 		}),
 		ExternalURL:       e.Config.ServerExternalURL,
+		PlatformApp:       platformGitHubApp(e.Config.GitHubApp),
 		EncryptionService: encryptionService,
 		Permissions:       e.PermissionService,
 		Logger:            e.Logger,
@@ -496,23 +691,18 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 		Permissions:                 e.PermissionService,
 		ProjectService:              projectService,
 		RefreshTokenStore:           e.RefreshTokenStore,
+		AtomicExecutor:              pgstore.NewAtomicExecutor(e.DBSession),
 	})
 
 	clusterService := services.NewClusterService(services.ClusterServiceSpec{
 		ClusterManager:       e.ClusterManager,
 		ImageRegistryService: imageRegistryService,
 		SessionFactory:       e.DBSession,
+		ComputeMode:          e.Config.ComputeMode,
+		PlatformTLSEnabled:   e.PlatformConfig.PlatformTLSEnabled,
 		Logger:               e.Logger,
 		Permissions:          e.PermissionService,
 		EncryptionService:    encryptionService,
-	})
-
-	workspaceUserService := services.NewWorkspaceUserService(services.WorkspaceUserServiceSpec{
-		SessionFactory: e.DBSession,
-		Logger:         e.Logger,
-		ClusterService: clusterService,
-		UserService:    userService,
-		Permissions:    e.PermissionService,
 	})
 
 	volumeService := services.NewVolumeService(services.VolumeServiceSpec{
@@ -520,6 +710,7 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 		Logger:           e.Logger,
 		Permissions:      e.PermissionService,
 		ReferenceService: referenceService,
+		ComputePolicy:    e.ComputePolicy,
 	})
 
 	resourceValidator := stackresourcevalidator.NewValidator(stackresourcevalidator.ValidatorSpec{
@@ -529,21 +720,22 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 		Secrets: pgstore.NewSecretStore(pgstore.SecretStoreSpec{
 			SessionFactory: e.DBSession,
 		}),
-		Domains:         organisationDomainService,
-		Credentials:     credentialResolver,
-		GitIntegrations: gitIntegrationService,
+		Domains:            organisationDomainService,
+		Credentials:        credentialResolver,
+		GitIntegrations:    gitIntegrationService,
+		PlatformBaseDomain: e.PlatformConfig.BaseDomain,
 	})
 
 	stackResourceService := services.NewStackResourceService(services.StackResourceServiceSpec{
 		SessionFactory:         e.DBSession,
 		Logger:                 e.Logger,
-		WorkspaceUserService:   workspaceUserService,
 		Permissions:            e.PermissionService,
 		StackStore:             stackStore,
 		ClusterRegistryService: imageRegistryService,
 		StackDomainService:     stackDomainService,
 		ReferenceService:       referenceService,
 		ResourceValidator:      resourceValidator,
+		ComputePolicy:          e.ComputePolicy,
 	})
 
 	imageBuildService := services.NewImageBuildService(services.ImageBuildServiceSpec{
@@ -557,6 +749,7 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 	namespaceService := services.NewNamespaceService(services.NamespaceServiceSpec{
 		SessionFactory: e.DBSession,
 		Logger:         e.Logger,
+		SharedCompute:  e.Config.UsesSharedCompute(),
 	})
 
 	loggingService := services.NewLoggingService(services.LoggingServiceSpec{
@@ -581,17 +774,19 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 	})
 
 	postgresAddonService := services.NewPostgresAddonService(services.PostgresAddonServiceSpec{
-		SessionFactory:        e.DBSession,
-		NamespaceService:      namespaceService,
-		ClusterService:        clusterService,
-		SecretService:         secretService,
-		PostgresBackupService: postgresBackupService,
-		ObjectStoreService:    objectStoreService,
-		ProjectService:        projectService,
-		ClusterManager:        e.ClusterManager,
-		Logger:                e.Logger,
-		Permissions:           e.PermissionService,
-		ReferenceService:      referenceService,
+		SessionFactory:         e.DBSession,
+		NamespaceService:       namespaceService,
+		ClusterService:         clusterService,
+		SecretService:          secretService,
+		PostgresBackupService:  postgresBackupService,
+		ObjectStoreService:     objectStoreService,
+		ProjectService:         projectService,
+		ClusterManager:         e.ClusterManager,
+		Logger:                 e.Logger,
+		Permissions:            e.PermissionService,
+		ReferenceService:       referenceService,
+		ExternalImportDisabled: externalPostgresImportDisabled,
+		ComputePolicy:          e.ComputePolicy,
 	})
 
 	stackService := services.NewStackService(services.StackServiceSpec{
@@ -609,6 +804,8 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 		ReferenceService:      referenceService,
 		CredentialResolver:    credentialResolver,
 		GitIntegrationService: gitIntegrationService,
+		PlatformBaseDomain:    e.PlatformConfig.BaseDomain,
+		ComputePolicy:         e.ComputePolicy,
 	})
 
 	metricsService := services.NewMetricsService(services.MetricsServiceSpec{
@@ -644,6 +841,7 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 		ProjectService:      projectService,
 		PolicyManager:       e.ResourceAccessPolicyManager,
 		RefreshTokenStore:   e.RefreshTokenStore,
+		AtomicExecutor:      pgstore.NewAtomicExecutor(e.DBSession),
 		JWTSecretKey:        e.Config.JwtSecret,
 		JWTClaimsBuilder:    auth.NewJWTClaimsBuilder(),
 		Logger:              e.Logger,
@@ -672,6 +870,7 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 		ReferenceService:   referenceService,
 		EventStore:         releaseEventStore,
 		EventRecorder:      releaseEventRecorder,
+		ComputePolicy:      e.ComputePolicy,
 	})
 
 	stackService.SetReleaseService(stackReleaseService)
@@ -714,11 +913,11 @@ func (e *environmentImpl) loadServices(ctx context.Context) error {
 		EncryptionService: encryptionService,
 		PreviewWebhook:    previewWebhookService,
 		Logger:            e.Logger,
+		PlatformApp:       platformGitHubApp(e.Config.GitHubApp),
 	})
 
 	e.Services = Services{
 		UserService:                 userService,
-		WorkspaceUserService:        workspaceUserService,
 		OrganisationService:         organisationService,
 		ClusterService:              clusterService,
 		StackStorageService:         nil, // Not implemented yet
@@ -759,6 +958,7 @@ func (e *environmentImpl) initializeWorkerManager(ctx context.Context) error {
 	e.Logger.Debugf("Initializing worker manager")
 	e.WorkerManager = workermanager.NewWorkerManager(workermanager.WorkerManagerSpec{
 		Environment: e.Name,
+		Metrics:     e.Observability,
 	})
 
 	stackWorker := stack.NewStackWorker(stack.StackWorkerSpec{
@@ -770,12 +970,21 @@ func (e *environmentImpl) initializeWorkerManager(ctx context.Context) error {
 		Env:              e.Name,
 	})
 
-	e.WorkerManager.RegisterWorker(stackWorker, &models.Stack{})
+	e.WorkerManager.RegisterWorker(stackWorker, models.StackOperand{})
+
+	clusterImageRegistryStore := pgstore.NewClusterImageRegistryStore(pgstore.ClusterImageRegistryStoreSpec{
+		SessionFactory: e.DBSession,
+	})
+	clusterImageRegistryResource := clusterresource.NewClusterImageRegistryService(clusterresource.ClusterImageRegistryServiceSpec{
+		ClusterManager: e.ClusterManager,
+		Logger:         e.Logger,
+	})
 
 	releaseWorker := releaseworker.NewReleaseWorker(releaseworker.ReleaseWorkerSpec{
 		ReleaseService:       e.Services.StackReleaseService,
 		EventRecorder:        e.Services.ReleaseEventRecorder,
 		StackService:         e.Services.StackService,
+		ImageBuildService:    e.Services.ImageBuildService,
 		ClusterManager:       e.ClusterManager,
 		SecretService:        e.Services.SecretService,
 		CredentialResolver:   e.Services.CredentialResolver,
@@ -783,6 +992,9 @@ func (e *environmentImpl) initializeWorkerManager(ctx context.Context) error {
 		VolumeService:        e.Services.VolumeService,
 		CRBuilder: builders.NewClusterResourceBuilder(builders.ClusterResourceBuilderSpec{
 			CredentialResolver: e.Services.CredentialResolver,
+			ComputeMode:        e.Config.ComputeMode,
+			PlatformTLSEnabled: e.PlatformConfig.PlatformTLSEnabled,
+			PlatformBaseDomain: e.PlatformConfig.BaseDomain,
 		}),
 		SecretBuilder: builders.NewSecretBuilder(builders.SecretBuilderSpec{}),
 		Resolver: stackdeploy.NewResolver(stackdeploy.ResolverSpec{
@@ -794,16 +1006,18 @@ func (e *environmentImpl) initializeWorkerManager(ctx context.Context) error {
 			SessionFactory: e.DBSession,
 		}),
 		ReleaseWorkerEnqueuer: e.WorkerManager,
+		ImageRegistryStore:    clusterImageRegistryStore,
+		ImageRegistryResource: clusterImageRegistryResource,
 		Env:                   e.Name,
 	})
-	e.WorkerManager.RegisterWorker(releaseWorker, &models.StackRelease{})
+	e.WorkerManager.RegisterWorker(releaseWorker, models.StackReleaseOperand{})
 
 	releaseGCWorker := releasegcworker.NewReleaseGCWorker(releasegcworker.ReleaseGCWorkerSpec{
 		ReleaseStore: pgstore.NewStackReleaseStore(pgstore.StackReleaseStoreSpec{SessionFactory: e.DBSession}),
 		StackStore:   pgstore.NewStackStore(&pgstore.StackStoreSpec{SessionFactory: e.DBSession}),
 		Env:          e.Name,
 	})
-	e.WorkerManager.RegisterWorker(releaseGCWorker, &releasegcworker.ReleaseGCRequest{})
+	e.WorkerManager.RegisterWorker(releaseGCWorker, releasegcworker.ReleaseGCRequest{})
 
 	volumeWorker := volumeworker.NewVolumeWorker(volumeworker.VolumeWorkerSpec{
 		VolumeService:  e.Services.VolumeService,
@@ -815,7 +1029,18 @@ func (e *environmentImpl) initializeWorkerManager(ctx context.Context) error {
 		VolumeCrBuilder: builders.NewClusterResourceBuilder(builders.ClusterResourceBuilderSpec{}),
 		Env:             e.Name,
 	})
-	e.WorkerManager.RegisterWorker(volumeWorker, &models.Volume{})
+	e.WorkerManager.RegisterWorker(volumeWorker, models.VolumeOperand{})
+
+	clusterImageRegistryWorker := clusterimageregistryworker.NewClusterImageRegistryWorker(clusterimageregistryworker.ClusterImageRegistryWorkerSpec{
+		ClusterStore: pgstore.NewClusterStore(pgstore.ClusterStoreSpec{
+			SessionFactory: e.DBSession,
+		}),
+		ImageRegistryStore: clusterImageRegistryStore,
+		ClusterManager:     e.ClusterManager,
+		ClusterResource:    clusterImageRegistryResource,
+		Env:                e.Name,
+	})
+	e.WorkerManager.RegisterWorker(clusterImageRegistryWorker, models.ClusterImageRegistryOperand{})
 
 	pgAddonWorker := postgresaddonworker.NewPostgresAddonWorker(postgresaddonworker.PostgresAddonWorkerSpec{
 		PostgresAddonService: e.Services.PostgresAddonService,
@@ -827,7 +1052,7 @@ func (e *environmentImpl) initializeWorkerManager(ctx context.Context) error {
 		CRBuilder:            builders.NewPostgresClusterBuilder(),
 		Env:                  e.Name,
 	})
-	e.WorkerManager.RegisterWorker(pgAddonWorker, &models.PostgresAddon{})
+	e.WorkerManager.RegisterWorker(pgAddonWorker, models.PostgresAddonOperand{})
 
 	inviteEmailWorker := inviteworker.NewInviteWorker(inviteworker.InviteWorkerSpec{
 		InviteService:  e.Services.OrgInviteService,
@@ -835,14 +1060,14 @@ func (e *environmentImpl) initializeWorkerManager(ctx context.Context) error {
 		LeadershipFlag: e.LeadershipFlag,
 		Env:            e.Name,
 	})
-	e.WorkerManager.RegisterWorker(inviteEmailWorker, &models.OrgInvite{})
+	e.WorkerManager.RegisterWorker(inviteEmailWorker, models.OrgInviteOperand{})
 
 	inviteCleanupWorker := inviteworker.NewInviteCleanupWorker(inviteworker.InviteCleanupWorkerSpec{
 		InviteService:  e.Services.OrgInviteService,
 		LeadershipFlag: e.LeadershipFlag,
 		Env:            e.Name,
 	})
-	e.WorkerManager.RegisterWorker(inviteCleanupWorker, &inviteworker.InviteCleanupBatch{})
+	e.WorkerManager.RegisterWorker(inviteCleanupWorker, inviteworker.InviteCleanupRequest{})
 
 	previewStackStore := pgstore.NewPreviewStackStore(pgstore.PreviewStackStoreSpec{
 		SessionFactory: e.DBSession,
@@ -865,30 +1090,16 @@ func (e *environmentImpl) initializeWorkerManager(ctx context.Context) error {
 		CommentService:      previewCommentService,
 		Env:                 e.Name,
 	})
-	e.WorkerManager.RegisterWorker(previewWorker, &models.PreviewStack{})
+	e.WorkerManager.RegisterWorker(previewWorker, models.PreviewStackOperand{})
 
 	return nil
 }
 
 func (e *environmentImpl) injectClusterResourceServices(ctx context.Context) error {
-	workspaceUserClusterResourceService := clusterresource.NewWorkspaceUserClusterResourceService(clusterresource.WorkspaceUserClusterResourceServiceSpec{
-		ClusterManager: e.ClusterManager,
-		Logger:         e.Logger,
-		ClusterService: e.Services.ClusterService,
-		UserService:    e.Services.UserService,
-	})
-
 	volumeClusterResourceService := clusterresource.NewVolumeClusterResourceService(clusterresource.VolumeClusterResourceServiceSpec{
-		ClusterService:       e.Services.ClusterService,
-		ClusterManager:       e.ClusterManager,
-		Logger:               e.Logger,
-		WorkspaceUserService: e.Services.WorkspaceUserService,
-	})
-
-	clusterImageRegistryService := clusterresource.NewClusterImageRegistryService(clusterresource.ClusterImageRegistryServiceSpec{
+		ClusterService: e.Services.ClusterService,
 		ClusterManager: e.ClusterManager,
 		Logger:         e.Logger,
-		ClusterService: e.Services.ClusterService,
 	})
 
 	clusterNamespaceService := clusterresource.NewNamespaceClusterResourceService(clusterresource.NamespaceClusterResourceServiceSpec{
@@ -920,13 +1131,13 @@ func (e *environmentImpl) injectClusterResourceServices(ctx context.Context) err
 		BackgroundJobEnqueuer: e.WorkerManager,
 	}
 
-	e.Services.WorkspaceUserService.InjectClusterResourceService(workspaceUserClusterResourceService)
 	e.Services.VolumeService.InjectClusterResourceService(volumeClusterResourceService)
 	e.Services.StackService.InjectClusterResourceServiceDeps(deps)
 	e.Services.NamespaceService.InjectClusterResourceServiceDeps(deps)
 	e.Services.LoggingService.InjectClusterResourceServiceDeps(deps)
 	e.Services.MetricsService.InjectClusterResourceServiceDeps(deps)
-	e.Services.ClusterImageRegistryService.InjectClusterResourceService(clusterImageRegistryService)
+	e.Services.ClusterImageRegistryService.InjectBackgroundJobEnqueuer(dep)
+	e.Services.ClusterService.InjectBackgroundJobEnqueuer(dep)
 	e.Services.StackService.InjectBackgroundJobEnqueuer(dep)
 	e.Services.StackResourceService.InjectClusterManager(e.ClusterManager)
 	e.Services.PostgresAddonService.InjectBackgroundJobEnqueuer(dep)
@@ -965,14 +1176,13 @@ func (e *environmentImpl) startManagers(ctx context.Context) error {
 	return e.WorkerManager.Start(ctx)
 }
 
-func (e *environmentImpl) bootstrapPlatformDefaults(ctx context.Context) error {
+func (e *environmentImpl) bootstrapSharedComputeInfrastructure(ctx context.Context) error {
 	svc := bootstrap.NewService(bootstrap.Spec{
-		OrganisationService:       e.Services.OrganisationService,
-		ClusterService:            e.Services.ClusterService,
-		OrganisationDomainService: e.Services.OrganisationDomainService,
-		BootstrapConfig:           e.BootstrapConfig,
-		ClusterConfig:             e.Config.PlatformCluster,
-		Logger:                    e.Logger,
+		OrganisationService: e.Services.OrganisationService,
+		ClusterService:      e.Services.ClusterService,
+		PlatformConfig:      e.PlatformConfig,
+		ClusterConfig:       e.Config.SharedComputeCluster,
+		Logger:              e.Logger,
 	})
 	if err := svc.Run(ctx); err != nil {
 		return fmt.Errorf("platform bootstrap failed: %w", err)
@@ -1008,4 +1218,19 @@ func (e *environmentImpl) Shutdown(ctx context.Context) error {
 
 	e.Logger.Infof("%s environment shutdown completed", e.Name)
 	return nil
+}
+
+// platformGitHubApp converts the GITHUB_APP_* config into app credentials, or
+// nil when the hub runs without a platform-wide app and each org creates its
+// own through the manifest flow.
+func platformGitHubApp(cfg *config.GitHubAppConfig) *githubapp.AppCredentials {
+	if !cfg.Configured() {
+		return nil
+	}
+	return &githubapp.AppCredentials{
+		AppID:         cfg.AppID,
+		Slug:          cfg.Slug,
+		PEM:           cfg.PrivateKey,
+		WebhookSecret: cfg.WebhookSecret,
+	}
 }

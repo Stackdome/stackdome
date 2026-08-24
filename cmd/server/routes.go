@@ -23,10 +23,27 @@ func (s apiServer) routes() *mux.Router {
 	}).Methods(http.MethodGet)
 	services := s.environment.Environment().Services
 	logger := s.environment.Environment().Logger
+	applicationConfig := s.environment.Environment().Config
+
+	signupTurnstileEnabled := false
+	signupTurnstileSiteKey := ""
+	signupTurnstileAction := ""
+	if applicationConfig.IsStackdomeCloud() {
+		if applicationConfig.StackdomeCloud == nil {
+			panic("stackdome Cloud configuration is required")
+		}
+		signupTurnstileEnabled = applicationConfig.StackdomeCloud.Signup.Turnstile.Enabled
+		signupTurnstileSiteKey = applicationConfig.StackdomeCloud.Signup.Turnstile.SiteKey
+		signupTurnstileAction = applicationConfig.StackdomeCloud.Signup.Turnstile.ExpectedAction
+	}
 
 	userHandler := handlers.NewUserServiceHandler(handlers.UserServiceHandlerSpec{
-		UserService:   services.UserService,
-		SignupService: services.SignupService,
+		UserService:              services.UserService,
+		SignupService:            services.SignupService,
+		SignupProtectionEnabled:  signupTurnstileEnabled,
+		InviteSignupEnabled:      !applicationConfig.IsStackdomeCloud(),
+		PasswordSignupProtection: s.environment.Environment().PasswordSignupProtection,
+		SignupClientIPResolver:   s.environment.Environment().SignupClientIPResolver,
 	})
 
 	refreshHandler := auth.NewRefreshHandler(auth.RefreshHandlerSpec{
@@ -43,11 +60,6 @@ func (s apiServer) routes() *mux.Router {
 
 	projectHandler := handlers.NewProjectHandler(handlers.ProjectHandlerSpec{
 		ProjectService: services.ProjectService,
-	})
-
-	workspaceUserHandler := handlers.NewWorkspaceUserHandler(handlers.WorkspaceUserHandlerSpec{
-		WorkspaceUserService: services.WorkspaceUserService,
-		ProjectService:       services.ProjectService,
 	})
 
 	volumeHandler := handlers.NewVolumeHandler(handlers.VolumeHandlerSpec{
@@ -179,6 +191,7 @@ func (s apiServer) routes() *mux.Router {
 	// GitHub App manifest callback (browser redirect) and webhook receiver;
 	// both are unauthenticated and validated by state / HMAC respectively.
 	apiV1Router.HandleFunc("/git-integrations/github/manifest/callback", gitIntegrationHandler.GitHubManifestCallback).Methods(http.MethodGet)
+	apiV1Router.HandleFunc("/git-integrations/github/setup", gitIntegrationHandler.GitHubAppSetup).Methods(http.MethodGet)
 	apiV1Router.HandleFunc("/webhooks/github", gitIntegrationHandler.GitHubWebhook).Methods(http.MethodPost)
 
 	authenticationRouter := apiV1Router.PathPrefix("/auth").Subrouter()
@@ -187,7 +200,10 @@ func (s apiServer) routes() *mux.Router {
 	authenticationRouter.HandleFunc("/refresh", refreshHandler.HandleRefresh).Methods(http.MethodPost)
 
 	configHandler := handlers.NewConfigHandler(handlers.ConfigHandlerSpec{
-		GitHubOAuthEnabled: s.environment.Environment().Config.GitHubOAuth.Enabled(),
+		GitHubOAuthEnabled:     applicationConfig.GitHubOAuth.Enabled(),
+		SignupTurnstileEnabled: signupTurnstileEnabled,
+		SignupTurnstileSiteKey: signupTurnstileSiteKey,
+		SignupTurnstileAction:  signupTurnstileAction,
 	})
 	apiV1Router.HandleFunc("/config", configHandler.Get).Methods(http.MethodGet)
 
@@ -308,7 +324,6 @@ func (s apiServer) routes() *mux.Router {
 	projectResourceRouter.HandleFunc("/stacks/{id}/volumes", volumeHandler.ListByStackID).Methods(http.MethodGet)
 
 	// Volumes (project-scoped)
-	projectResourceRouter.HandleFunc("/volumes", volumeHandler.Create).Methods(http.MethodPost)
 	projectResourceRouter.HandleFunc("/volumes/{id}", volumeHandler.GetByID).Methods(http.MethodGet)
 	projectResourceRouter.HandleFunc("/volumes/{id}", volumeHandler.Delete).Methods(http.MethodDelete)
 
@@ -330,13 +345,6 @@ func (s apiServer) routes() *mux.Router {
 	projectResourceRouter.HandleFunc("/object-stores/{id}", objectStoreHandler.GetByID).Methods(http.MethodGet)
 	projectResourceRouter.HandleFunc("/object-stores/{id}", objectStoreHandler.Update).Methods(http.MethodPut)
 	projectResourceRouter.HandleFunc("/object-stores/{id}", objectStoreHandler.Delete).Methods(http.MethodDelete)
-
-	// Workspace users (project-scoped)
-	projectResourceRouter.HandleFunc("/workspace-users", workspaceUserHandler.Create).Methods(http.MethodPost)
-	projectResourceRouter.HandleFunc("/workspace-users/current", workspaceUserHandler.Current).Methods(http.MethodGet)
-	projectResourceRouter.HandleFunc("/workspace-users/{id}", workspaceUserHandler.Get).Methods(http.MethodGet)
-	projectResourceRouter.HandleFunc("/workspace-users/{id}", workspaceUserHandler.Update).Methods(http.MethodPut)
-	projectResourceRouter.HandleFunc("/workspace-users/{id}", workspaceUserHandler.Delete).Methods(http.MethodDelete)
 
 	// Preview configs (project-scoped)
 	previewConfigHandler := handlers.NewStackPreviewConfigHandler(handlers.StackPreviewConfigHandlerSpec{

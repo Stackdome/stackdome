@@ -2,11 +2,11 @@ package services
 
 import (
 	"context"
-	"regexp"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/Stackdome/stackdome/pkg/auth"
 	"github.com/Stackdome/stackdome/pkg/errors"
 	"github.com/Stackdome/stackdome/pkg/logger"
 	"github.com/Stackdome/stackdome/pkg/mocks"
@@ -64,24 +64,20 @@ var _ = Describe("Organisation.Platform", func() {
 	})
 })
 
-var _ = Describe("OrganisationService platform-infra seeding", func() {
+var _ = Describe("OrganisationService shared-compute registry seeding", func() {
 	const (
-		orgName        = "Acme Inc"
-		orgID          = "11112222-3333-4444-5555-666677778888"
-		platformOrgID  = "platform-org"
-		baseDomain     = "apps.example.com"
-		expectedSlug   = "acme-inc"
-		expectedDomain = expectedSlug + "." + baseDomain
-		registryName   = expectedSlug + "-11112222-cluster1"
-		storageSize    = "50Gi"
-		storageClass   = "standard"
+		orgName      = "Acme Inc"
+		orgID        = "11112222-3333-4444-5555-666677778888"
+		expectedSlug = "acme-inc"
+		registryName = expectedSlug + "-11112222-cluster1"
+		storageSize  = "50Gi"
+		storageClass = "standard"
 	)
 
 	var (
 		ctrl         *gomock.Controller
 		orgStore     *mocks.MockOrganisationStore
 		clusterStore *mocks.MockClusterStore
-		domainSvc    *mocks.MockOrganisationDomainsService
 		registrySvc  *mocks.MockImageRegistryService
 		svc          *organisationService
 		ctx          context.Context
@@ -100,11 +96,8 @@ var _ = Describe("OrganisationService platform-infra seeding", func() {
 		orgStore.EXPECT().Get(gomock.Any(), orgID).Return(&models.Organisation{ID: orgID, Name: orgName}, nil)
 	}
 
-	expectPlatformClusterAndOrg := func() {
-		clusterStore.EXPECT().GetPlatformCluster(gomock.Any()).Return(&models.Cluster{ID: "cluster-1"}, nil)
-		orgStore.EXPECT().GetPlatformOrg(gomock.Any()).Return(&models.Organisation{ID: platformOrgID}, nil)
-		domainSvc.EXPECT().GetDefaultDomainForOrganisation(gomock.Any(), platformOrgID).
-			Return(&models.OrganisationDomain{Domain: baseDomain}, nil)
+	expectSharedComputeCluster := func() {
+		clusterStore.EXPECT().ListSharedComputeClusters(gomock.Any()).Return([]*models.Cluster{{ID: "cluster-1", SharedCompute: true}}, nil)
 	}
 
 	BeforeEach(func() {
@@ -112,15 +105,13 @@ var _ = Describe("OrganisationService platform-infra seeding", func() {
 		ctx = context.Background()
 		orgStore = mocks.NewMockOrganisationStore(ctrl)
 		clusterStore = mocks.NewMockClusterStore(ctrl)
-		domainSvc = mocks.NewMockOrganisationDomainsService(ctrl)
 		registrySvc = mocks.NewMockImageRegistryService(ctrl)
 		svc = &organisationService{
-			organisationStore:         orgStore,
-			clusterStore:              clusterStore,
-			organisationDomainService: domainSvc,
-			imageRegistryService:      registrySvc,
-			orgRegistryDefaults:       models.OrgRegistryDefaults{StorageSize: storageSize, StorageClass: storageClass},
-			logger:                    logger.NewLogger(),
+			organisationStore:    orgStore,
+			clusterStore:         clusterStore,
+			imageRegistryService: registrySvc,
+			orgRegistryDefaults:  models.OrgRegistryDefaults{StorageSize: storageSize, StorageClass: storageClass},
+			logger:               logger.NewLogger(),
 		}
 	})
 
@@ -128,15 +119,24 @@ var _ = Describe("OrganisationService platform-infra seeding", func() {
 		ctrl.Finish()
 	})
 
-	It("skips seeding when no platform cluster exists", func() {
+	It("skips seeding when no shared-compute cluster exists", func() {
 		expectOrgCreated()
-		clusterStore.EXPECT().GetPlatformCluster(gomock.Any()).
-			Return(nil, errors.NotFound("platform cluster not found"))
+		clusterStore.EXPECT().ListSharedComputeClusters(gomock.Any()).Return(nil, nil)
 		expectOrgFetched()
 
 		org, serr := svc.InternalCreate(ctx, tenantOrg())
 		Expect(serr).To(BeNil())
 		Expect(org).ToNot(BeNil())
+	})
+
+	It("fails closed when multiple shared-compute clusters exist", func() {
+		expectOrgCreated()
+		clusterStore.EXPECT().ListSharedComputeClusters(gomock.Any()).Return([]*models.Cluster{{ID: "cluster-1"}, {ID: "cluster-2"}}, nil)
+
+		org, serr := svc.InternalCreate(ctx, tenantOrg())
+
+		Expect(org).To(BeNil())
+		Expect(serr).To(MatchError("error: multiple shared-compute clusters configured"))
 	})
 
 	It("does not seed the platform org itself", func() {
@@ -149,13 +149,9 @@ var _ = Describe("OrganisationService platform-infra seeding", func() {
 		Expect(org.Platform).To(BeTrue())
 	})
 
-	It("seeds the org domain and a seed registry on the platform cluster", func() {
+	It("seeds a registry on the shared-compute cluster", func() {
 		expectOrgCreated()
-		expectPlatformClusterAndOrg()
-		domainSvc.EXPECT().Create(gomock.Any(), &models.OrganisationDomain{
-			OrganisationID: orgID,
-			Domain:         expectedDomain,
-		}).Return(&models.OrganisationDomain{}, nil)
+		expectSharedComputeCluster()
 		registrySvc.EXPECT().InternalCreateSeedRegistry(gomock.Any(), &models.ClusterImageRegistry{
 			ClusterID:           "cluster-1",
 			OrganisationID:      orgID,
@@ -170,50 +166,63 @@ var _ = Describe("OrganisationService platform-infra seeding", func() {
 		Expect(org).ToNot(BeNil())
 	})
 
-	It("retries the domain with a random suffix when the first attempt conflicts", func() {
-		expectOrgCreated()
-		expectPlatformClusterAndOrg()
-		suffixed := regexp.MustCompile(`^` + expectedSlug + `-[0-9a-f]{6}\.` + regexp.QuoteMeta(baseDomain) + `$`)
-		gomock.InOrder(
-			domainSvc.EXPECT().Create(gomock.Any(), &models.OrganisationDomain{
-				OrganisationID: orgID,
-				Domain:         expectedDomain,
-			}).Return(nil, errors.Conflict("domain already exists")),
-			domainSvc.EXPECT().Create(gomock.Any(), gomock.Any()).
-				DoAndReturn(func(_ context.Context, spec *models.OrganisationDomain) (*models.OrganisationDomain, *errors.ServiceError) {
-					Expect(spec.Domain).To(MatchRegexp(suffixed.String()))
-					return &models.OrganisationDomain{}, nil
-				}),
-		)
-		registrySvc.EXPECT().InternalCreateSeedRegistry(gomock.Any(), gomock.Any()).Return(&models.ClusterImageRegistry{}, nil)
-		expectOrgFetched()
-
-		org, serr := svc.InternalCreate(ctx, tenantOrg())
-		Expect(serr).To(BeNil())
-		Expect(org).ToNot(BeNil())
-	})
-
-	It("fails org creation when domain creation returns a non-conflict error", func() {
-		expectOrgCreated()
-		expectPlatformClusterAndOrg()
-		boom := errors.GeneralError("domain store unavailable")
-		domainSvc.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil, boom)
-
-		org, serr := svc.InternalCreate(ctx, tenantOrg())
-		Expect(org).To(BeNil())
-		Expect(serr).To(Equal(boom))
-	})
-
 	It("fails org creation when seed-registry creation fails", func() {
 		expectOrgCreated()
-		expectPlatformClusterAndOrg()
-		domainSvc.EXPECT().Create(gomock.Any(), gomock.Any()).Return(&models.OrganisationDomain{}, nil)
+		expectSharedComputeCluster()
 		boom := errors.GeneralError("cluster unreachable")
 		registrySvc.EXPECT().InternalCreateSeedRegistry(gomock.Any(), gomock.Any()).Return(nil, boom)
 
 		org, serr := svc.InternalCreate(ctx, tenantOrg())
 		Expect(org).To(BeNil())
 		Expect(serr).To(Equal(boom))
+	})
+})
+
+var _ = Describe("OrganisationService custom-domain admission", func() {
+	It("rejects domains before creating an organisation when the runtime disables them", func() {
+		ctrl := gomock.NewController(GinkgoT())
+		store := mocks.NewMockOrganisationStore(ctrl)
+		svc := &organisationService{
+			organisationStore:     store,
+			customDomainsDisabled: true,
+			logger:                logger.NewLogger(),
+		}
+
+		created, serr := svc.InternalCreate(context.Background(), &models.Organisation{
+			Name:    "Acme",
+			Domains: []*models.OrganisationDomain{{Domain: "example.com"}},
+		})
+
+		Expect(created).To(BeNil())
+		Expect(serr.Reason).To(Equal(customDomainsDisabledInRuntime))
+	})
+
+	It("rejects domain changes before updating an organisation", func() {
+		ctrl := gomock.NewController(GinkgoT())
+		store := mocks.NewMockOrganisationStore(ctrl)
+		domains := mocks.NewMockOrganisationDomainsService(ctrl)
+		permissions := mocks.NewMockPermissionService(ctrl)
+		ctx := context.Background()
+		existing := &models.Organisation{ID: "org-1", Name: "Acme"}
+		permissions.EXPECT().Check(ctx, existing.ID, auth.ResourceOrgs, existing.ID, auth.ActionWrite).Return(nil)
+		permissions.EXPECT().Check(ctx, existing.ID, auth.ResourceOrgs, existing.ID, auth.ActionRead).Return(nil)
+		store.EXPECT().Get(ctx, existing.ID).Return(existing, nil)
+		domains.EXPECT().ListByOrganisationID(ctx, existing.ID).Return(nil, nil)
+		svc := &organisationService{
+			organisationStore:         store,
+			organisationDomainService: domains,
+			permissions:               permissions,
+			customDomainsDisabled:     true,
+			logger:                    logger.NewLogger(),
+		}
+
+		updated, serr := svc.Update(ctx, existing.ID, &models.Organisation{
+			Name:    existing.Name,
+			Domains: []*models.OrganisationDomain{{Domain: "example.com"}},
+		})
+
+		Expect(updated).To(BeNil())
+		Expect(serr.Reason).To(Equal(customDomainsDisabledInRuntime))
 	})
 })
 

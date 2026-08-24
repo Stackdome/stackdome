@@ -78,11 +78,20 @@ export function AlertBanner({
   const { icon: Glyph, box, ink, action: actionInk } = TONES[tone];
 
   return (
-    // No border, and `rounded-lg` (12px) rather than the 8px control default —
-    // the banner is panel-sized, not control-sized, and the radius ladder is a
-    // function of height (§8). Dropping the edge leaves the fill to carry the
-    // tone on its own, which is one channel instead of two (§7).
-    <div role="alert" className={cn("flex items-start gap-2 rounded-lg p-4", box, className)}>
+  // No border, and `rounded-lg` (12px) rather than the 8px control default —
+  // the banner is panel-sized, not control-sized, and the radius ladder is a
+  // function of height (§8). Dropping the edge leaves the fill to carry the
+  // tone on its own, which is one channel instead of two (§7).
+    /* **`alert` interrupts; `status` waits its turn.** Every tone announced as
+       `alert` — assertive — so an `info` banner reporting that we tidied your
+       input cut across whatever a screen-reader user was already listening to.
+       `danger` and `blocking` have earned the interruption; `info` has not.
+       Restored from main's `notice` variant at the merge, where the distinction
+       was already drawn and this branch's rewrite had flattened it. */
+    <div
+      role={tone === "info" ? "status" : "alert"}
+      className={cn("flex items-start gap-2 rounded-lg p-4", box, className)}
+    >
       {/* 16px glyph nudged 2px down, so it centres on the FIRST line of a 20px
           body however many lines the message runs to. Figma models the same
           thing as a 16x20 slot with 2px of top padding. */}

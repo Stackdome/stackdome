@@ -3,15 +3,34 @@ title: "Preview environments"
 description: "Create a temporary environment for every pull request."
 ---
 
+## Outcome
+
+Give each eligible pull request an isolated copy of the application at its own URL, update it when the pull request changes, and tear it down when the pull request closes.
+
+## Prerequisites
+
+- A GitHub repository connected to Stackdome through a GitHub App installation for automatic pull-request events. Public repository URLs support manual previews only.
+- A `stackfile.yaml` committed on the pull request branch and validated with the current CLI.
+- On Stackdome Cloud, enough available capacity for each active preview.
+- On self-hosted Stackdome, enough connected compute for each active preview.
+- Access to enable the repository in the dashboard or API. The CLI has no dedicated preview command.
+
+## Use the CLI
+
+For terminal, coding-agent, or CI steps, use [Prepare and manage previews from the CLI or API](/reference/cli-workflows#preview-environments).
+
+## Dashboard workflow
+
+
 A **preview environment** is a complete, throwaway copy of a stack, deployed from a pull request branch, reachable at its own URL, and torn down when the pull request closes. Stackdome calls the feature **Previews**, in the sidebar under **Platform**.
 
 You do not point Previews at an existing stack. You point it at a **repository**, and the stack comes from a **stackfile** committed in that repository. Every pull request against that repository's base branch then gets its own stack, built from the stackfile at that pull request's head commit.
 
-## Prerequisites
+### Dashboard prerequisites
 
 - **A connected git provider.** Previews are driven by GitHub webhook deliveries, so the repository must be reachable through a GitHub App installation you connected under **Git Providers**. See [Deploy from git](/guides/deploy-from-git). The repository picker also accepts a plain public URL, but a public URL only supports environments you create by hand — pull request automation needs a connected provider.
 - **A stackfile in the repository.** This is the template for the environment: it defines the whole stack — every **resource**, its **source**, its **ports**, its environment. See [Write the stackfile](#write-the-stackfile) below.
-- **A cluster with room to run it.** Each open pull request runs a full copy of the stack. Read [Capacity](#capacity) before you enable a busy repository.
+- **Room to run it.** Each open pull request runs a full copy of the stack. Cloud capacity is managed by Stackdome. On self-hosted Stackdome, check the connected compute. Read [Capacity](#capacity) before you enable a busy repository.
 
 ## Write the stackfile
 
@@ -37,13 +56,13 @@ That is enough to get an environment. The rules those five keys follow:
 
 - `name` and at least one entry under `resources` are required.
 - Each resource needs exactly one source — `build`, to build from git, or `image`, to run a prebuilt one. Never both.
-- A `build` needs `repo`, plus at most one of `branch`, `tag` or `commit`. Setting none of the three is fine — the repository's default branch is used.
+- A `build` needs `repo`. `branch` and `tag` are mutually exclusive; `commit` is an optional pin and requires one of them. Setting no revision fields uses the repository's default branch.
 - Each port needs a `name` and a valid port number. `public: true` is what earns it a URL; a port without it stays internal to the stack.
 
 One thing to expect: on a preview, Stackdome rewrites the branch of any resource whose `build.repo` matches the configuration's repository, pinning it to the pull request's head commit. So `branch: main` above does not mean previews build `main` — it is only what that resource does outside a preview.
 
 <Note>
-This is a minimal example, not a reference. The format has more to it — `image`, `env`, `volumes`, `depends_on`, `secrets`, `addons`, `command` and `args`, `replicas` — and public ports can set `subdomain` to choose their hostname prefix, which a preview then prefixes again with `pr-<number>-`.
+This is a minimal example, not a reference. See the [Stackfile reference](/reference/stackfile) for the fields accepted by the installed release and validate every change with `stackdome validate`.
 </Note>
 
 ## Enable a repository
@@ -144,7 +163,7 @@ Three things end an environment:
 - **You delete it** — the **···** menu on the card, then **Delete**.
 - **You delete the whole configuration** — but only after its environments are gone. Stackdome refuses otherwise and tells you to delete the environments first.
 
-Teardown deletes the environment's stack and everything under it, waits for the cluster to finish removing it, then removes the environment record and marks the sticky comment as deleted. Nothing expires on a timer, so an environment attached to a long-lived pull request keeps running — and keeps consuming cluster capacity — until that pull request closes.
+Teardown deletes the environment's stack and everything under it, waits for the deployment destination to finish removing it, then removes the environment record and marks the sticky comment as deleted. Nothing expires on a timer, so an environment attached to a long-lived pull request keeps running — and keeps consuming destination capacity — until that pull request closes.
 
 ## Creating one by hand
 
@@ -164,7 +183,17 @@ Then click **Create environment**. A manual environment does not follow new comm
 <Warning>
 Every open pull request builds and runs a **full copy of the stack** — every resource, and every **volume** with its **mount**, that the stackfile declares. Ten open pull requests against a repository with a five-resource stack means fifty running resources on top of production.
 
-**There is no build-concurrency limit in Stackdome.** Nothing queues or throttles simultaneous builds: if ten pull requests are opened at once, ten sets of builds start at once and compete for the same node CPU. On a single-node cluster that is enough to saturate the node and push builds into deploy timeouts.
-
-The only limit is **Max active previews**, per configuration, defaulting to `10`. It caps how many environments can exist at once — not how many build at once. When a configuration is at its cap, a new pull request creates nothing: the delivery is logged as skipped and no comment is posted, so the pull request looks like previews are simply not enabled. Set the cap to what your cluster can actually hold.
+The only limit is **Max active previews**, per configuration, defaulting to `10`. It caps how many environments can exist at once — not how many build at once. When a configuration is at its cap, a new pull request creates nothing: the delivery is logged as skipped and no comment is posted, so the pull request looks like previews are simply not enabled. Set the cap to what your deployment destination can actually hold.
 </Warning>
+
+
+## Related tasks
+
+<CardGroup cols={2}>
+  <Card title="Deploy from git" icon="git-branch" href="/guides/deploy-from-git">
+    Connect a repository and verify its ordinary deployment workflow.
+  </Card>
+  <Card title="Stackfile reference" icon="file-code" href="/reference/stackfile">
+    Check the fields and current validator behavior used by previews.
+  </Card>
+</CardGroup>

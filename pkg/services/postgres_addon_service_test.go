@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Stackdome/stackdome/pkg/auth"
+	"github.com/Stackdome/stackdome/pkg/computequota"
 	apperrors "github.com/Stackdome/stackdome/pkg/errors"
 	"github.com/Stackdome/stackdome/pkg/logger"
 	"github.com/Stackdome/stackdome/pkg/mocks"
@@ -15,6 +16,47 @@ import (
 )
 
 // Suite bootstrapped by TestAESEncryptionService in encryption_service_test.go.
+
+var _ = Describe("PostgresAddonService cloud validation", func() {
+	It("rejects an external import before provisioning dependencies are used", func() {
+		ctrl := gomock.NewController(GinkgoT())
+		permissions := mocks.NewMockPermissionService(ctrl)
+		permissions.EXPECT().Check(
+			gomock.Any(), "project-1", auth.ResourceAddonsPostgres, "", auth.ActionCreate,
+		).Return(nil)
+		service := NewPostgresAddonService(PostgresAddonServiceSpec{
+			Permissions:            permissions,
+			ExternalImportDisabled: true,
+			ComputePolicy:          computequota.NewSelfHostedPolicy(),
+		})
+		spec := &models.PostgresAddon{
+			Name:            addonType,
+			OrganisationID:  "organisation-1",
+			ProjectID:       "project-1",
+			UserID:          "user-1",
+			PostgresVersion: models.PostgresVersion{Major: 16},
+			Instances:       models.PostgresInstances{Count: 1},
+			Storage:         models.PostgresStorage{Size: "10Gi"},
+			Initialization: models.PostgresInitialization{
+				ImportFromExternal: &models.PostgresImportFromExternal{
+					Host: "database.example.com", Port: 5432, Database: "app", Username: "app", PasswordSecretID: "secret-1",
+				},
+			},
+		}
+
+		_, err := service.CreatePostgresAddon(context.Background(), spec)
+
+		Expect(err).NotTo(BeNil())
+		Expect(err.Code).To(Equal(apperrors.ErrorValidation))
+		details, ok := err.Details.(apperrors.ValidationErrorDetails)
+		Expect(ok).To(BeTrue())
+		Expect(details.Errors).To(ConsistOf(apperrors.FieldError{
+			Field:   postgresaddon.ExternalImportDisabledField,
+			Code:    apperrors.VErrPostgresExternalImportDisabled,
+			Message: postgresaddon.ExternalImportDisabledMessage,
+		}))
+	})
+})
 
 var _ = Describe("PostgresAddonService DeletePostgresAddon", func() {
 	var (
@@ -40,6 +82,7 @@ var _ = Describe("PostgresAddonService DeletePostgresAddon", func() {
 			postgresAddonStore: addonStore,
 			referenceService:   refs,
 			permissions:        permissions,
+			computePolicy:      computequota.NewSelfHostedPolicy(),
 			BackgroundJobEnqueuerDep: BackgroundJobEnqueuerDep{
 				BackgroundJobEnqueuer: enqueuer,
 			},
@@ -63,7 +106,7 @@ var _ = Describe("PostgresAddonService DeletePostgresAddon", func() {
 				Expect(status.State).To(Equal(models.PostgresAddonStateDeleting))
 				return nil
 			})
-		enqueuer.EXPECT().Enqueue(&models.PostgresAddon{ID: "pg-1"}).Return(nil)
+		enqueuer.EXPECT().Enqueue(models.PostgresAddonOperand{ID: "pg-1"}).Return(nil)
 
 		deleted, err := svc.DeletePostgresAddon(ctx, "pg-1")
 		Expect(err).To(BeNil())
@@ -131,7 +174,7 @@ var _ = Describe("CreatePostgresAddon storage class defaulting", func() {
 				return capturedAddon, nil
 			})
 		permissions.EXPECT().Check(gomock.Any(), projectID, auth.ResourceAddonsPostgres, addonID, auth.ActionRead).Return(nil)
-		enqueuer.EXPECT().Enqueue(&models.PostgresAddon{ID: addonID}).Return(nil)
+		enqueuer.EXPECT().Enqueue(models.PostgresAddonOperand{ID: addonID}).Return(nil)
 	}
 
 	BeforeEach(func() {
@@ -149,10 +192,11 @@ var _ = Describe("CreatePostgresAddon storage class defaulting", func() {
 			logger:             logger.NewLogger(),
 			postgresAddonStore: addonStore,
 			permissions:        permissions,
+			computePolicy:      computequota.NewSelfHostedPolicy(),
 			namespaceService:   namespaceSvc,
 			clusterService:     clusterService,
 			databaseService:    databaseService,
-			validator:          postgresaddon.NewPostgresAddonValidator(),
+			validator:          postgresaddon.NewPostgresAddonValidator(postgresaddon.PostgresAddonValidatorSpec{}),
 			BackgroundJobEnqueuerDep: BackgroundJobEnqueuerDep{
 				BackgroundJobEnqueuer: enqueuer,
 			},
@@ -250,7 +294,8 @@ var _ = Describe("UpdatePostgresAddon storage class carry-forward", func() {
 			logger:             logger.NewLogger(),
 			postgresAddonStore: addonStore,
 			permissions:        permissions,
-			validator:          postgresaddon.NewPostgresAddonValidator(),
+			computePolicy:      computequota.NewSelfHostedPolicy(),
+			validator:          postgresaddon.NewPostgresAddonValidator(postgresaddon.PostgresAddonValidatorSpec{}),
 			BackgroundJobEnqueuerDep: BackgroundJobEnqueuerDep{
 				BackgroundJobEnqueuer: enqueuer,
 			},
@@ -283,7 +328,7 @@ var _ = Describe("UpdatePostgresAddon storage class carry-forward", func() {
 				Expect(addon.Storage.StorageClass).To(Equal(existingStorageClass))
 				return addon, nil
 			})
-		enqueuer.EXPECT().Enqueue(&models.PostgresAddon{ID: addonID}).Return(nil)
+		enqueuer.EXPECT().Enqueue(models.PostgresAddonOperand{ID: addonID}).Return(nil)
 
 		update := newUpdateFixture()
 		update.Storage.StorageClass = ""

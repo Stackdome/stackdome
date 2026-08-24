@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,11 @@ import { FieldLabel } from "@/pages/auth/components/auth-shell";
 import { GitHubSignInButton } from "@/components/auth/github-sign-in-button";
 import { AlertBanner } from "@/components/branded/alert-banner";
 import { FieldError } from "@/components/branded/field-error";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/auth/turnstile-widget";
+import { useSignupConfig } from "@/hooks/use-signup-config";
 
 export function SignupForm() {
   const [formData, setFormData] = useState<SignupFormData>({
@@ -26,8 +31,21 @@ export function SignupForm() {
   const [errors, setErrors] = useState<Partial<SignupFormData>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileWidget = useRef<TurnstileWidgetHandle>(null);
   const { signup } = useSignup();
+  const {
+    turnstile,
+    loading: signupConfigLoading,
+    error: signupConfigError,
+  } = useSignupConfig();
   const navigate = useNavigate();
+  const turnstileEnabled = turnstile?.enabled === true;
+
+  const resetTurnstile = () => {
+    setTurnstileToken("");
+    turnstileWidget.current?.reset();
+  };
 
   const validateForm = (): boolean => {
     const result = signupSchema.safeParse(formData);
@@ -55,7 +73,15 @@ export function SignupForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      if (turnstileEnabled) resetTurnstile();
+      return;
+    }
+    if (signupConfigLoading || signupConfigError) return;
+    if (turnstileEnabled && !turnstileToken) {
+      setServerError("Complete the verification before creating your account.");
+      return;
+    }
     setIsLoading(true);
     setErrors({});
     setServerError(null);
@@ -65,6 +91,7 @@ export function SignupForm() {
         email: formData.email,
         password: formData.password,
         organisation: { name: formData.organisationName },
+        ...(turnstileEnabled ? { turnstile_token: turnstileToken } : {}),
       };
       const response: UserSignupResponse = await signup(payload);
       if (response && response.jwt_token && response.user) {
@@ -73,6 +100,7 @@ export function SignupForm() {
       navigate("/dashboard");
     } catch (err) {
       setServerError(getErrorMessage(err));
+      if (turnstileEnabled) resetTurnstile();
     } finally {
       setIsLoading(false);
     }
@@ -84,6 +112,12 @@ export function SignupForm() {
 
       <form onSubmit={handleSubmit} className="space-y-3">
         {serverError && <AlertBanner>{serverError}</AlertBanner>}
+
+        {signupConfigError && (
+          <div className="rounded-2xl border border-danger-border bg-danger-bg px-4 py-2 text-sm text-danger">
+            Signup is temporarily unavailable.
+          </div>
+        )}
 
         <div className="space-y-2">
           <FieldLabel htmlFor="name">Full name</FieldLabel>
@@ -165,7 +199,34 @@ export function SignupForm() {
           <FieldError>{errors.confirmPassword}</FieldError>
         </div>
 
-        <Button type="submit" variant="default" className="w-full" disabled={isLoading}>
+        {turnstileEnabled && turnstile && (
+          <TurnstileWidget
+            ref={turnstileWidget}
+            siteKey={turnstile.site_key}
+            action={turnstile.action}
+            onToken={setTurnstileToken}
+            onUnavailable={() => {
+              setTurnstileToken("");
+              setServerError("Verification is temporarily unavailable.");
+            }}
+          />
+        )}
+
+        {/* Merge: main's Turnstile gate and its four disabled conditions kept
+            whole — dropping them would have taken bot protection off signup.
+            The variant is this branch's: the design pass made the submit on an
+            auth form a filled `default`, and main's `outline` predates it. */}
+        <Button
+          type="submit"
+          variant="default"
+          className="w-full"
+          disabled={
+            isLoading ||
+            signupConfigLoading ||
+            signupConfigError !== null ||
+            (turnstileEnabled && !turnstileToken)
+          }
+        >
           {isLoading ? (
             <>
               <Loader2 className="animate-spin h-4 w-4" />

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Stackdome/stackdome/pkg/auth"
+	"github.com/Stackdome/stackdome/pkg/computequota"
 	"github.com/Stackdome/stackdome/pkg/errors"
 	"github.com/Stackdome/stackdome/pkg/mocks"
 	"github.com/Stackdome/stackdome/pkg/models"
@@ -28,6 +29,7 @@ func TestStackResourceService_Restart(t *testing.T) {
 			stackStore:         mockStackStore,
 			stackResourceStore: mockResourceStore,
 			permissions:        mockPermissions,
+			computePolicy:      computequota.NewSelfHostedPolicy(),
 		}
 
 		ctx := context.Background()
@@ -67,6 +69,10 @@ func TestStackResourceService_Restart(t *testing.T) {
 		mockResourceStore.EXPECT().
 			GetByStackIDAndResourceName(ctx, stackID, resourceName).
 			Return(resource, nil)
+		mockStackStore.EXPECT().WithTransaction(ctx, gomock.Any()).DoAndReturn(
+			func(ctx context.Context, fn func(context.Context) *errors.ServiceError) *errors.ServiceError {
+				return fn(ctx)
+			})
 
 		mockResourceStore.EXPECT().
 			Update(ctx, resource.ID, gomock.Any(), stack).
@@ -97,6 +103,7 @@ func TestStackResourceService_Restart(t *testing.T) {
 			stackStore:         mockStackStore,
 			stackResourceStore: mockResourceStore,
 			permissions:        mockPermissions,
+			computePolicy:      computequota.NewSelfHostedPolicy(),
 		}
 
 		ctx := context.Background()
@@ -136,6 +143,7 @@ func TestStackResourceService_Restart(t *testing.T) {
 			stackStore:         mockStackStore,
 			stackResourceStore: mockResourceStore,
 			permissions:        mockPermissions,
+			computePolicy:      computequota.NewSelfHostedPolicy(),
 		}
 
 		ctx := context.Background()
@@ -172,6 +180,7 @@ var _ = ginkgo.Describe("stackResourceService workload type defaulting", func() 
 	var (
 		ctrl              *gomock.Controller
 		mockResourceStore *mocks.MockStackResourceStore
+		mockDomains       *mocks.MockStackDomainsService
 		svc               *stackResourceService
 		ctx               context.Context
 		stack             *models.Stack
@@ -188,9 +197,20 @@ var _ = ginkgo.Describe("stackResourceService workload type defaulting", func() 
 	ginkgo.BeforeEach(func() {
 		ctrl = gomock.NewController(ginkgo.GinkgoT())
 		mockResourceStore = mocks.NewMockStackResourceStore(ctrl)
-		svc = &stackResourceService{stackResourceStore: mockResourceStore}
+		mockDomains = mocks.NewMockStackDomainsService(ctrl)
+		svc = &stackResourceService{
+			stackResourceStore: mockResourceStore,
+			domainNameService:  mockDomains,
+		}
 		ctx = context.Background()
 		stack = &models.Stack{ID: "stack-1", UserID: "user-1", Namespace: "ns-1"}
+
+		mockDomains.EXPECT().
+			PopulateAndSaveExposedPortDomainsForResourceWithTx(ctx, stack, gomock.Any()).
+			Return(nil)
+		mockResourceStore.EXPECT().
+			UpdatePortsWithTx(ctx, gomock.Any(), gomock.Any()).
+			Return(nil)
 	})
 
 	ginkgo.AfterEach(func() {
@@ -212,7 +232,7 @@ var _ = ginkgo.Describe("stackResourceService workload type defaulting", func() 
 		gomega.Expect(persisted.WorkloadType).To(gomega.Equal(models.WorkloadTypeStatefulService))
 	})
 
-	ginkgo.It("leaves the workload type untouched on update", func() {
+	ginkgo.It("re-promotes a datastore image to StatefulService on update", func() {
 		var persisted *models.StackResource
 		mockResourceStore.EXPECT().
 			UpdateWithTx(ctx, "resource-1", gomock.Any(), stack).
@@ -222,6 +242,25 @@ var _ = ginkgo.Describe("stackResourceService workload type defaulting", func() 
 			})
 
 		_, err := svc.InternalUpdateWithTx(ctx, stack, "resource-1", datastoreSpec())
+
+		gomega.Expect(err).To(gomega.BeNil())
+		gomega.Expect(persisted.WorkloadType).To(gomega.Equal(models.WorkloadTypeStatefulService))
+	})
+
+	ginkgo.It("keeps a non-datastore image a Service on update", func() {
+		var persisted *models.StackResource
+		mockResourceStore.EXPECT().
+			UpdateWithTx(ctx, "resource-1", gomock.Any(), stack).
+			DoAndReturn(func(_ context.Context, _ string, resource *models.StackResource, _ *models.Stack) (*models.StackResource, *errors.ServiceError) {
+				persisted = resource
+				return resource, nil
+			})
+
+		spec := datastoreSpec()
+		spec.Name = "api"
+		spec.ImageConfig = &models.ImageConfigSpec{Image: "nginx:1.27"}
+
+		_, err := svc.InternalUpdateWithTx(ctx, stack, "resource-1", spec)
 
 		gomega.Expect(err).To(gomega.BeNil())
 		gomega.Expect(persisted.WorkloadType).To(gomega.Equal(models.WorkloadTypeService))

@@ -1491,6 +1491,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/git-integrations/github/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform GitHub App setup redirect target (unauthenticated, state-validated) */
+        get: {
+            parameters: {
+                query: {
+                    installation_id: number;
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirects the browser back to the git integrations page */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid or expired state */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The installation was not found on the platform app */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks/github": {
         parameters: {
             query?: never;
@@ -2312,6 +2370,68 @@ export interface paths {
                 };
                 /** @description Unauthorized */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{org_id}/postgres-addons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all PostgresAddons the user has access to across all projects */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The ID of the organization */
+                    org_id: components["parameters"]["org_id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PostgresAddonList"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -5075,7 +5195,64 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List volumes used by the stack */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The ID of the organization */
+                    org_id: components["parameters"]["org_id"];
+                    /** @description The name of the project */
+                    project_name: components["parameters"]["project_name"];
+                    /** @description The id of record */
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VolumeList"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Stack not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         put?: never;
         /** Create a volume and associate it with the stack */
         post: {
@@ -5561,79 +5738,6 @@ export interface paths {
                 };
             };
         };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/organizations/{org_id}/projects/{project_name}/volumes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create a new volume */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The ID of the organization */
-                    org_id: components["parameters"]["org_id"];
-                    /** @description The name of the project */
-                    project_name: components["parameters"]["project_name"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["Volume"];
-                };
-            };
-            responses: {
-                /** @description Volume created successfully */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Volume"];
-                    };
-                };
-                /** @description Invalid request payload */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Internal server error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6840,303 +6944,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/organizations/{org_id}/projects/{project_name}/workspace-users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create a new workspace user */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The ID of the organization */
-                    org_id: components["parameters"]["org_id"];
-                    /** @description The name of the project */
-                    project_name: components["parameters"]["project_name"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["WorkspaceUser"];
-                };
-            };
-            responses: {
-                /** @description WorkspaceUser created successfully */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WorkspaceUser"];
-                    };
-                };
-                /** @description Invalid request payload */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Internal server error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/organizations/{org_id}/projects/{project_name}/workspace-users/current": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get the workspace user for the current user */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The ID of the organization */
-                    org_id: components["parameters"]["org_id"];
-                    /** @description The name of the project */
-                    project_name: components["parameters"]["project_name"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description WorkspaceUser details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WorkspaceUser"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description WorkspaceUser not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Internal server error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/organizations/{org_id}/projects/{project_name}/workspace-users/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a workspace user by ID */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The ID of the organization */
-                    org_id: components["parameters"]["org_id"];
-                    /** @description The name of the project */
-                    project_name: components["parameters"]["project_name"];
-                    /** @description The id of record */
-                    id: components["parameters"]["id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description WorkspaceUser details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WorkspaceUser"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description WorkspaceUser not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Internal server error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        /** Update a workspace user */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The ID of the organization */
-                    org_id: components["parameters"]["org_id"];
-                    /** @description The name of the project */
-                    project_name: components["parameters"]["project_name"];
-                    /** @description The id of record */
-                    id: components["parameters"]["id"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["WorkspaceUser"];
-                };
-            };
-            responses: {
-                /** @description WorkspaceUser updated successfully */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WorkspaceUser"];
-                    };
-                };
-                /** @description Invalid request payload */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description WorkspaceUser not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Internal server error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        post?: never;
-        /** Delete a workspace user */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The ID of the organization */
-                    org_id: components["parameters"]["org_id"];
-                    /** @description The name of the project */
-                    project_name: components["parameters"]["project_name"];
-                    /** @description The id of record */
-                    id: components["parameters"]["id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description WorkspaceUser deleted successfully */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description WorkspaceUser not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Internal server error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/organizations/{org_id}/invites": {
         parameters: {
             query?: never;
@@ -7582,6 +7389,18 @@ export interface components {
         AppConfigResponse: {
             /** @description True when GitHub OAuth login is configured on the server. */
             github_oauth?: boolean;
+            signup?: components["schemas"]["SignupConfigResponse"];
+        };
+        SignupConfigResponse: {
+            turnstile: components["schemas"]["TurnstileConfigResponse"];
+        };
+        TurnstileConfigResponse: {
+            /** @description True when password signup requires a Turnstile challenge. */
+            enabled: boolean;
+            /** @description Public Turnstile site key used to render the signup widget. */
+            site_key: string;
+            /** @description Turnstile action submitted by the signup widget. */
+            action: string;
         };
         Organisation: {
             id?: string;
@@ -7656,6 +7475,8 @@ export interface components {
             organisation?: components["schemas"]["Organisation"];
             /** @description Optional invite token for joining an existing organization */
             invite_token?: string;
+            /** @description Turnstile token required for protected public password signup */
+            turnstile_token?: string;
         };
         /** @enum {string} */
         UserRole: "OrgAdmin" | "OrgMember";
@@ -7753,36 +7574,6 @@ export interface components {
             /** @description The ID of the user to promote to admin */
             user_id: string;
         };
-        WorkspaceUser: {
-            /** Format: uuid */
-            id?: string;
-            user_id?: string;
-            org_id?: string;
-            project_id?: string;
-            workspaces: string[];
-            readonly version?: number;
-            status?: components["schemas"]["WorkspaceUserStatus"];
-            state?: components["schemas"]["WorkspaceUserState"];
-            message?: string;
-            /** Format: date-time */
-            created_at?: string;
-            /** Format: date-time */
-            updated_at?: string;
-        };
-        /** @enum {string} */
-        WorkspaceUserState: "Completed" | "Error" | "Pending";
-        WorkspaceUserStatus: {
-            observed_version?: number;
-            provisioned_namespaces?: {
-                workspace_name?: string;
-                namespace?: string;
-            }[];
-            service_account_name?: string | null;
-            serviceaccount_token?: string | null;
-            cluster_ca_cert?: string | null;
-            cluster_url?: string | null;
-            conditions?: components["schemas"]["Condition"][];
-        };
         ClusterList: {
             items?: components["schemas"]["Cluster"][];
             total?: number;
@@ -7791,6 +7582,11 @@ export interface components {
             id?: string;
             name: string;
             organisation_id?: string;
+            readonly shared_compute?: boolean;
+            /**
+             * @deprecated
+             * @description Deprecated alias for shared_compute. Both fields have the same value.
+             */
             readonly platform?: boolean;
             cluster_url: string;
             cluster_ca_data: string;
@@ -7896,11 +7692,6 @@ export interface components {
              * @default 5
              */
             min_successful_releases: number;
-            /**
-             * @description Minutes to wait for a deploy to converge before marking it failed
-             * @default 15
-             */
-            deploy_timeout_minutes: number;
         };
         StackList: {
             items?: components["schemas"]["Stack"][];
@@ -8153,7 +7944,7 @@ export interface components {
             value: string;
         };
         GitHubAppManifestFlow: {
-            /** @description GitHub App manifest to POST to github_url as the manifest form field */
+            /** @description GitHub App manifest to POST to github_url as the manifest form field. Absent when the hub runs a platform-wide GitHub App: github_url is then the app's install page and the browser is redirected to it. */
             manifest?: {
                 [key: string]: unknown;
             };
@@ -8297,7 +8088,7 @@ export interface components {
             conditions?: components["schemas"]["Condition"][];
         };
         /** @enum {string} */
-        ClusterImageRegistryState: "ImageRegistryPending" | "ImageRegistryError" | "ImageRegistryRunning";
+        ClusterImageRegistryState: "ImageRegistryPending" | "ImageRegistryError" | "ImageRegistryRunning" | "ImageRegistryDeleting";
         StackResourceStatus: {
             public_ingress?: components["schemas"]["Ingress"][];
             internal_service_name?: string;

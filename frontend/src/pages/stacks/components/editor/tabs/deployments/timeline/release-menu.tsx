@@ -8,11 +8,9 @@ export interface ReleaseMenuProps {
   release: StackRelease;
   onRollback: (id: string) => void;
   onCancel: (id: string) => void;
-  onCopyId: (id: string) => void;
 }
 
-export function ReleaseMenu({ release, onRollback, onCancel, onCopyId }: ReleaseMenuProps) {
-  const id = release.id ?? "";
+export function ReleaseMenu({ release, onRollback, onCancel }: ReleaseMenuProps) {
   const state = release.state ?? "";
   return (
     <DropdownMenu>
@@ -28,7 +26,6 @@ export function ReleaseMenu({ release, onRollback, onCancel, onCopyId }: Release
         {state === ReleaseState.Pending && release.id && (
           <DropdownMenuItem variant="destructive" onClick={() => onCancel(release.id!)}>Cancel release</DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={() => onCopyId(id)}>Copy release ID</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

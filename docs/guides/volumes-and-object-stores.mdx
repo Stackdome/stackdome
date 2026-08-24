@@ -3,16 +3,36 @@ title: "Volumes and object stores"
 description: "Give a resource persistent storage, and register object stores for backups."
 ---
 
+## Outcome
+
+Keep application data across restarts and redeployments by mounting a volume at the directory the service uses.
+
+Object stores are different. They hold PostgreSQL addon backups and are not mounted into resources.
+
+## Prerequisites
+
+- A stack with at least one resource.
+- The exact directory where the application stores data.
+- A volume size chosen before creation. Size and access mode cannot be changed later.
+- For an object store, a Generic secret containing the provider credentials.
+
+## Use the CLI
+
+For terminal, coding-agent, or CI steps, use [Manage storage with the CLI](/reference/cli-workflows#volumes-and-object-stores).
+
+## Dashboard workflow
+
+
 Two kinds of storage share this page, and they have almost nothing to do with each other.
 
 A **volume** is a disk. It belongs to a **stack**, and one or more **resources** in that stack **mount** it at a **mount path** inside the container. What you write there survives a restart and a redeploy.
 
 An **object store** is a bucket somewhere else — S3, Azure, GCS. Nothing mounts one. Its only job today is to be the destination for **Postgres addon** backups.
 
-## Prerequisites
+### Dashboard prerequisites
 
 - **A stack with at least one resource.** A volume is created already attached to a resource, so the **Volume** tile stays disabled until the stack has one.
-- **A cluster whose default storage class can provision disks.** Stackdome never asks you which storage class to use for a volume — there is no field in the dialog, and the API sends none — so your cluster's default `StorageClass` is what provisions it. Check what that is before you start:
+- **On self-hosted Stackdome, a cluster whose default storage class can provision disks.** Stackdome never asks you which storage class to use for a volume — there is no field in the dialog, and the API sends none — so your cluster's default `StorageClass` is what provisions it. Check what that is before you start:
 
   ```bash
   kubectl get storageclass
@@ -84,20 +104,14 @@ With nothing mounted it says so, and points you back at **+ Add resource → Vol
 
 ## Access modes
 
-Every volume Stackdome creates is `ReadWriteOnce`. The drawer shows it as `ReadWriteOnce (RWO)` and offers no alternative; the dialog has no access-mode field. The REST contract's `Volume` schema does define three values — `ReadWriteOnce`, `ReadWriteMany` and `ReadOnlyMany` — but the dashboard only ever sends the first, and the field cannot be changed after creation.
-
-What that means in practice: **one node can mount the volume, and only that node.** Two resources both scheduled onto that node can share it. A resource whose replicas land on different nodes cannot — the replicas that land elsewhere will not start, because the disk is not available to them.
-
-<Warning>
-**This bites when you add a second node, not when you add a second replica.** On a single-node install every pod lands on the same node, so a shared volume and a scaled-up resource both appear to work. Add a node to the cluster and the same stack can start failing to schedule, with no change on your side. If a resource needs storage and more than one replica, give each replica its own volume, or keep the resource at one replica.
-</Warning>
+Stackdome currently supports `ReadWriteOnce` volumes only.
 
 ## Changing a volume on a running stack
 
 | What you want | What actually happens |
 | --- | --- |
 | **Add a volume** | Created and queued for provisioning as soon as the editor saves — you do not wait for a deploy. The mount lands on the cluster at the next deploy. |
-| **Mount an existing volume somewhere else** | A spec change on the resource. Takes effect at the next deploy. Remember the single-node constraint above. |
+| **Mount an existing volume somewhere else** | A spec change on the resource. Takes effect at the next deploy. |
 | **Resize, rename, or change the access mode** | Not possible. Those fields are write-once in the API and disabled in the drawer. Delete the volume and create a new one — which means losing the data. |
 | **Delete a volume** | Immediate and permanent, independent of any deploy. The confirmation says so: *"This immediately and permanently destroys the volume and all data stored on it. Any mounts are removed first. This cannot be undone."* A volume you added but have not saved yet is just **Remove**d from **a draft**. |
 
@@ -139,6 +153,7 @@ Choose **New Object Store**.
 Turn on backups on the Postgres addon and pick the store there — the addon's **Backups** section has the **Object Store** select, and it refuses to enable scheduled backups or WAL archiving without one. Restoring a new instance from a store's backups goes through the same list.
 
 Deleting a store that an addon still points at is refused. The toast shows the reason the API gives; when the API returns no message, the dashboard falls back to *"This Object Store is in use by one or more Postgres add-ons."* Either way, detach it from the addon first.
+
 
 <Card title="Postgres" icon="database" href="/guides/postgres">
   Enabling scheduled backups, WAL archiving, and restoring an instance from an object store.

@@ -5,12 +5,16 @@ import (
 
 	"github.com/Stackdome/stackdome/config"
 	"github.com/Stackdome/stackdome/pkg/auth"
+	"github.com/Stackdome/stackdome/pkg/clients/turnstile"
 	"github.com/Stackdome/stackdome/pkg/clustermanager"
+	"github.com/Stackdome/stackdome/pkg/computequota"
 	"github.com/Stackdome/stackdome/pkg/db"
 	emailpkg "github.com/Stackdome/stackdome/pkg/email"
 	applogger "github.com/Stackdome/stackdome/pkg/logger"
+	"github.com/Stackdome/stackdome/pkg/observability"
 	"github.com/Stackdome/stackdome/pkg/resourceaccess"
 	"github.com/Stackdome/stackdome/pkg/services"
+	"github.com/Stackdome/stackdome/pkg/signupprotection"
 	"github.com/Stackdome/stackdome/pkg/stores"
 	"github.com/Stackdome/stackdome/pkg/worker/workermanager"
 	"github.com/openshift-online/ocm-sdk-go/leadership"
@@ -29,7 +33,7 @@ type Env struct {
 	Services                    Services
 	DBSession                   db.SessionFactory
 	Config                      *config.ApplicationConfig
-	BootstrapConfig             *config.BootstrapConfig
+	PlatformConfig              *config.PlatformConfig
 	Clients                     Clients
 	ClusterManager              clustermanager.ClusterManager
 	WorkerManager               workermanager.WorkerManager
@@ -40,16 +44,20 @@ type Env struct {
 	EmailService                emailpkg.EmailService
 	LeadershipFlag              *leadership.Flag
 	EncryptionService           services.EncryptionService
+	ComputePolicy               computequota.Policy
+	PasswordSignupProtection    signupprotection.PasswordSignupProtection
+	SignupClientIPResolver      signupprotection.ClientIPResolver
 	Logger                      applogger.Logger
+	Observability               *observability.Metrics
 }
 
 type Clients struct {
 	DefaultClusterClient client.Client
+	TurnstileVerifier    turnstile.Verifier
 }
 
 type Services struct {
 	UserService                 services.UserService
-	WorkspaceUserService        services.WorkspaceUserService
 	OrganisationService         services.OrganisationService
 	ClusterService              services.ClusterService
 	StackStorageService         services.StackStorageService

@@ -7,6 +7,7 @@ node-compile-cache/
 
 # Integration test cache (clusters, kubeconfigs, CI logs — never commit)
 test/int/.cache/
+test/cloudint/.cache/
 cluster_config.yaml
 database.yaml
 bin/
@@ -14,7 +15,6 @@ dev_env.yaml
 
 .superpowers/
 .worktrees/
-docs/superpowers/
 
 # Internal engineering notes (specs, plans, guides). Product docs live in docs/.
 dev-docs/
@@ -23,10 +23,10 @@ dev-docs/
 pkg/web/dist/*
 !pkg/web/dist/.gitkeep
 
-# Local secrets
-.env
-.env.local
-.env.*.local
+# Local secrets. Broad on purpose: backups like .env.old-key-jul15.bak were
+# committable under the old exact-name rules.
+.env*
+!.env.example
 
 # Local dev artifacts (Playwright session output, ad-hoc screenshots)
 .playwright-mcp/
@@ -34,6 +34,10 @@ pkg/web/dist/*
 !frontend/**/*.png
 # Published docs screenshots — these ARE the site's images and must be committed.
 !docs/images/**/*.png
+# Docs favicons, copied from frontend/public — same reason.
+!docs/favicon-*.png
+# README launch assets (banners, screenshots) — must be committed.
+!.github/assets/**/*.png
 .vite/
 
 # Integration test output (Makefile tees here)
@@ -41,3 +45,5 @@ test/int/last-run.log
 
 # generated from prototype.source.html by its build.mjs
 docs/design/prototypes/**/prototype.html
+test/cloudint/last-run.log
+.pnpm-store

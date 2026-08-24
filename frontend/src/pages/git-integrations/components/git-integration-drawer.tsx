@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink, Loader2, ShieldCheck } from "lucide-react";
+import { ExternalLink, Loader2, Plus, ShieldCheck } from "lucide-react";
 import {
   Drawer,
   DrawerActions,
@@ -77,6 +77,7 @@ export function GitIntegrationDrawer({
   onUpdated,
   onVerify,
   onRemove,
+  onAddAccount,
 }: {
   /** `null` closes it. Driven by which row was clicked, so there is no second
    *  `open` prop to keep in step with it. */
@@ -86,6 +87,12 @@ export function GitIntegrationDrawer({
   onUpdated: () => void;
   onVerify: (integration: GitIntegration) => void;
   onRemove: (integration: GitIntegration) => void;
+  /** Starts the install flow for ANOTHER GitHub account. Platform rows only —
+   *  a BYO row carries `install_url` and links straight out to GitHub instead.
+   *  Came from main at the merge, where it lived on the row menu this branch
+   *  replaced with a drawer; without it a platform install could never be
+   *  extended to a second account. */
+  onAddAccount?: (integration: GitIntegration) => void;
 }) {
   const { toast } = useToast();
   const [username, setUsername] = useState("");
@@ -194,7 +201,7 @@ export function GitIntegrationDrawer({
           description={<span className="font-mono">{integration.host}</span>}
           trailing={
             isGithubApp ? (
-              integration.install_url && (
+              integration.install_url ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button asChild variant="ghost" size="icon">
@@ -210,6 +217,18 @@ export function GitIntegrationDrawer({
                   </TooltipTrigger>
                   <TooltipContent>Manage on GitHub</TooltipContent>
                 </Tooltip>
+              ) : (
+                onAddAccount && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={() => onAddAccount(integration)}>
+                        <Plus aria-hidden />
+                        <span className="sr-only">Add another GitHub account</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Add another GitHub account</TooltipContent>
+                  </Tooltip>
+                )
               )
             ) : (
               <Tooltip>

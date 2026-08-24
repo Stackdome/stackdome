@@ -19,7 +19,6 @@ export interface TimelineNodeProps {
   onToggle: (id: string) => void;
   onRollback: (id: string) => void;
   onCancel: (id: string) => void;
-  onCopyId: (id: string) => void;
   /** releases[0] — render LIVE progress from the stack rather than the stored outcome. */
   isActive: boolean;
   /** This release currently serves traffic (stack.converged_release). */
@@ -36,7 +35,7 @@ export interface TimelineNodeProps {
  * release; only the body differs (live progress for the latest, stored post-mortem for earlier).
  */
 export function TimelineNode(props: TimelineNodeProps) {
-  const { release, prevReleaseId, prevSeq, detail, isOpen, onToggle, onRollback, onCancel, onCopyId, isActive, isLive, stack, logContext, onJumpToResource, refetchReleases } = props;
+  const { release, prevReleaseId, prevSeq, detail, isOpen, onToggle, onRollback, onCancel, isActive, isLive, stack, logContext, onJumpToResource, refetchReleases } = props;
   const id = release.id ?? "";
   const state = release.state ?? "";
   const deploying = isDeploying(state);
@@ -98,7 +97,7 @@ export function TimelineNode(props: TimelineNodeProps) {
             onClick={(e) => e.stopPropagation()}
             className="flex-none opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
           >
-            <ReleaseMenu release={release} onRollback={onRollback} onCancel={onCancel} onCopyId={onCopyId} />
+            <ReleaseMenu release={release} onRollback={onRollback} onCancel={onCancel} />
           </span>
           <span className="min-w-0 flex-1" />
         </div>

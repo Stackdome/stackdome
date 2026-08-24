@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Stackdome/stackdome/pkg/auth"
+	"github.com/Stackdome/stackdome/pkg/computequota"
 	"github.com/Stackdome/stackdome/pkg/errors"
 	"github.com/Stackdome/stackdome/pkg/mocks"
 	"github.com/Stackdome/stackdome/pkg/models"
@@ -32,6 +33,7 @@ func TestStackService_CreateStackVolume(t *testing.T) {
 			stackStore:    mockStackStore,
 			volumeService: mockVolumeService,
 			permissions:   mockPermissions,
+			computePolicy: computequota.NewSelfHostedPolicy(),
 			BackgroundJobEnqueuerDep: BackgroundJobEnqueuerDep{
 				BackgroundJobEnqueuer: mockEnqueuer,
 			},
@@ -49,7 +51,7 @@ func TestStackService_CreateStackVolume(t *testing.T) {
 		mockStackStore.EXPECT().GetByID(ctx, stackID).Return(stack, nil)
 		created := &models.Volume{ID: "v-1", Name: "web-data"}
 		mockVolumeService.EXPECT().InternalCreateWithTx(ctx, stack, newVolume).Return(created, nil)
-		mockEnqueuer.EXPECT().Enqueue(&models.Volume{ID: "v-1"}).Return(nil)
+		mockEnqueuer.EXPECT().Enqueue(models.VolumeOperand{ID: "v-1"}).Return(nil)
 
 		got, serr := svc.CreateStackVolume(ctx, stackID, newVolume)
 		assert.Nil(t, serr)
@@ -62,7 +64,11 @@ func TestStackService_CreateStackVolume(t *testing.T) {
 
 		mockStackStore := mocks.NewMockStackStore(ctrl)
 		mockPermissions := mocks.NewMockPermissionService(ctrl)
-		svc := &stackService{stackStore: mockStackStore, permissions: mockPermissions}
+		svc := &stackService{
+			stackStore:    mockStackStore,
+			permissions:   mockPermissions,
+			computePolicy: computequota.NewSelfHostedPolicy(),
+		}
 
 		mockStackStore.EXPECT().GetByID(ctx, stackID).Return(stack, nil)
 		mockPermissions.EXPECT().Check(ctx, projectID, auth.ResourceStacks, stackID, auth.ActionRead).Return(nil)

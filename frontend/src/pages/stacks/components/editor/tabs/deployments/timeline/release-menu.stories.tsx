@@ -8,7 +8,7 @@ const meta = {
   title: 'Features/Deployments/ReleaseMenu',
   component: ReleaseMenu,
   tags: ['ai-generated'],
-  args: { onRollback: fn(), onCancel: fn(), onCopyId: fn() },
+  args: { onRollback: fn(), onCancel: fn() },
 } satisfies Meta<typeof ReleaseMenu>
 
 export default meta

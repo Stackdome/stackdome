@@ -128,7 +128,7 @@ func (h *stackHandler) CreateVolume(w http.ResponseWriter, r *http.Request) {
 	var volume openapi.Volume
 	cfg := &handlerConfig{
 		MarshalInto: &volume,
-		Validate:    validation.ValidateVolume(&volume),
+		Validate:    validation.ValidateVolumeWithOptionalSize(&volume),
 		Action: func() (interface{}, *errors.ServiceError) {
 			stackID := mux.Vars(r)["id"]
 			obj, err := h.stackService.CreateStackVolume(r.Context(), stackID, presenters.ConvertVolume(&volume))
@@ -195,7 +195,7 @@ func (h *stackHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 
 			logStreamer, err := h.loggingService.StreamLogsForStack(ctx, orgID, stackID, loggingParams)
 			if err != nil {
-				return nil, errors.GeneralError("failed to get logs: %s", err.Error())
+				return nil, err
 			}
 			return logStreamer, nil
 		},

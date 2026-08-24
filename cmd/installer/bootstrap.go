@@ -17,7 +17,6 @@ const nameField = "name"
 var apiBaseURL string
 
 type bootstrapResult struct {
-	Token     string
 	OrgID     string
 	ClusterID string
 }
@@ -39,17 +38,6 @@ func runAPIBootstrap(vals install.TemplateValues, secrets *BootstrapSecrets) (*b
 	}
 	stepLog(fmt.Sprintf("Domain configured: %s", vals.Domain))
 
-	stepLog("Deploying RBAC resources...")
-	rbacManifest, err := install.ReadManifest("rbac.yaml")
-	if err != nil {
-		return nil, fmt.Errorf("reading RBAC manifest: %w", err)
-	}
-	if err := kubectlApply(rbacManifest); err != nil {
-		return nil, fmt.Errorf("applying RBAC: %w", err)
-	}
-
-	time.Sleep(5 * time.Second)
-
 	clusterURL, caData, saToken, err := extractClusterCredentials()
 	if err != nil {
 		return nil, fmt.Errorf("extracting cluster credentials: %w", err)
@@ -63,7 +51,7 @@ func runAPIBootstrap(vals install.TemplateValues, secrets *BootstrapSecrets) (*b
 	stepLog(fmt.Sprintf("Cluster registered -- ID: %s", clusterID))
 
 	successLog("API bootstrap complete")
-	return &bootstrapResult{Token: token, OrgID: orgID, ClusterID: clusterID}, nil
+	return &bootstrapResult{OrgID: orgID, ClusterID: clusterID}, nil
 }
 
 func authenticate(email, password string) (token, orgID string, err error) {
@@ -129,7 +117,7 @@ func signup(email, password string) (string, string, error) {
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusCreated {
-		return "", "", fmt.Errorf("signup returned %d: %s", resp.StatusCode, string(body))
+		return "", "", fmt.Errorf("signup returned %d", resp.StatusCode)
 	}
 
 	token := parseJSONField(body, "jwt_token")
@@ -167,8 +155,7 @@ func configureDomain(token, orgID, domain string) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("domain config returned %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("domain config returned %d", resp.StatusCode)
 	}
 	return nil
 }
@@ -216,15 +203,14 @@ func domainExists(token, orgID, domain string) bool {
 func extractClusterCredentials() (clusterURL, caData, saToken string, err error) {
 	// Use the kubernetes service ClusterIP instead of the kubeconfig URL (127.0.0.1:6443),
 	// because the API server runs inside the cluster and needs an in-cluster address.
-	k8sSvcIP, err := output("kubectl", "get", "svc", "kubernetes",
-		"-o", "jsonpath={.spec.clusterIP}")
+	k8sSvcIP, err := output("kubectl", kubernetesServiceQueryArgs()...)
 	if err != nil {
 		return "", "", "", fmt.Errorf("getting kubernetes service IP: %w", err)
 	}
 	clusterURL = fmt.Sprintf("https://%s:443", k8sSvcIP)
 
 	caData, err = output("kubectl", "get", "secret",
-		"stackdome-api-server-account-secret",
+		apiServerServiceAccountSecret,
 		"-n", chartNamespace,
 		"-o", "jsonpath={.data.ca\\.crt}")
 	if err != nil {
@@ -232,7 +218,7 @@ func extractClusterCredentials() (clusterURL, caData, saToken string, err error)
 	}
 
 	saTokenB64, err := output("kubectl", "get", "secret",
-		"stackdome-api-server-account-secret",
+		apiServerServiceAccountSecret,
 		"-n", chartNamespace,
 		"-o", "jsonpath={.data.token}")
 	if err != nil {
@@ -245,6 +231,14 @@ func extractClusterCredentials() (clusterURL, caData, saToken string, err error)
 	}
 
 	return clusterURL, caData, string(decoded), nil
+}
+
+func kubernetesServiceQueryArgs() []string {
+	return []string{
+		"get", "svc", "kubernetes",
+		"-n", "default",
+		"-o", "jsonpath={.spec.clusterIP}",
+	}
 }
 
 func registerCluster(token, orgID, clusterURL, caData, saToken string) (string, error) {
@@ -302,7 +296,7 @@ func registerCluster(token, orgID, clusterURL, caData, saToken string) (string, 
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("cluster registration returned %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("cluster registration returned %d", resp.StatusCode)
 	}
 
 	clusterID := parseJSONField(body, "id")

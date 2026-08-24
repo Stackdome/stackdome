@@ -6,6 +6,7 @@ import (
 
 	"github.com/Stackdome/stackdome/pkg/auth"
 	"github.com/Stackdome/stackdome/pkg/clustermanager"
+	"github.com/Stackdome/stackdome/pkg/computequota"
 	"github.com/Stackdome/stackdome/pkg/db"
 	"github.com/Stackdome/stackdome/pkg/errors"
 	"github.com/Stackdome/stackdome/pkg/logger"
@@ -39,7 +40,6 @@ type StackResourceService interface {
 
 type StackResourceServiceSpec struct {
 	SessionFactory         db.SessionFactory
-	WorkspaceUserService   WorkspaceUserService
 	StorageService         StackStorageService
 	Logger                 logger.Logger
 	Permissions            auth.PermissionService
@@ -49,6 +49,7 @@ type StackResourceServiceSpec struct {
 	StackDomainService     StackDomainsService
 	ReferenceService       ReferenceService
 	ResourceValidator      stackresourcevalidator.Validator
+	ComputePolicy          computequota.Policy
 }
 
 type stackResourceService struct {
@@ -57,13 +58,13 @@ type stackResourceService struct {
 	clusterManager         clustermanager.ClusterManager
 	logger                 logger.Logger
 	sessionFactory         db.SessionFactory
-	workspaceUserService   WorkspaceUserService
 	storageService         StackStorageService
 	permissions            auth.PermissionService
 	clusterRegistryService ImageRegistryService
 	domainNameService      StackDomainsService
 	referenceService       ReferenceService
 	resourceValidator      stackresourcevalidator.Validator
+	computePolicy          computequota.Policy
 }
 
 func NewStackResourceService(spec StackResourceServiceSpec) StackResourceService {
@@ -79,7 +80,6 @@ func NewStackResourceService(spec StackResourceServiceSpec) StackResourceService
 	return &stackResourceService{
 		stackResourceStore:     stackResourceStore,
 		stackStore:             spec.StackStore,
-		workspaceUserService:   spec.WorkspaceUserService,
 		storageService:         spec.StorageService,
 		logger:                 spec.Logger,
 		sessionFactory:         spec.SessionFactory,
@@ -88,6 +88,7 @@ func NewStackResourceService(spec StackResourceServiceSpec) StackResourceService
 		domainNameService:      spec.StackDomainService,
 		referenceService:       spec.ReferenceService,
 		resourceValidator:      spec.ResourceValidator,
+		computePolicy:          spec.ComputePolicy,
 	}
 }
 
@@ -104,6 +105,7 @@ func (s *stackResourceService) Create(ctx context.Context, resource *models.Stac
 		return nil, permErr
 	}
 
+	s.computePolicy.ApplyStackResourceDefaults(resource)
 	siblings, sErr := s.stackResourceStore.GetByStackID(ctx, resource.StackID)
 	if sErr != nil {
 		return nil, sErr
@@ -118,6 +120,16 @@ func (s *stackResourceService) Create(ctx context.Context, resource *models.Stac
 
 	var created *models.StackResource
 	if err := s.stackStore.WithTransaction(ctx, func(txCtx context.Context) *errors.ServiceError {
+		if accessErr := s.computePolicy.EnsureAccess(txCtx, stack.OrganisationID); accessErr != nil {
+			return accessErr
+		}
+		s.computePolicy.ApplyStackResourceDefaults(resource)
+		if limitErr := s.computePolicy.ValidateStackLimits(txCtx, computequota.StackLimitChange{
+			Operation:      computequota.StackLimitAddResource,
+			OrganisationID: stack.OrganisationID,
+		}); limitErr != nil {
+			return limitErr
+		}
 		var createErr *errors.ServiceError
 		created, createErr = s.InternalCreateWithTx(txCtx, stack, resource)
 		if createErr != nil {
@@ -149,6 +161,7 @@ func (s *stackResourceService) Update(ctx context.Context, stackID, resourceName
 	resource.ID = existing.ID
 	resource.Name = resourceName
 
+	s.computePolicy.ApplyStackResourceDefaults(resource)
 	all, sErr := s.stackResourceStore.GetByStackID(ctx, stackID)
 	if sErr != nil {
 		return nil, sErr
@@ -169,6 +182,16 @@ func (s *stackResourceService) Update(ctx context.Context, stackID, resourceName
 
 	var updated *models.StackResource
 	if txErr := s.stackStore.WithTransaction(ctx, func(txCtx context.Context) *errors.ServiceError {
+		if accessErr := s.computePolicy.EnsureAccess(txCtx, stack.OrganisationID); accessErr != nil {
+			return accessErr
+		}
+		s.computePolicy.ApplyStackResourceDefaults(resource)
+		if limitErr := s.computePolicy.ValidateStackLimits(txCtx, computequota.StackLimitChange{
+			Operation:      computequota.StackLimitUpdateResource,
+			OrganisationID: stack.OrganisationID,
+		}); limitErr != nil {
+			return limitErr
+		}
 		var updateErr *errors.ServiceError
 		updated, updateErr = s.InternalUpdateWithTx(txCtx, stack, existing.ID, resource)
 		if updateErr != nil {
@@ -187,6 +210,7 @@ func (s *stackResourceService) prepareResource(ctx context.Context, stack *model
 	resource.StackID = stack.ID
 	resource.UserID = stack.UserID
 	resource.Namespace = stack.Namespace
+	applyStatefulWorkloadDefault(resource)
 	applyStackResourcePortDefaults(resource)
 	normalizeStackResourceReplicas(resource)
 	return s.populateRegistryUrlForResource(ctx, stack, resource)
@@ -204,7 +228,6 @@ func (s *stackResourceService) populateRegistryUrlForResource(ctx context.Contex
 }
 
 func (s *stackResourceService) InternalCreateWithTx(ctx context.Context, stack *models.Stack, resource *models.StackResource) (*models.StackResource, *errors.ServiceError) {
-	applyStatefulWorkloadDefault(resource)
 	if err := s.prepareResource(ctx, stack, resource); err != nil {
 		return nil, err
 	}
@@ -265,14 +288,8 @@ func (s *stackResourceService) InternalSyncResourcesWithTx(ctx context.Context, 
 }
 
 func (s *stackResourceService) finalizeExposedPortsForResourceWithTx(ctx context.Context, stack *models.Stack, resource *models.StackResource) (*models.StackResource, *errors.ServiceError) {
-	if s.domainNameService == nil {
-		return resource, nil
-	}
 	if err := s.domainNameService.PopulateAndSaveExposedPortDomainsForResourceWithTx(ctx, stack, resource); err != nil {
 		return nil, err
-	}
-	if !stackResourceHasExposedPorts(resource.Ports) {
-		return resource, nil
 	}
 	if err := s.stackResourceStore.UpdatePortsWithTx(ctx, resource.ID, resource); err != nil {
 		return nil, err
@@ -366,14 +383,21 @@ func (s *stackResourceService) Restart(ctx context.Context, stackID, resourceNam
 	}
 
 	now := time.Now().UTC()
-	if resource.LifecycleConfig == nil {
-		resource.LifecycleConfig = &models.LifecycleConfig{}
-	}
-	resource.LifecycleConfig.RestartRequestTime = &now
+	var updated *models.StackResource
+	if txErr := s.stackStore.WithTransaction(ctx, func(txCtx context.Context) *errors.ServiceError {
+		if accessErr := s.computePolicy.EnsureAccess(txCtx, stack.OrganisationID); accessErr != nil {
+			return accessErr
+		}
+		if resource.LifecycleConfig == nil {
+			resource.LifecycleConfig = &models.LifecycleConfig{}
+		}
+		resource.LifecycleConfig.RestartRequestTime = &now
 
-	updated, updateErr := s.stackResourceStore.Update(ctx, resource.ID, resource, stack)
-	if updateErr != nil {
-		return nil, updateErr
+		var updateErr *errors.ServiceError
+		updated, updateErr = s.stackResourceStore.Update(txCtx, resource.ID, resource, stack)
+		return updateErr
+	}); txErr != nil {
+		return nil, txErr
 	}
 
 	// Patch the StackResource CR in the cluster directly with the new restart timestamp.

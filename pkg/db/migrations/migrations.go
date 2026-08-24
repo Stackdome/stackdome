@@ -80,5 +80,14 @@ var MigrationList = []*gormigrate.Migration{
 	renameDefaultToPlatform(),
 	deleteOrphanPlatformOrg(),
 	addClusterInfo(),
+	deleteSeededPlatformDomains(),
+	addReleaseWorkerStatus(),
+	renameClusterPlatformToSharedCompute(),
+	addClusterDeletionTimestamp(),
+	dropWorkspaceUserTables(),
+	createComputeAccess(),
+	// Last, after main's six. Migrations run in list order and main's are
+	// already applied on deployed databases; appending keeps every existing
+	// installation's sequence intact.
 	createStackDeployDaily(),
 }

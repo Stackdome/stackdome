@@ -9,6 +9,7 @@ import (
 
 	"github.com/Stackdome/stackdome/pkg/auth"
 	gitclient "github.com/Stackdome/stackdome/pkg/clients/git"
+	"github.com/Stackdome/stackdome/pkg/computequota"
 	"github.com/Stackdome/stackdome/pkg/credentials"
 	"github.com/Stackdome/stackdome/pkg/errors"
 	"github.com/Stackdome/stackdome/pkg/logger"
@@ -218,6 +219,7 @@ var _ = Describe("stackReleaseService release creation records release_created",
 			permissions:      perms,
 			referenceService: referenceSvc,
 			eventRecorder:    recorder,
+			computePolicy:    computequota.NewSelfHostedPolicy(),
 			BackgroundJobEnqueuerDep: BackgroundJobEnqueuerDep{
 				BackgroundJobEnqueuer: enqueuer,
 			},
@@ -251,7 +253,7 @@ var _ = Describe("stackReleaseService release creation records release_created",
 			releaseStore.EXPECT().Create(ctx, gomock.Any()).Return(created, nil)
 			referenceSvc.EXPECT().ProjectRelease(ctx, created).Return(nil)
 			recorder.EXPECT().RecordReleaseCreated(ctx, created).Return(nil)
-			enqueuer.EXPECT().EnqueueAfterCommit(ctx, &models.StackRelease{ID: "rel-1"}).Return(nil)
+			enqueuer.EXPECT().EnqueueAfterCommit(ctx, models.StackReleaseOperand{ID: "rel-1"}).Return(nil)
 
 			got, serr := svc.createReleaseForStack(ctx, stack, models.ReleaseCause{Kind: models.ReleaseCauseManual}, createEventsUserID)
 			Expect(serr).To(BeNil())
@@ -291,7 +293,7 @@ var _ = Describe("stackReleaseService release creation records release_created",
 			releaseStore.EXPECT().Create(ctx, gomock.Any()).Return(created, nil)
 			referenceSvc.EXPECT().ProjectRelease(ctx, created).Return(nil)
 			recorder.EXPECT().RecordReleaseCreated(ctx, created).Return(nil)
-			enqueuer.EXPECT().EnqueueAfterCommit(ctx, &models.StackRelease{ID: "rel-2"}).Return(nil)
+			enqueuer.EXPECT().EnqueueAfterCommit(ctx, models.StackReleaseOperand{ID: "rel-2"}).Return(nil)
 
 			got, serr := svc.RollbackRelease(ctx, createEventsStackID, rollbackFromRelID)
 			Expect(serr).To(BeNil())

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Stackdome/stackdome/pkg/db"
 	"github.com/Stackdome/stackdome/pkg/errors"
@@ -10,6 +11,8 @@ import (
 	"github.com/Stackdome/stackdome/pkg/stores"
 	"github.com/Stackdome/stackdome/pkg/stores/pgstore"
 )
+
+const customDomainsDisabledInRuntime = "custom domains are disabled by runtime configuration"
 
 //go:generate mockgen -destination=../mocks/mock_organisation_domains_service.go -package=mocks github.com/Stackdome/stackdome/pkg/services OrganisationDomainsService
 
@@ -29,11 +32,13 @@ type organisationDomainService struct {
 	organisationDomainStore stores.OrganisationDomainStore
 	stackDomainStore        stores.StackDomainsStore
 	logger                  logger.Logger
+	customDomainsDisabled   bool
 }
 
 type OrganisationDomainsServiceSpec struct {
-	SessionFactory db.SessionFactory
-	Logger         logger.Logger
+	SessionFactory        db.SessionFactory
+	Logger                logger.Logger
+	CustomDomainsDisabled bool
 }
 
 func NewOrganisationDomainsService(spec OrganisationDomainsServiceSpec) OrganisationDomainsService {
@@ -44,7 +49,8 @@ func NewOrganisationDomainsService(spec OrganisationDomainsServiceSpec) Organisa
 		stackDomainStore: pgstore.NewStackDomainsStore(pgstore.StackDomainsStoreSpec{
 			SessionFactory: spec.SessionFactory,
 		}),
-		logger: spec.Logger,
+		logger:                spec.Logger,
+		customDomainsDisabled: spec.CustomDomainsDisabled,
 	}
 }
 
@@ -89,13 +95,16 @@ func (s *organisationDomainService) InternalDeleteWithTx(ctx context.Context, id
 	if err != nil {
 		return err
 	}
-	if len(domainsInUse) > 0 {
+	if stackDomainUsesOrganisationDomain(domainsInUse, domain.Domain) {
 		return errors.Conflict("cannot delete domain '%s' as it is in use by stacks", domain.Domain)
 	}
 	return s.organisationDomainStore.DeleteWithTx(ctx, id)
 }
 
 func (s *organisationDomainService) Create(ctx context.Context, spec *models.OrganisationDomain) (*models.OrganisationDomain, *errors.ServiceError) {
+	if s.customDomainsDisabled {
+		return nil, errors.BadRequest(customDomainsDisabledInRuntime)
+	}
 	if len(spec.Domain) == 0 {
 		return nil, errors.BadRequest("domain is required")
 	}
@@ -134,14 +143,29 @@ func (s *organisationDomainService) Delete(ctx context.Context, id string) *erro
 	if err != nil {
 		return err
 	}
-	if len(domainsInUse) > 0 {
+	if stackDomainUsesOrganisationDomain(domainsInUse, domain.Domain) {
 		return errors.Conflict("cannot delete domain '%s' as it is in use by stacks", domain.Domain)
 	}
 
 	return s.organisationDomainStore.Delete(ctx, id)
 }
 
+func stackDomainUsesOrganisationDomain(stackDomains models.StackDomainList, organisationDomain string) bool {
+	for _, stackDomain := range stackDomains {
+		if stackDomain == nil {
+			continue
+		}
+		if stackDomain.Fqdn == organisationDomain || strings.HasSuffix(stackDomain.Fqdn, "."+organisationDomain) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *organisationDomainService) Update(ctx context.Context, id string, spec *models.OrganisationDomain) (*models.OrganisationDomain, *errors.ServiceError) {
+	if s.customDomainsDisabled {
+		return nil, errors.BadRequest(customDomainsDisabledInRuntime)
+	}
 	if len(spec.Domain) == 0 {
 		return nil, errors.BadRequest("domain is required")
 	}

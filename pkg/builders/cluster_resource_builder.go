@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Stackdome/stackdome/config"
 	"github.com/Stackdome/stackdome/pkg/credentials"
 	"github.com/Stackdome/stackdome/pkg/models"
 	"github.com/davecgh/go-spew/spew"
@@ -27,17 +28,26 @@ type ClusterResourceBuilder interface {
 
 type clusterResourceBuilder struct {
 	credentialResolver credentials.Resolver
+	platformBaseDomain string
+	computeMode        config.ComputeMode
+	platformTLSEnabled bool
 }
 
 type ClusterResourceBuilderSpec struct {
 	// CredentialResolver is optional; when set, org-level registry credentials
 	// auto-attach to image pull / push specs.
 	CredentialResolver credentials.Resolver
+	PlatformBaseDomain string
+	ComputeMode        config.ComputeMode
+	PlatformTLSEnabled bool
 }
 
 func NewClusterResourceBuilder(spec ClusterResourceBuilderSpec) ClusterResourceBuilder {
 	return &clusterResourceBuilder{
 		credentialResolver: spec.CredentialResolver,
+		platformBaseDomain: spec.PlatformBaseDomain,
+		computeMode:        spec.ComputeMode,
+		platformTLSEnabled: spec.PlatformTLSEnabled,
 	}
 }
 
@@ -209,8 +219,11 @@ func (b *clusterResourceBuilder) BuildStackResourceCR(stackResource *models.Stac
 		},
 		Spec: *stackResourceSpec,
 	}
+	if b.usesPlatformWildcardTLS(stackResourceSpec) {
+		stackResourceCR.Labels[corev1alpha1.LabelUsesPlatformWildcardTLS] = "true"
+	}
 
-	if hasTLSPorts(stackResourceSpec) {
+	if hasCertManagerTLSPorts(stackResourceSpec) {
 		if stackResourceCR.Annotations == nil {
 			stackResourceCR.Annotations = map[string]string{}
 		}
@@ -221,9 +234,18 @@ func (b *clusterResourceBuilder) BuildStackResourceCR(stackResource *models.Stac
 	return stackResourceCR, nil
 }
 
-func hasTLSPorts(spec *corev1alpha1.StackResourceSpec) bool {
+func (b *clusterResourceBuilder) usesPlatformWildcardTLS(spec *corev1alpha1.StackResourceSpec) bool {
 	for _, port := range spec.Ports {
-		if port.TLS {
+		if port.TLSSecretRef == models.PlatformWildcardTLSName {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCertManagerTLSPorts(spec *corev1alpha1.StackResourceSpec) bool {
+	for _, port := range spec.Ports {
+		if port.TLS && port.TLSSecretRef == "" {
 			return true
 		}
 	}
@@ -263,7 +285,7 @@ func (b *clusterResourceBuilder) buildStackResourceSpec(stackResource *models.St
 	resourceSpec.ImageSpec = imageSpec
 	setInitSpec(&resourceSpec, stackResource)
 	setVolumeMounts(&resourceSpec, stackResource)
-	setPorts(&resourceSpec, stackResource)
+	b.setPorts(&resourceSpec, stackResource)
 	setEnvVars(&resourceSpec, stackResource)
 	return &resourceSpec, nil
 }
@@ -462,22 +484,42 @@ func setVolumeMounts(resourceSpecCr *corev1alpha1.StackResourceSpec, stackResour
 	}
 }
 
-func setPorts(resourceSpecCr *corev1alpha1.StackResourceSpec, stackResource *models.StackResource) {
+func (b *clusterResourceBuilder) setPorts(resourceSpecCr *corev1alpha1.StackResourceSpec, stackResource *models.StackResource) {
 	if len(stackResource.Ports) > 0 {
 		resourceSpecCr.Ports = make([]corev1alpha1.Port, len(stackResource.Ports))
 		for i, port := range stackResource.Ports {
+			tlsEnabled := port.ExposedToPublic && shouldEnableTLS(port.ExposedFqdn)
+			if b.computeMode == config.ComputeModeShared && !b.platformTLSEnabled {
+				tlsEnabled = false
+			}
 			resourceSpecCr.Ports[i] = corev1alpha1.Port{
 				Name:           port.Name,
 				Number:         int32(port.Number),
 				Protocol:       strings.ToLower(port.Protocol),
 				ExposeToPublic: port.ExposedToPublic,
-				TLS:            port.ExposedToPublic && shouldEnableTLS(port.ExposedFqdn),
+				TLS:            tlsEnabled,
 			}
 			if port.ExposedToPublic {
 				resourceSpecCr.Ports[i].FQDN = port.ExposedFqdn
 			}
+			if resourceSpecCr.Ports[i].TLS && isDirectChildOfBaseDomain(port.ExposedFqdn, b.platformBaseDomain) {
+				resourceSpecCr.Ports[i].TLSSecretRef = models.PlatformWildcardTLSName
+			}
 		}
 	}
+}
+
+func isDirectChildOfBaseDomain(fqdn, baseDomain string) bool {
+	// API.Stackdome.COM. -> api.stackdome.com
+	fqdn = strings.TrimSuffix(strings.ToLower(fqdn), ".")
+	// Stackdome.COM.    ->  stackdome.com
+	baseDomain = strings.TrimSuffix(strings.ToLower(baseDomain), ".")
+	if baseDomain == "" {
+		return false
+	}
+
+	child, found := strings.CutSuffix(fqdn, "."+baseDomain)
+	return found && child != "" && !strings.Contains(child, ".")
 }
 
 func shouldEnableTLS(fqdn string) bool {

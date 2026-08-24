@@ -46,6 +46,7 @@ type GitIntegrationService interface {
 	// GitHub App manifest flow, installations, and discovery.
 	CreateGitHubAppManifest(ctx context.Context, organisationID string) (*models.GitHubAppManifestFlow, *errors.ServiceError)
 	HandleGitHubManifestCallback(ctx context.Context, code, state string) (string, *errors.ServiceError)
+	HandleGitHubAppSetup(ctx context.Context, installationID int64, state string) (string, *errors.ServiceError)
 	ListInstallations(ctx context.Context, integrationID string, refresh bool) ([]*models.GitInstallation, *errors.ServiceError)
 	ListRepositories(ctx context.Context, integrationID string, page int, installationUUID string) (*githubapp.RepoPage, *errors.ServiceError)
 	GetRepository(ctx context.Context, integrationID, owner, repo string) (*githubapp.Repo, *errors.ServiceError)
@@ -72,6 +73,9 @@ type GitIntegrationServiceSpec struct {
 	// ExternalURL is the hub's externally reachable base URL, required for
 	// the GitHub App manifest flow.
 	ExternalURL string
+	// PlatformApp is the platform-wide GitHub App every org installs. Nil
+	// keeps each org creating its own app through the manifest flow.
+	PlatformApp *githubapp.AppCredentials
 	// GitClients is optional; it defaults to real git clients.
 	GitClients verifyGitClientProvider
 }
@@ -87,6 +91,7 @@ type gitIntegrationService struct {
 	permissions       auth.PermissionService
 	logger            logger.Logger
 	externalURL       string
+	platformApp       *githubapp.AppCredentials
 	gitClients        verifyGitClientProvider
 }
 
@@ -106,6 +111,7 @@ func NewGitIntegrationService(spec GitIntegrationServiceSpec) GitIntegrationServ
 		permissions:       spec.Permissions,
 		logger:            spec.Logger,
 		externalURL:       strings.TrimSuffix(spec.ExternalURL, "/"),
+		platformApp:       spec.PlatformApp,
 		gitClients:        gitClients,
 	}
 }
@@ -219,7 +225,34 @@ func (s *gitIntegrationService) Delete(ctx context.Context, ID string) *errors.S
 	if permErr := s.permissions.Check(ctx, integration.OrganisationID, auth.ResourceGitIntegrations, ID, auth.ActionDelete); permErr != nil {
 		return permErr
 	}
+	s.uninstallFromGitHub(ctx, integration)
 	return s.store.Delete(ctx, ID)
+}
+
+// uninstallFromGitHub removes the app from every account this integration
+// bound. Without it a deleted-then-reconnected org dead-ends: GitHub shows
+// "Configure" for a still-installed account, never fires the setup callback,
+// and the new pending row can never bind. Best-effort — a GitHub outage must
+// not block the local delete; a leftover installation is recoverable by hand.
+func (s *gitIntegrationService) uninstallFromGitHub(ctx context.Context, integration *models.GitIntegration) {
+	if integration.Type != models.GitIntegrationTypeGitHubApp {
+		return
+	}
+	creds, serr := s.appCredentials(integration)
+	if serr != nil {
+		s.logger.Warn(ctx, "skipping GitHub uninstall for integration '%s': %s", integration.ID, serr.Reason)
+		return
+	}
+	installations, serr := s.installations.ListByIntegrationID(ctx, integration.ID)
+	if serr != nil {
+		s.logger.Warn(ctx, "skipping GitHub uninstall for integration '%s': %s", integration.ID, serr.Reason)
+		return
+	}
+	for _, in := range installations {
+		if err := s.githubApp.DeleteInstallation(ctx, creds, in.InstallationID); err != nil {
+			s.logger.Warn(ctx, "failed to uninstall GitHub installation %d: %s", in.InstallationID, err.Error())
+		}
+	}
 }
 
 func (s *gitIntegrationService) Verify(ctx context.Context, ID, repoURL string) *errors.ServiceError {

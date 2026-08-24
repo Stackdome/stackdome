@@ -1,0 +1,59 @@
+# Stackdome Cloud alpha runtime policy. Set RUNTIME_MODE=stackdome_cloud and
+# STACKDOME_CLOUD_CONFIG to this file's deployed path.
+access:
+  # A trial entitlement starts when an organization first consumes compute.
+  # Expired entitlements retain their lease until cleanup changes its state.
+  maxActiveSharedComputeLeases: 200
+  trialEntitlementDuration: 6h
+
+limits:
+  maxStacksPerOrganization: 2
+  maxStackResourcesPerOrganization: 6
+  replicasPerStackResource: 1
+  maxVolumesPerOrganization: 2
+  maxVolumeSize: 2Gi
+  volumeStorageClass: longhorn
+  maxPostgresAddonsPerOrganization: 1
+  postgresInstances: 1
+  maxPostgresStorageSize: 2Gi
+  # Basic plan: small scheduling requests with 0.5 CPU / 1Gi runtime limits.
+  postgresCPURequest: 50m
+  postgresCPULimit: 500m
+  postgresMemoryRequest: 128Mi
+  postgresMemoryLimit: 1Gi
+  # Deployment must set cloud-guard controller.maxConcurrentBuilds from this
+  # same value. Hub validates this policy but does not schedule image builds.
+  concurrentBuilds: 1
+
+registry:
+  # Registries are created lazily only when an organization starts a build.
+  maxActiveRegistries: 200
+  storageClass: longhorn
+  storageSize: 2Gi
+
+features:
+  customDomains: false
+  externalPostgresImport: false
+
+signup:
+  # cloudflare requires the origin to accept requests only from Cloudflare.
+  clientIPSource: cloudflare
+  turnstile:
+    enabled: true
+    siteKey: 0x4AAAAAAELBwbqXF7OVIrmv
+    expectedHostname: stackdome.com
+    expectedAction: turnstile-spin-v2
+    verificationTimeout: 10s
+  # Signup throttling is always enforced in the stackdome_cloud runtime.
+  throttle:
+    ip:
+      maxTrackedClients: 10000
+      maxAttempts: 5
+      window: 10m
+    email:
+      maxTrackedAddresses: 10000
+      maxAttempts: 3
+      window: 1h
+
+# TURNSTILE_SECRET is intentionally not stored here. Set it in the environment
+# when Turnstile is enabled.

@@ -85,7 +85,6 @@ const meta = {
     refetchReleases: fn(),
     onRollback: fn(),
     onCancel: fn(),
-    onCopyId: fn(),
   },
   parameters: {
     msw: [...releaseHandlers(details, events), ...baselineHandlers],

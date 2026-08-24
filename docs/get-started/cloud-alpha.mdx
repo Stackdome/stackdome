@@ -1,0 +1,33 @@
+---
+title: "Stackdome Cloud during alpha"
+description: "Use Stackdome Cloud as an ephemeral, capacity-limited playground during alpha."
+keywords: ["Stackdome Cloud", "Cloud alpha", "ephemeral environment", "capacity limits", "self-hosted fallback"]
+---
+
+Stackdome Cloud is an ephemeral playground for trying Stackdome without setting up your own infrastructure. Capacity is limited during alpha, and environments are temporary.
+
+## What to expect
+
+- Use it to test Stackdome and explore its workflows.
+- Environments may be removed or reset.
+- New environments are available only while capacity allows.
+
+Do not use the Cloud alpha for data or workloads you need to keep.
+
+## If capacity is unavailable
+
+If Stackdome Cloud cannot allocate an environment, you can:
+
+- [Join the Cloud availability list](mailto:ashish@stackdome.com?subject=Request%20to%20join%20the%20Stackdome%20Cloud%20waitlist).
+- [Connect a self-hosted Stackdome installation](/self-host/install).
+
+Moving to a self-hosted destination does not change your Stackfile or deployment workflow. Authenticate the CLI against the new Stackdome host, then repeat the same validate, deploy, and status commands.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart with an agent" icon="sparkles" href="/quickstart">
+    Ask your coding agent to deploy and return a verified public URL.
+  </Card>
+  <Card title="Quickstart with the CLI" icon="terminal" href="/get-started/cli">
+    Run the deployment workflow directly against your chosen host.
+  </Card>
+</CardGroup>

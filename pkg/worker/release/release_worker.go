@@ -9,6 +9,7 @@ import (
 	"github.com/Stackdome/stackdome/pkg/credentials"
 	"github.com/Stackdome/stackdome/pkg/errors"
 	"github.com/Stackdome/stackdome/pkg/models"
+	"github.com/Stackdome/stackdome/pkg/services/clusterresource"
 	"github.com/Stackdome/stackdome/pkg/stackdeploy"
 	"github.com/Stackdome/stackdome/pkg/stores"
 	"github.com/Stackdome/stackdome/pkg/worker"
@@ -19,12 +20,23 @@ import (
 const (
 	ReleaseWorkerName       = "release-worker"
 	convergencePollInterval = 15 * time.Second
+	// A release whose deploy/converge phase runs longer than this is failed
+	// by the deadline reconciler — bounds background load from workloads
+	// that will never become ready (e.g. crashlooping apps). The clock
+	// starts after builds finish, not at release creation; see
+	// deadlineReconciler.
+	convergenceTimeout = 45 * time.Minute
+	// Absolute ceiling on a release's lifetime, measured from creation.
+	// Catches releases the converge clock never sees: a build stuck Pending
+	// forever, a build CR that never appears, a dead agent.
+	releaseLifetimeCap = 6 * time.Hour
 )
 
 type ReleaseWorkerSpec struct {
 	ReleaseService        releaseService
 	EventRecorder         eventRecorder
 	StackService          stackService
+	ImageBuildService     imageBuildService
 	ClusterManager        clustermanager.ClusterManager
 	CRBuilder             builders.ClusterResourceBuilder
 	SecretBuilder         builders.SecretBuilder
@@ -36,6 +48,8 @@ type ReleaseWorkerSpec struct {
 	ReleaseWorkerEnqueuer workermanager.BackgroundJobEnqueuer
 	ValidationRecords     stores.ResourceValidationRecordStore
 	RegistryClients       registryClientProvider
+	ImageRegistryStore    stores.ClusterImageRegistryStore
+	ImageRegistryResource clusterresource.ClusterImageRegistryService
 	Env                   string
 }
 
@@ -54,8 +68,10 @@ func NewReleaseWorker(spec ReleaseWorkerSpec) worker.Worker {
 		releaseWorkerEnqueuer: spec.ReleaseWorkerEnqueuer,
 		subReconcilers: []subReconciler{
 			newGatekeeperReconciler(spec),
+			newDeadlineReconciler(spec),
 			newSimulatorReconciler(spec),
 			newValidationReconciler(spec),
+			newRegistryPrerequisiteReconciler(spec),
 			newRenderReconciler(spec),
 			newApplyReconciler(spec),
 			newConvergeReconciler(spec),
@@ -69,9 +85,9 @@ func (w *releaseWorker) Interval() time.Duration {
 }
 
 func (w *releaseWorker) Execute(ctx context.Context, operand worker.Operand) (worker.Result, *errors.ServiceError) {
-	releaseRef, ok := operand.(*models.StackRelease)
+	releaseRef, ok := operand.(models.StackReleaseOperand)
 	if !ok {
-		return worker.Result{}, w.WorkerError.NewError("invalid operand type, expected *models.StackRelease")
+		return worker.Result{}, w.WorkerError.NewError("invalid operand type, expected models.StackReleaseOperand")
 	}
 
 	release, serr := w.releaseService.InternalGet(ctx, releaseRef.ID)
@@ -98,7 +114,7 @@ func (w *releaseWorker) Execute(ctx context.Context, operand worker.Operand) (wo
 	if w.releaseWorkerEnqueuer != nil {
 		updated, _ := w.releaseService.InternalGet(ctx, releaseRef.ID)
 		if updated != nil && updated.State.Terminal() {
-			if err := w.releaseWorkerEnqueuer.Enqueue(&releasegc.ReleaseGCRequest{StackID: updated.StackID}); err != nil {
+			if err := w.releaseWorkerEnqueuer.Enqueue(releasegc.ReleaseGCRequest{StackID: updated.StackID}); err != nil {
 				w.Logger().Error(ctx, "failed to enqueue release GC for stack %s: %v", updated.StackID, err)
 			}
 		}
@@ -133,7 +149,7 @@ func (w *releaseWorker) GetInput(ctx context.Context) ([]worker.Operand, *errors
 	}
 	operands := make([]worker.Operand, 0, len(releases))
 	for _, r := range releases {
-		operands = append(operands, &models.StackRelease{ID: r.ID})
+		operands = append(operands, models.StackReleaseOperand{ID: r.ID})
 	}
 	return operands, nil
 }

@@ -2,6 +2,8 @@ import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
 import { VersionChip, type CanvasViewMode } from "@/pages/stacks/components/editor/version-chip";
 import { getErrorMessage } from "@/api/client";
 import { parseApiError, type ParsedFieldError } from "@/api/errors";
+import { COMPUTE_QUOTA_EXCEEDED_CODE, quotaMessage, type QuotaMessage } from "@/pages/stacks/lib/quota-error";
+import { AlertBanner } from "@/components/branded/alert-banner";
 import { mapFieldErrors } from "@/pages/stacks/lib/map-field-errors";
 import { formatDraftValidationIssues } from "@/pages/stacks/lib/format-draft-validation";
 import { buildBannerItems } from "@/pages/stacks/components/editor/lib/banner-items";
@@ -48,6 +50,9 @@ import { useReleaseAnchors } from "@/pages/stacks/components/editor/hooks/use-re
 import { mapVolumeToFormData, formResourcesFromSpec } from "@/pages/stacks/lib/spec-to-form";
 import { addonIdsFromConnections } from "@/pages/stacks/lib/connection-mapping";
 import { useBreadcrumb } from "@/hooks/use-breadcrumb";
+import { usePreviewLineage } from "@/hooks/use-preview-lineage";
+import { PREVIEW_CONFIG_ID_LABEL, PREVIEW_STACK_LABEL } from "@/contexts/preview-lineage-context";
+import { getPreviewConfig } from "@/api/preview-configs";
 import { getCurrentOrganizationId } from "@/lib/common";
 import { useResourceProjects } from "@/hooks/use-resource-projects";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -90,6 +95,7 @@ export default function CanvasEditorPage() {
   const [draftDeploying, setDraftDeploying] = useState(false);
 
   const { setCustomLabel, setPathLoading, registerRename } = useBreadcrumb();
+  const { setLineage } = usePreviewLineage();
   const { toast } = useToast();
   const { projects, projectNameById, defaultProjectName } = useResourceProjects();
   const { canWrite } = useCurrentUser();
@@ -144,6 +150,11 @@ export default function CanvasEditorPage() {
       setCustomLabel(STACK_DRAFT_PATH, next);
     });
   }, [isNewStack, stacks, registerRename, setCustomLabel]);
+
+  // Kept from main: navigating straight from one stack to another keeps the
+  // payload until the new one lands — every consumer of savedStack would read
+  // the old stack, and a failed fetch would leave it there for good.
+  useEffect(() => { setFetchedStack(null); }, [id]);
 
   useEffect(() => {
     if (isNewStack) return;
@@ -212,6 +223,37 @@ export default function CanvasEditorPage() {
     stackId: savedStack?.id || "",
   }), [savedStack, projectNameById, defaultProjectName]);
   const idsReady = !!deployIds.stackId && !!deployIds.projectName;
+
+  // Preview stacks live at /stacks/<id> but belong to a preview config; publish
+  // that so the breadcrumb and sidebar can place the page under Previews.
+  const previewConfigId = useMemo(() => {
+    const labels = savedStack?.labels ?? [];
+    if (!labels.some((l) => l.key === PREVIEW_STACK_LABEL && l.value === "true")) return undefined;
+    return labels.find((l) => l.key === PREVIEW_CONFIG_ID_LABEL)?.value;
+  }, [savedStack?.labels]);
+
+  useEffect(() => {
+    if (!previewConfigId) {
+      setLineage(null);
+      return;
+    }
+    setLineage({ configId: previewConfigId });
+    if (!deployIds.orgId || !deployIds.projectName) return;
+    let cancelled = false;
+    void getPreviewConfig(deployIds.orgId, deployIds.projectName, previewConfigId)
+      .then((config) => {
+        if (!cancelled) setLineage({ configId: previewConfigId, configName: config.name });
+      })
+      .catch(() => {
+        // The crumb only needs a label to be usable; its link works off the id.
+        if (!cancelled) setLineage({ configId: previewConfigId, configName: "Preview" });
+      });
+    return () => { cancelled = true; };
+  }, [previewConfigId, deployIds.orgId, deployIds.projectName, setLineage]);
+
+  // Leaving the stack page hands the highlight back to Stacks.
+  useEffect(() => () => setLineage(null), [setLineage]);
+
   const releasesResult = useReleases({ ...deployIds, enabled: idsReady });
   const releaseDetail = useReleaseDetail(deployIds.orgId, deployIds.projectName, deployIds.stackId);
 
@@ -499,6 +541,8 @@ export default function CanvasEditorPage() {
   // summary banner. Cleared when a deploy is retried or the banner is dismissed.
   const [deployFieldErrors, setDeployFieldErrors] = useState<ParsedFieldError[]>([]);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  // Not cleared on edit: the quota verdict holds until the server re-checks it.
+  const [quotaNotice, setQuotaNotice] = useState<QuotaMessage | null>(null);
   // Bumped to ask the canvas to open a resource drawer (banner "jump to error").
   // Which version the canvas shows. It lives HERE because the control that
   // switches it — the header's version chip — and the canvas that obeys it are
@@ -719,9 +763,22 @@ export default function CanvasEditorPage() {
     return true;
   }, [session.draft.resources, toast]);
 
+  // Compute-quota 400s carry no fieldErrors, so applyValidationFailure never consumes them.
+  const applyQuotaFailure = useCallback((err: unknown): boolean => {
+    const parsed = parseApiError(err);
+    if (parsed.code !== COMPUTE_QUOTA_EXCEEDED_CODE) return false;
+    const message = quotaMessage(parsed.topLevel);
+    setQuotaNotice(message);
+    toast({ title: message.title, variant: "destructive" });
+    return true;
+  }, [toast]);
+
   const [deployBusy, setDeployBusy] = useState(false);
   const refetchReleases = releasesResult.refetch;
   const runDeploy = useCallback(async (fn: () => Promise<unknown>, ok: string): Promise<boolean> => {
+    // Clear stale failure state so a retry cannot show two contradictory banners.
+    setQuotaNotice(null);
+    setDeployFieldErrors([]);
     setDeployBusy(true);
     try {
       await fn();
@@ -729,14 +786,14 @@ export default function CanvasEditorPage() {
       refetchReleases();
       return true;
     } catch (e) {
-      if (!applyValidationFailure(e)) {
+      if (!applyQuotaFailure(e) && !applyValidationFailure(e)) {
         toast({ title: "Action failed", description: e instanceof Error ? e.message : "", variant: "destructive" });
       }
       return false;
     } finally {
       setDeployBusy(false);
     }
-  }, [toast, refetchReleases, applyValidationFailure]);
+  }, [toast, refetchReleases, applyQuotaFailure, applyValidationFailure]);
 
   const onDeploy = useCallback(async () => {
     if (!draftSync || !deployIds.stackId) return;
@@ -765,10 +822,6 @@ export default function CanvasEditorPage() {
     (releaseId: string) => runDeploy(() => rollbackRelease(deployIds.orgId, deployIds.projectName, deployIds.stackId, releaseId), "Rollback started"),
     [runDeploy, deployIds],
   );
-  const onCopyId = useCallback((releaseId: string) => {
-    void navigator.clipboard?.writeText(releaseId);
-    toast({ title: "Release ID copied", variant: "success" });
-  }, [toast]);
 
   // Draft deploy: validates name, creates the stack, starts the first release,
   // and navigates to the new page. There is no separate "create" step — the
@@ -779,6 +832,7 @@ export default function CanvasEditorPage() {
     // Clear stale validation state from a previous failed attempt.
     setDeployFieldErrors([]);
     setServerFieldErrors({});
+    setQuotaNotice(null);
 
     // A draft needs a name before it can be created. The stack name field is not
     // min-length-constrained in the schema (empty passes zod and only fails at
@@ -879,7 +933,7 @@ export default function CanvasEditorPage() {
       navigate(`/stacks/${created.id}`, { replace: true, state: null });
     } catch (err) {
       console.error('Failed to create stack:', err);
-      if (!applyValidationFailure(err)) {
+      if (!applyQuotaFailure(err) && !applyValidationFailure(err)) {
         toast({
           title: "Failed to create stack",
           description: parseApiError(err).topLevel,
@@ -1018,7 +1072,6 @@ export default function CanvasEditorPage() {
       lifecycle={lifecycle}
       onRollback={onRollback}
       onCancel={onCancelDeploy}
-      onCopyId={onCopyId}
     />
   ) : (
     <div className="text-center text-muted-foreground py-12">Stack ID not available</div>
@@ -1092,6 +1145,24 @@ export default function CanvasEditorPage() {
               onReviewChanges={() => setViewChangesOpen(true)}
               canDiscard={changeCount > 0 && !!liveSnapshot && canWriteStack}
             />
+          )
+        }
+        notice={
+          quotaNotice && (
+            <div className="mt-3">
+              {/* Kept from main, ported to this branch's AlertBanner. It hand-rolled
+                  a headline over a detail inside `children`; the component has
+                  taken `title` for exactly that pair since the redesign, so the
+                  markup goes and the two facts stay. `onDismiss` (a corner ✕) is
+                  now the one affordance below the message. */}
+              <AlertBanner
+                tone="danger"
+                title={quotaNotice.title}
+                action={{ label: "Dismiss", onClick: () => setQuotaNotice(null) }}
+              >
+                {quotaNotice.description}
+              </AlertBanner>
+            </div>
           )
         }
         architecture={

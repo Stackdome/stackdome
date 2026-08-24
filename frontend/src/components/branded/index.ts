@@ -21,6 +21,10 @@ export { StackdomeMark, StackdomeWordmark } from "./stackdome-mark";
 export { StageBadge, type FailureStage } from "./stage-badge";
 export { FailureCard, type FailureCardProps } from "./failure-card";
 export { AlertBanner, type AlertBannerProps } from "./alert-banner";
+// `AlertBannerVariant` is not re-exported: this branch replaced that union with
+// `AlertBannerTone` (danger | blocking | info). Nothing outside the component
+// imported the old type.
+export { CloudAlphaBanner } from "./cloud-alpha-banner";
 export { DangerZone, DangerZoneRow } from "./danger-zone";
 export { DetailList, DetailRow } from "./detail-rows";
 export { Disclosure } from "./disclosure";

@@ -28,9 +28,6 @@ rules:
   - apiGroups: ["storage.stackdome.io"]
     resources: ["volumes"]
     verbs: ["get", "list", "watch", "create", "update", "delete"]
-  - apiGroups: ["users.stackdome.io"]
-    resources: ["users"]
-    verbs: ["get", "list", "watch", "create", "update", "delete"]
   - apiGroups: ["registry.stackdome.io"]
     resources: ["clusterregistries"]
     verbs: ["get", "list", "watch", "create", "delete"]
@@ -45,6 +42,10 @@ rules:
   - apiGroups: ["cert-manager.io"]
     resources: ["clusterissuers"]
     verbs: ["get", "create"]
+  # Platform wildcard TLS resources reconciled in the configured control-plane namespace.
+  - apiGroups: ["cert-manager.io"]
+    resources: ["issuers", "certificates"]
+    verbs: ["get", "create", "update"]
   # Postgres addon dependencies.
   - apiGroups: ["postgresql.cnpg.io"]
     resources: ["imagecatalogs"]
