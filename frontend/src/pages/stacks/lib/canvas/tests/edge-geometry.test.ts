@@ -4,6 +4,7 @@ import {
   connectionEdgeGeometry,
   ARC_RADIUS,
   ARROW_LENGTH,
+  FACE_SPLIT,
   TIP_GAP,
   PORT_RADIUS,
   PORT_GAP,
@@ -49,16 +50,52 @@ describe("connectionEdgeGeometry", () => {
     expect(second.radius).toBeCloseTo(ARC_RADIUS);
   });
 
-  it("shrinks the radius only to what the route can hold, and keeps both corners equal", () => {
-    // A 40px vertical offset cannot hold two 48px quarter turns; each corner
-    // may take half of it, and the straight between them vanishes.
+  it("keeps the radius when the offset is too small for two quarter turns — it sweeps LESS", () => {
+    // 40px of offset cannot hold two 48px quarters. The old fillet answered by
+    // cutting the radius to 20; now the arcs stay 48 and turn through a
+    // shallower angle instead.
     const [first, second] = arcs(connectionEdgeGeometry(rect(0, 0), rect(700, 40)).path);
-    expect(first.radius).toBeCloseTo(20);
-    expect(second.radius).toBeCloseTo(20);
+    expect(first.radius).toBeCloseTo(ARC_RADIUS);
+    expect(second.radius).toBeCloseTo(ARC_RADIUS);
     // Both ends sit on y=52 and y=92 — the first arc ends exactly halfway,
     // which is where the second one starts. No straight between.
     expect(first.y).toBeCloseTo(72);
     expect(second.y).toBeCloseTo(92);
+  });
+
+  it.each([
+    ["barely offset", rect(700, 60)],
+    ["under two radii", rect(700, 130)],
+    ["exactly two radii", rect(700, 96)],
+    ["well past two radii", rect(700, 500)],
+    ["offset the other way", rect(700, -400)],
+  ])("turns at ONE radius whatever the offset (%s)", (_case, target) => {
+    for (const arc of arcs(connectionEdgeGeometry(rect(0, 0), target).path)) {
+      expect(arc.radius).toBeCloseTo(ARC_RADIUS);
+    }
+  });
+
+  it("splits a face that carries traffic both ways, and only then", () => {
+    const source = rect(0, 0);
+    const target = rect(600, 0);
+    const plain = connectionEdgeGeometry(source, target);
+    const split = connectionEdgeGeometry(source, target, { sourceSplit: -1, targetSplit: 1 });
+
+    // Departure slides one way along the face, arrival the other — they can no
+    // longer land on the same point.
+    expect(plain.portY - split.portY).toBeCloseTo(FACE_SPLIT);
+    expect(split.tipY - plain.tipY).toBeCloseTo(FACE_SPLIT);
+    // Untouched across the face: both still leave and arrive square-on.
+    expect(split.portX).toBeCloseTo(plain.portX);
+    expect(split.tipX).toBeCloseTo(plain.tipX);
+  });
+
+  it("splits along a horizontal face on the other axis", () => {
+    const split = connectionEdgeGeometry(rect(0, 400), rect(0, 0), { sourceSplit: -1, targetSplit: 1 });
+    const plain = connectionEdgeGeometry(rect(0, 400), rect(0, 0));
+    // Top/Bottom faces slide sideways, not vertically.
+    expect(plain.portX - split.portX).toBeCloseTo(FACE_SPLIT);
+    expect(split.portY).toBeCloseTo(plain.portY);
   });
 
   it("turns the right way round — down-and-right is clockwise then anticlockwise", () => {
@@ -169,8 +206,8 @@ describe("connectionEdgeGeometry", () => {
   it("parallel edges keep BOTH ends on the centres and separate in the corridor", () => {
     const source = rect(0, 0);
     const target = rect(900, 300);
-    const a = connectionEdgeGeometry(source, target, 0, 2);
-    const b = connectionEdgeGeometry(source, target, 1, 2);
+    const a = connectionEdgeGeometry(source, target, { parallelIndex: 0, parallelCount: 2 });
+    const b = connectionEdgeGeometry(source, target, { parallelIndex: 1, parallelCount: 2 });
 
     // Rule 1 holds for every one of them — the ends do not move.
     expect(points(a.path)[0]).toEqual(points(b.path)[0]);
@@ -184,13 +221,13 @@ describe("connectionEdgeGeometry", () => {
 
   it("clamps the corridor inside the two turns rather than folding the route back", () => {
     // Six edges at 28 pitch want ±70 of spread; this gap cannot hold it.
-    const outermost = connectionEdgeGeometry(rect(0, 0), rect(420, 300), 5, 6);
+    const outermost = connectionEdgeGeometry(rect(0, 0), rect(420, 300), { parallelIndex: 5, parallelCount: 6 });
     const corridorX = arcs(outermost.path)[0].x;
     expect(corridorX).toBeLessThanOrEqual(420 - ARROW_LENGTH - ARC_RADIUS + 0.01);
   });
 
   it("single edge (count 1) is identical to the no-offset call", () => {
-    expect(connectionEdgeGeometry(rect(0, 400), rect(0, 0), 0, 1)).toEqual(
+    expect(connectionEdgeGeometry(rect(0, 400), rect(0, 0), { parallelIndex: 0, parallelCount: 1 })).toEqual(
       connectionEdgeGeometry(rect(0, 400), rect(0, 0)),
     );
   });

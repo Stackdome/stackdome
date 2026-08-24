@@ -1,6 +1,14 @@
-import { BaseEdge, useInternalNode, type EdgeProps, type InternalNode } from "@xyflow/react";
+import {
+  BaseEdge,
+  useInternalNode,
+  useStore,
+  type EdgeProps,
+  type InternalNode,
+  type Position,
+} from "@xyflow/react";
 import {
   connectionEdgeGeometry,
+  routeFaces,
   ARROW_LENGTH,
   PORT_RADIUS,
   type NodeRect,
@@ -51,15 +59,56 @@ const ARROW_PATH = `M0 0 L${-ARROW_LENGTH} ${-ARROW_HALF_WIDTH} L${-ARROW_LENGTH
 export function ConnectionEdge({ id, source, target, data }: EdgeProps) {
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
+
+  /**
+   * **Does this node have a connection running the OTHER way into the same
+   * face?**
+   *
+   * An edge knows its own two nodes and nothing else, so rule 3 cannot be
+   * answered locally — it needs the node's other neighbours, and it needs their
+   * positions, because which face a connection uses is decided by where the
+   * cards are and changes every time one is dragged.
+   *
+   * Both come off the store. The cost is that every edge re-renders when any
+   * node moves; on a stack graph — tens of nodes, tens of edges — that is
+   * cheaper than the alternative of threading a per-face census through
+   * `graph-from-connections`, which cannot know positions at all.
+   */
+  const edges = useStore((s) => s.edges);
+  const nodeLookup = useStore((s) => s.nodeLookup);
+  const facesOtherWay = (
+    nodeId: string,
+    rect: NodeRect,
+    face: Position,
+    direction: "incoming" | "outgoing",
+  ) =>
+    edges.some((edge) => {
+      const near = direction === "incoming" ? edge.target : edge.source;
+      const far = direction === "incoming" ? edge.source : edge.target;
+      if (near !== nodeId || far === nodeId) return false;
+      const other = nodeLookup.get(far);
+      if (!other) return false;
+      const incoming = direction === "incoming";
+      const faces = routeFaces(incoming ? rectOf(other) : rect, incoming ? rect : rectOf(other));
+      return (incoming ? faces.targetPosition : faces.sourcePosition) === face;
+    });
+
   if (!sourceNode || !targetNode) return null;
 
   const edgeData = data as ConnectionEdgeData | undefined;
-  const geo = connectionEdgeGeometry(
-    rectOf(sourceNode),
-    rectOf(targetNode),
-    edgeData?.parallelIndex,
-    edgeData?.parallelCount,
-  );
+  const sourceRect = rectOf(sourceNode);
+  const targetRect = rectOf(targetNode);
+  const { sourcePosition, targetPosition } = routeFaces(sourceRect, targetRect);
+
+  const geo = connectionEdgeGeometry(sourceRect, targetRect, {
+    parallelIndex: edgeData?.parallelIndex,
+    parallelCount: edgeData?.parallelCount,
+    // Rule 3: slide apart only where this face also carries the other
+    // direction. The departure takes the low side and the arrival the high one,
+    // consistently, so two nodes wired to each other do not cross.
+    sourceSplit: facesOtherWay(source, sourceRect, sourcePosition, "incoming") ? -1 : 0,
+    targetSplit: facesOtherWay(target, targetRect, targetPosition, "outgoing") ? 1 : 0,
+  });
 
   return (
     <>
