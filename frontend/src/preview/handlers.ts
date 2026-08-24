@@ -222,7 +222,7 @@ const ORDERS_RELEASES = [
     rendered_at: '2026-08-05T16:02:48Z',
     completed_at: '2026-08-05T16:04:00Z',
     pins: { resources: { web: { git_sha: 'a3f9d2e' } } },
-      outcome: { resources: { web: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, worker: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, 'orders-db': { phase: 'Ready', ready_replicas: 1, replicas: 1 }, cache: { phase: 'Ready', ready_replicas: 1, replicas: 1 } } },
+    outcome: { resources: { web: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, worker: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, 'orders-db': { phase: 'Ready', ready_replicas: 1, replicas: 1 }, cache: { phase: 'Ready', ready_replicas: 1, replicas: 1 } } },
   },
   {
     id: 'r2', stack_id: STACK_ID, sequence: 2, state: ReleaseState.Released,
@@ -231,7 +231,7 @@ const ORDERS_RELEASES = [
     rendered_at: '2026-08-04T11:19:02Z',
     completed_at: '2026-08-04T11:20:00Z',
     pins: { resources: { web: { git_sha: '7c1b8e4' } } },
-      outcome: { resources: { web: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, worker: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, 'orders-db': { phase: 'Ready', ready_replicas: 1, replicas: 1 }, cache: { phase: 'Ready', ready_replicas: 1, replicas: 1 } } },
+    outcome: { resources: { web: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, worker: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, 'orders-db': { phase: 'Ready', ready_replicas: 1, replicas: 1 }, cache: { phase: 'Ready', ready_replicas: 1, replicas: 1 } } },
   },
   {
     id: 'r1', stack_id: STACK_ID, sequence: 1, state: ReleaseState.Released,
@@ -240,7 +240,7 @@ const ORDERS_RELEASES = [
     rendered_at: '2026-08-02T09:10:56Z',
     completed_at: '2026-08-02T09:12:00Z',
     pins: { resources: { web: { git_sha: '2f90aa1' } } },
-      outcome: { resources: { web: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, worker: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, 'orders-db': { phase: 'Ready', ready_replicas: 1, replicas: 1 }, cache: { phase: 'Ready', ready_replicas: 1, replicas: 1 } } },
+    outcome: { resources: { web: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, worker: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, 'orders-db': { phase: 'Ready', ready_replicas: 1, replicas: 1 }, cache: { phase: 'Ready', ready_replicas: 1, replicas: 1 } } },
   },
 ]
 

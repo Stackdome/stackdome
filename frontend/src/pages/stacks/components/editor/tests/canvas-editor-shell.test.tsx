@@ -282,8 +282,8 @@ describe("CanvasEditorShell header", () => {
     render(
       <CanvasEditorShell
         {...base}
-       
-       
+
+
         stackId="s1"
         publicEndpoints={[{ service: "web", url: "https://web.acme.dev" }]}
       />,

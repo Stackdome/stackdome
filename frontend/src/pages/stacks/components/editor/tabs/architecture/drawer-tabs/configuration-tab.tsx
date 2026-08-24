@@ -562,9 +562,9 @@ function StackResourceConfigurationTabImpl({
                   onReset={
                     onDiscardField
                       ? () => {
-                          onDiscardField("source.git.repo_url");
-                          onDiscardField("source.git.integration_id");
-                        }
+                        onDiscardField("source.git.repo_url");
+                        onDiscardField("source.git.integration_id");
+                      }
                       : undefined
                   }
                 >
@@ -607,10 +607,10 @@ function StackResourceConfigurationTabImpl({
                     onValueChange={(val) =>
                       val === "default"
                         ? update({
-                            gitRevisionType: undefined,
-                            gitRevisionValue: undefined,
-                            gitCommitPin: undefined,
-                          })
+                          gitRevisionType: undefined,
+                          gitRevisionValue: undefined,
+                          gitCommitPin: undefined,
+                        })
                         : update({ gitRevisionType: val as "branch" | "tag" })
                     }
                   >

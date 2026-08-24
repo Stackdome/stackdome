@@ -125,8 +125,14 @@ describe("TimelineRail", () => {
         <TimelineRail releases={[r3, r2, r1]} activeRelease={r3} {...base} />
       </ReleaseDetailProvider>,
     );
-    // The new release's node is expanded (chevron rotated) — its live progress isn't hidden in a collapsed row.
-    expect(container.querySelector("#deploy-node-r3")?.querySelector(".rotate-180")).toBeTruthy();
+    // The new release's node is expanded — its live progress is NOT hidden in a
+    // collapsed row, which is the fact this test exists for. It used to assert
+    // the chevron carried `.rotate-180`; the disclosure moved to the head of the
+    // row and now rotates the other way (`-rotate-90` when CLOSED), so the old
+    // assertion was pinned to a decoration that changed underneath it. The body
+    // only renders when the node is open, so its presence is the same claim made
+    // against the thing the reader actually cares about.
+    expect(container.querySelector("#deploy-node-r3")?.querySelector('[data-testid="release-detail"]')).toBeTruthy();
   });
 
   it("keeps multiple release details open at once (not an accordion)", async () => {

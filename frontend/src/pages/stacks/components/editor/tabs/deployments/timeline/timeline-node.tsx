@@ -119,7 +119,7 @@ export function TimelineNode(props: TimelineNodeProps) {
         // sheet's full width each box was mostly empty, with the value column
         // marooned from its key. 900 is the widest thing in here: the console's
         // longest activity line beside its 256px resource pane.
-        <div className="mb-1 mt-1.5 max-w-[900px] pl-6">
+        <div data-testid="release-detail" className="mb-1 mt-1.5 max-w-[900px] pl-6">
           {isActive ? (
             <LiveReleaseBody
               release={release}

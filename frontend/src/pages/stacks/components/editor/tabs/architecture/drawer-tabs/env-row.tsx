@@ -200,7 +200,7 @@ export function EnvRow({
             <Input
               value={row.value || ""}
               onChange={(e) => onChangeValue(e.target.value)}
-              
+
               aria-invalid={!!rowErrors?.value}
               placeholder="value"
             />
