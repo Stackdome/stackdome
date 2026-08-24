@@ -42,6 +42,13 @@ export const NODE_CARD = {
    * product (§8) — it shipped for one pass as a `border` to protect the tray's
    * arithmetic, and Jaseem pulled that: the rule is the rule.
    *
+   * **6%, where the shell takes 11%.** Both ran at 11% for one pass and a node
+   * came out wearing a doubled frame: two identical lines three pixels apart,
+   * neither of them explaining why there were two. The tray is the object ON the
+   * canvas, so it holds the hairline; the card is inside something and only
+   * needs its own quiet edge. That is `--border-subtle`'s whole job — a surface
+   * whose separation is already being done by something else.
+   *
    * **The tray now reads 3, not 4.** An outline is drawn OUTSIDE the box, so it
    * takes a pixel of the shell's 4px padding on every side. That is the honest
    * cost of the rule; the alternative was one surface in the product measuring
@@ -54,7 +61,7 @@ export const NODE_CARD = {
    * `outline-style` itself, but a class that is always stripped is a class that
    * lies about what is holding the line up.
    */
-  card: "rounded-lg bg-surface-node outline-1 outline-border",
+  card: "rounded-lg bg-surface-node outline-1 outline-border-subtle",
   /**
    * **Hover lifts the LINE, never the fill.** The same rule the `outline` button
    * follows, and here it is load-bearing: selection is a line too, so a hover

@@ -204,6 +204,17 @@
      there is no fourth rung above it. */
   --wash-hover: rgba(25, 23, 20, 0.04);
   --wash-selected: rgba(25, 23, 20, 0.06);
+  /* **The well — the product's one RECESSED ground.** RESTORED; it was lost in
+     the same revert as the four tokens above, and six files ask for it by name:
+     the tab track, the segmented control, the switch, the multi-select, the
+     metrics bar and the diff header. With the token gone every one of them
+     painted nothing, so a selected tab and an unselected one were the same
+     surface and the segmented control had no track to slide in.
+
+     One tint for all of them, deliberately: a track, a switch, a chip and a
+     selected tab are the same idea — a shape cut INTO the plane rather than
+     laid on it — and one value is what keeps them reading that way. */
+  --well: rgba(25, 23, 20, 0.04);
   --wash-pressed: rgba(25, 23, 20, 0.12);
   --sidebar-accent: var(--wash-selected);
   --sidebar-accent-foreground: #191714;
@@ -375,7 +386,13 @@
   --shadow-sm: 0 3px 8px -3px rgba(16, 20, 26, 0.05), 0 1px 1px rgba(16, 20, 26, 0.08);            /* raised */
   --shadow-md: 0 4px 16px -5px rgba(16, 20, 26, 0.06), 0 2px 6px -3px rgba(16, 20, 26, 0.035);     /* small overlay */
   --shadow-lg: 0 20px 50px -22px rgba(16, 20, 26, 0.11), 0 8px 22px -12px rgba(16, 20, 26, 0.06);  /* popover, dropdown */
-  --shadow-2xl: 0 28px 64px -20px rgba(16, 20, 26, 0.14);                                          /* modal */
+  /* RECONSTRUCTED, not restored. §5 records that `2xl` was given a contact
+     layer on the same pass as `sm` — but it records the measured RESULT (edge
+     15.9 → 31.0 light, 6.9 → 11.1 dark), not the declaration, and the value was
+     lost with the rest of that pass. So this is measured BACK to the ratio the
+     doc reports rather than copied: on the dialog's own ground the edge moves
+     8.9 → 17.7, which is the same doubling. If the original turns up, it wins. */
+  --shadow-2xl: 0 28px 64px -20px rgba(16, 20, 26, 0.14), 0 3px 8px -2px rgba(16, 20, 26, 0.16);   /* modal */
 
   --shadow-2xs: var(--shadow-sm);
   --shadow-xs: var(--shadow-sm);
@@ -582,6 +599,10 @@
      field separates less than a dark mark on white (§4). */
   --wash-hover: rgba(255, 253, 247, 0.05);
   --wash-selected: rgba(255, 253, 247, 0.07);
+  /* RESTORED. Dark's well is 16% BLACK, not an ink tint: a dark ground has no
+     room to go lighter, so its recess is CUT rather than washed. That is why
+     this is not the light value flipped. */
+  --well: rgba(0, 0, 0, 0.16);
   --wash-pressed: rgba(255, 253, 247, 0.13);
   --sidebar-accent: var(--wash-selected);
   --sidebar-accent-foreground: var(--foreground);
@@ -643,7 +664,9 @@
   --shadow-sm: 0 3px 8px -3px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(0, 0, 0, 0.6);
   --shadow-md: 0 6px 18px -5px rgba(0, 0, 0, 0.55), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.7), 0 10px 24px -10px rgba(0, 0, 0, 0.55);
-  --shadow-2xl: 0 28px 64px -20px rgba(0, 0, 0, 0.7);
+  /* RECONSTRUCTED — the doc's dark ratio is 6.9 → 11.1; measured here as
+     2.2 → 3.6 on the same ground. */
+  --shadow-2xl: 0 28px 64px -20px rgba(0, 0, 0, 0.7), 0 3px 8px -2px rgba(0, 0, 0, 0.65);
 
   /* **No contact layer in dark, measured.** A contact shadow works by darkening
      the ground right at the edge, and dark's ground is already near-black —
