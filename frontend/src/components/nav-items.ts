@@ -60,15 +60,16 @@ export const navGroups: NavGroup[] = [
       { label: "Addons", path: "/addons", icon: Puzzle },
       { label: "Secrets", path: "/secrets", icon: KeyRound },
       { label: "Object Stores", path: "/object-stores", icon: Cloud },
-      // **Brought in from main during the merge, not designed into this board.**
-      // API Tokens did not exist when this branch diverged; main added it to the
-      // old sidebar as a tenth `Nav*` component, and this refactor replaced that
-      // file with a list — so taking "ours" wholesale would have dropped a
-      // shipped destination on the floor.
+      // **With Secrets, because a token IS a secret** — a credential the org
+      // issues, holds and revokes, read by whoever reads the other credentials.
+      // That is the grouping rule this list uses: by who touches a thing, not by
+      // what kind of object it is.
       //
-      // Placed with Secrets because it is the same kind of thing: an org-level
-      // credential, held by whoever holds the other credentials. **Placement is
-      // a guess, not a decision** — it never went through the app shell board.
+      // It came from main during the merge (it did not exist when this branch
+      // diverged, and main added it as a tenth `Nav*` component just as this
+      // refactor replaced those files with a list). It never went through the
+      // app shell board, so if it belongs anywhere else, Secrets is the neighbour
+      // to move it away from.
       { label: "API Tokens", path: "/settings/api-tokens", icon: KeySquare },
     ],
   },

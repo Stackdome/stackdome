@@ -8,6 +8,7 @@ import { PEER_SHEET_SLOT_ID } from "@/components/ui/drawer";
 // The provider stays mounted here; the crumb building it feeds moved into
 // `SheetHeader`, and `stacks/editor` sets the lineage.
 import { PreviewLineageProvider } from "@/contexts/preview-lineage-context";
+import { HeaderCollapseContext } from "@/pages/stacks/lib/canvas/header-collapse";
 import { useGithubSetupLanding } from "@/hooks/use-github-setup-landing";
 import { NEW_STACK_PATH } from "@/pages/stacks/lib/routes";
 
@@ -22,6 +23,31 @@ function AppLayoutContent({
 }) {
   useGithubSetupLanding();
   const location = useLocation();
+
+  /**
+   * **Zen mode: the header folds away so the canvas gets the whole sheet.**
+   *
+   * The state lives here rather than in the editor because on this branch the
+   * editor draws no header of its own — it portals its title, status and tabs
+   * into the sheet header above (§12a), and that header belongs to the layout.
+   * `HeaderCollapseContext` is what lets the canvas control reach it without
+   * threading a prop through five components that do not care.
+   *
+   * **Not persisted, where main persisted it per stack.** main had a slim
+   * collapsed HEADER to fall back to; here the band goes entirely, and a mode
+   * that hides your chrome and survives a reload is a mode people get stuck in.
+   * It is a thing you turn on to read a big graph, and a reload gives it back.
+   */
+  const [headerCollapsed, setHeaderCollapsed] = React.useState(false);
+  const collapseCtx = React.useMemo(
+    () => ({ collapsed: headerCollapsed, setCollapsed: setHeaderCollapsed }),
+    [headerCollapsed],
+  );
+  // Leaving the canvas leaves zen — the mode is about a graph, and every other
+  // screen needs its trail back.
+  React.useEffect(() => {
+    setHeaderCollapsed(false);
+  }, [location.pathname]);
 
   /**
    * Full-bleed: **the canvas editor, and only the canvas editor** —
@@ -61,20 +87,21 @@ function AppLayoutContent({
     (/^\/stacks\/[^/]+$/.test(location.pathname) && location.pathname !== NEW_STACK_PATH);
 
   return (
-    <SidebarProvider defaultOpen={defaultSidebarOpen}>
-      {/* 8px gutter on every free edge (§12). The sidebar sits flush to the
+    <HeaderCollapseContext.Provider value={collapseCtx}>
+      <SidebarProvider defaultOpen={defaultSidebarOpen}>
+        {/* 8px gutter on every free edge (§12). The sidebar sits flush to the
           window's left edge; the sheet is inset from the other three.
 
           The board tightened this from 12 to 8: the frame is a MOUNT, not a
           margin. At 12 the grey read as a band of its own around the sheet;
           at 8 it reads as the edge the sheet is seated in, and the content
           plane gets the 8px back on both axes. */}
-      <div className="flex h-screen max-h-screen w-full overflow-hidden bg-background py-2 pr-2">
-        <AppSidebar />
-        {/* The content plane is a white sheet floating on the paper frame —
+        <div className="flex h-screen max-h-screen w-full overflow-hidden bg-background py-2 pr-2">
+          <AppSidebar />
+          {/* The content plane is a white sheet floating on the paper frame —
             white floats, grey recedes. The sidebar needs no divider: the
             sheet's own edge draws the seam. */}
-        {/* The sheet's hairline is an OUTLINE, not a border — the board draws
+          {/* The sheet's hairline is an OUTLINE, not a border — the board draws
             it as an outside stroke, which is not part of the frame's 1186×876.
             A `border` would be, and it pushed the header's row down by 1px,
             which is exactly what put the two planes' centrelines out of step.
@@ -89,36 +116,48 @@ function AppLayoutContent({
 
             The line is `border-subtle` (6%), not the 11% hairline — the shadow
             now does the separating, so the edge only has to describe the shape. */}
-        <SidebarInset className="ml-0.5 min-h-0 overflow-hidden rounded-lg bg-card shadow-md outline-1 outline-border-subtle">
-          {/* The scroll container is a flex column so the header can be a
+          <SidebarInset className="ml-0.5 min-h-0 overflow-hidden rounded-lg bg-card shadow-md outline-1 outline-border-subtle">
+            {/* The scroll container is a flex column so the header can be a
               sticky block of ANY height and nothing downstream needs to know
               what that height is. The old layout hardcoded `top-[52px]` in
               three places and `calc(100% - 52px)` in a fourth; the header is
               now 64px or 108px depending on whether the page has a toolbar, so
               every one of those numbers was about to become wrong. */}
-          <div className="flex min-h-0 flex-grow flex-col overflow-auto scrollbar-hide">
-            {/* Header, the page's sticky bar and the fade travel together as
+            <div className="flex min-h-0 flex-grow flex-col overflow-auto scrollbar-hide">
+              {/* Header, the page's sticky bar and the fade travel together as
                 one sticky block pinned to the top of the sheet. */}
-            <div className="sticky top-0 z-40 shrink-0">
-              {/* Chrome, not content: 32px hit area, 16px glyph, fg-2. */}
-              <SheetHeader leading={<SidebarTrigger className="size-8 text-fg-2" />} />
-              {/* Forms pin a save bar directly beneath the header. */}
-              <div id="page-sticky-bar" />
-              {/* No fade. The band now carries a 1px hairline, and a dissolve
+              <div className="sticky top-0 z-40 shrink-0">
+                {/* Chrome, not content: 32px hit area, 16px glyph, fg-2.
+                  Zen folds it with the same grid-rows trick the rail uses, so
+                  the band travels rather than blinking out; `inert` keeps its
+                  controls off the tab order while it is closed. */}
+                <div
+                  className="grid transition-[grid-template-rows] duration-[--rail-duration] ease-[var(--ease-panel)] motion-reduce:transition-none"
+                  style={{ gridTemplateRows: headerCollapsed ? "0fr" : "1fr" }}
+                  inert={headerCollapsed}
+                  aria-hidden={headerCollapsed}
+                >
+                  <div className="overflow-hidden">
+                    <SheetHeader leading={<SidebarTrigger className="size-8 text-fg-2" />} />
+                  </div>
+                </div>
+                {/* Forms pin a save bar directly beneath the header. */}
+                <div id="page-sticky-bar" />
+                {/* No fade. The band now carries a 1px hairline, and a dissolve
                   under a crisp line is two answers to the same question — the
                   gradient only blurred the 8px directly beneath the rule and
                   weakened it. Content is cut by the line instead. */}
-            </div>
+              </div>
 
-            {/* Both branches carry `data-slot="page-content"`. The two are
+              {/* Both branches carry `data-slot="page-content"`. The two are
                 addressed by the same name because they are the same slot in two
                 states, and because matching on `.px-4` picks up the sheet
                 header, which happens to use the same utilities. */}
-            {isFullBleed ? (
-              <div data-slot="page-content" className="min-h-0 flex-1">
-                {children ? children : <Outlet />}
-              </div>
-            ) : (
+              {isFullBleed ? (
+                <div data-slot="page-content" className="min-h-0 flex-1">
+                  {children ? children : <Outlet />}
+                </div>
+              ) : (
               /* The sheet's content edge is 16px — the SAME edge the header
                  uses (§12a). It ran at 32px, so the page title sat on one edge
                  and everything under it on another, 20px in, with nothing on
@@ -129,13 +168,13 @@ function AppLayoutContent({
                  planes drifted apart — a second alignment bug waiting for a
                  wider monitor. A row's BOX lands on the edge and its text sits
                  8px inside, so the hover wash extends past the name. */
-              <div data-slot="page-content" className="px-4 py-4">
-                {children ? children : <Outlet />}
-              </div>
-            )}
-          </div>
-        </SidebarInset>
-        {/* **The peer sheet** (§15). A detached `DrawerRegion` portals itself
+                <div data-slot="page-content" className="px-4 py-4">
+                  {children ? children : <Outlet />}
+                </div>
+              )}
+            </div>
+          </SidebarInset>
+          {/* **The peer sheet** (§15). A detached `DrawerRegion` portals itself
             in here, and while it is empty the div is zero-wide with no gap —
             the main sheet keeps the whole plane.
 
@@ -147,9 +186,10 @@ function AppLayoutContent({
 
             `empty:hidden` rather than conditional rendering, because the slot
             has to be in the DOM *before* the region looks for it. */}
-        <div id={PEER_SHEET_SLOT_ID} className="peer-sheet min-h-0 [&>*]:ml-2" />
-      </div>
-    </SidebarProvider>
+          <div id={PEER_SHEET_SLOT_ID} className="peer-sheet min-h-0 [&>*]:ml-2" />
+        </div>
+      </SidebarProvider>
+    </HeaderCollapseContext.Provider>
   );
 }
 

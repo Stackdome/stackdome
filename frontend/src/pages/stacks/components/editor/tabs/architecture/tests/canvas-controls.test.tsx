@@ -59,7 +59,9 @@ describe("CanvasControls", () => {
       [...i.querySelectorAll("button")].map((b) => b.getAttribute("aria-label") ?? b.textContent),
     );
     expect(labels[0]).toEqual(["Zoom out", "Reset zoom to 100%", "Zoom in"]);
-    expect(labels[1]).toEqual(["Auto layout", "Hide connections"]);
+    // Zen sits with Auto layout: all three change how the graph is DRAWN
+    // rather than what is in it.
+    expect(labels[1]).toEqual(["Auto layout", "Zen mode", "Hide connections"]);
     expect(labels[2]).toEqual(["Add resource"]);
   });
 
@@ -93,20 +95,8 @@ describe("CanvasControls", () => {
     expect(onAutoLayout).toHaveBeenCalled();
   });
 
-  /**
-   * **Zen mode is not on this branch, and this spec records that rather than
-   * being deleted.**
-   *
-   * main shipped it — ⌘. or a button here collapsed the editor header and the
-   * sidebar together, then refit the graph rather than rearranging it, which is
-   * what the assertion below was protecting. The redesigned shell has no
-   * collapsed flag to drive, so the button was not ported; `canvas-controls.tsx`
-   * carries the three steps to finish it.
-   *
-   * Skipped, not removed: when the toggle comes back this is the spec that says
-   * what it must not do.
-   */
-  it.skip("entering zen refits the view instead of rearranging the graph", () => {
+  /** Zen reveals the graph; it does not rearrange what the user placed. */
+  it("entering zen refits the view instead of rearranging the graph", () => {
     vi.useFakeTimers();
     const onAutoLayout = vi.fn();
     render(<Harness onAutoLayout={onAutoLayout} />);

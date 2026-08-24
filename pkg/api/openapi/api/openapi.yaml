@@ -7766,8 +7766,8 @@ components:
         lifecycle: null
         organisation_id: organisation_id
         deploy_history:
-        - 9
-        - 9
+        - 7
+        - 7
         updated_at: 2000-01-23T04:56:07.000+00:00
         project_id: project_id
         user_id: user_id
@@ -7854,7 +7854,7 @@ components:
       type: object
     StackList:
       example:
-        total: 7
+        total: 9
         items:
         - settings:
             min_successful_releases: 5
@@ -8264,8 +8264,8 @@ components:
           lifecycle: null
           organisation_id: organisation_id
           deploy_history:
-          - 9
-          - 9
+          - 7
+          - 7
           updated_at: 2000-01-23T04:56:07.000+00:00
           project_id: project_id
           user_id: user_id
@@ -8680,8 +8680,8 @@ components:
           lifecycle: null
           organisation_id: organisation_id
           deploy_history:
-          - 9
-          - 9
+          - 7
+          - 7
           updated_at: 2000-01-23T04:56:07.000+00:00
           project_id: project_id
           user_id: user_id

@@ -1,8 +1,11 @@
-import type { ReactNode } from "react";
+import { useCallback, useContext, useEffect, type ReactNode } from "react";
 import { Panel, useReactFlow, useViewport } from "@xyflow/react";
-import { Minus, Plus, Wand2, Workflow } from "lucide-react";
+import { Maximize2, Minus, Plus, Wand2, Workflow } from "lucide-react";
 import { cn, washes } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useSidebar } from "@/components/ui/sidebar";
+import { HeaderCollapseContext } from "@/pages/stacks/lib/canvas/header-collapse";
+import { FIT_OPTIONS } from "./fit-options";
 
 interface CanvasControlsProps {
   showConnections: boolean;
@@ -24,27 +27,6 @@ interface CanvasControlsProps {
  * use.
  */
 const VIEWPORT_MS = 200;
-
-/**
- * **Zen mode did not survive the merge, and that is recorded rather than
- * quietly dropped.**
- *
- * `main` shipped it while this branch was rebuilding the controls island: ⌘. or
- * a button in the island collapsed the editor header and the sidebar together,
- * then refit the graph into the space that freed up. It needs three things —
- * `HeaderCollapseContext` (restored, in `lib/canvas/header-collapse.ts`), the
- * shell owning and persisting the collapsed flag, and the button here.
- *
- * This branch's redesigned shell has **no collapse state at all** — its own doc
- * comment describes zen, but the code went in a rewrite and auto-merge had
- * nothing to conflict with. Porting only the button would give a control that
- * folds the sidebar and leaves the header, which is worse than no control.
- *
- * To bring it back: give `CanvasEditorShell` the collapsed flag (main persisted
- * it per stack under `stackdome.editor-header-collapsed.<id>`), provide the
- * context around the canvas, and add the toggle to the tools island beside
- * Auto layout, where main had it.
- */
 
 /** Reset target for the zoom readout — 1:1, the scale the nodes are drawn at. */
 const ZOOM_RESET = 1;
@@ -112,7 +94,45 @@ export function CanvasControls({
   onAutoLayout,
   children,
 }: CanvasControlsProps) {
-  const { zoomIn, zoomOut, zoomTo } = useReactFlow();
+  const { zoomIn, zoomOut, zoomTo, fitView } = useReactFlow();
+
+  /**
+   * **Zen: the header folds, the sidebar folds, the graph gets the window.**
+   *
+   * Restored from main after the merge dropped it — this branch had rebuilt the
+   * controls island and the editor shell, and auto-merge had nothing to conflict
+   * with, so the feature vanished without a single marker.
+   *
+   * **The header flag is the single source of truth.** Sidebar state drifts —
+   * its own toggle, a cookie on reload — and requiring the two to agree traps
+   * the exit behind a re-enter: the first click would close the sidebar again
+   * instead of bringing the header back.
+   */
+  const { setOpen: setSidebarOpen } = useSidebar();
+  const { collapsed: zenActive, setCollapsed } = useContext(HeaderCollapseContext);
+  const toggleZen = useCallback(() => {
+    const next = !zenActive;
+    setCollapsed(next);
+    setSidebarOpen(!next);
+    // Entering zen hands back the header and the sidebar, so refit once the
+    // fold has settled and the pane is its final size. FIT, not auto layout:
+    // zen reveals the graph, it does not rearrange what the user placed.
+    if (next) window.setTimeout(() => fitView(FIT_OPTIONS), 250);
+  }, [zenActive, setCollapsed, setSidebarOpen, fitView]);
+
+  // ⌘. / Ctrl+. — the shortcut main shipped it with. Ignored while the focus is
+  // in a field, so a full stop never disappears the chrome mid-sentence.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "." || !(e.metaKey || e.ctrlKey)) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      e.preventDefault();
+      toggleZen();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleZen]);
   // `useViewport` re-renders on every viewport change, including pinch and
   // wheel — so the readout reports the actual scale, not just what the two
   // buttons beside it did.
@@ -177,6 +197,21 @@ export function CanvasControls({
             onClick={onAutoLayout}
           >
             <Wand2 />
+          </Button>
+          {/* Zen sits with Auto layout because it is the same kind of act: it
+              changes how the graph is DRAWN, not what is in it. The pressed
+              wash is the same one the connections toggle uses — this is a mode
+              you are in, not a command you fired. */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={zenActive ? "Exit zen mode" : "Zen mode"}
+            aria-pressed={zenActive}
+            title={zenActive ? "Exit zen mode (⌘.)" : "Zen mode — fold the header and sidebar (⌘.)"}
+            onClick={toggleZen}
+            className={cn(washes(zenActive))}
+          >
+            <Maximize2 />
           </Button>
           {/* **The only STATE in the group, and the ladder is what says so.**
               Hover and "on" both used to paint 6% ink, measured — so a button

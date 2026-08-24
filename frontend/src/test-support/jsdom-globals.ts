@@ -16,6 +16,10 @@
  */
 if (typeof window !== "undefined") {
   class ResizeObserverStub implements ResizeObserver {
+    // Declares the argument the real constructor takes, so callers are not
+    // passing something into a signature that says it accepts nothing. It is
+    // never invoked: jsdom lays nothing out, so there is no resize to report.
+    constructor(_callback: ResizeObserverCallback) {}
     observe() {}
     unobserve() {}
     disconnect() {}

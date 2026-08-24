@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import type { Edge } from '@xyflow/react'
 import { withFlow } from '../../../../../../../.storybook/decorators'
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { CanvasEditor, type CanvasFlowNode } from './canvas-editor'
 import {
   ATTACHMENT_LABEL,
@@ -90,10 +91,15 @@ const meta = {
   tags: ['ai-generated'],
   decorators: [
     withFlow,
+    // The canvas lives inside the app shell — its zen control folds the sidebar,
+    // so the provider is part of the environment this component actually runs
+    // in, not scaffolding for the test.
     (Story) => (
-      <div className="h-[420px] w-[760px]">
-        <Story />
-      </div>
+      <SidebarProvider>
+        <div className="h-[420px] w-[760px]">
+          <Story />
+        </div>
+      </SidebarProvider>
     ),
   ],
   args: {

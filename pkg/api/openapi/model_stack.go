@@ -31,9 +31,10 @@ type Stack struct {
 	Lifecycle        *StackLifecycle `json:"lifecycle,omitempty"`
 	ConvergedRelease *ReleaseSummary `json:"converged_release,omitempty"`
 	LatestRelease    *ReleaseSummary `json:"latest_release,omitempty"`
-	DeployHistory    []int32         `json:"deploy_history,omitempty"`
-	CreatedAt        *time.Time      `json:"created_at,omitempty"`
-	UpdatedAt        *time.Time      `json:"updated_at,omitempty"`
+	// Deploy counts for the last 14 days, oldest first, one entry per day including days with none. Absent when the stack has never deployed, which is a different thing from fourteen zeroes: no history at all means \"not deployed yet\", where a run of zeroes means \"deployed once, then went quiet\". Counted from a tally written alongside each release rather than from the releases themselves, because release retention prunes old rows and a busy stack would otherwise report as a quiet one. Set on list responses only.
+	DeployHistory []int32    `json:"deploy_history,omitempty"`
+	CreatedAt     *time.Time `json:"created_at,omitempty"`
+	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
 }
 
 // NewStack instantiates a new Stack object

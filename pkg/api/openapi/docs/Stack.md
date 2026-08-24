@@ -18,6 +18,7 @@ Name | Type | Description | Notes
 **Lifecycle** | Pointer to [**StackLifecycle**](StackLifecycle.md) |  | [optional] 
 **ConvergedRelease** | Pointer to [**ReleaseSummary**](ReleaseSummary.md) |  | [optional] 
 **LatestRelease** | Pointer to [**ReleaseSummary**](ReleaseSummary.md) |  | [optional] 
+**DeployHistory** | Pointer to **[]int32** | Deploy counts for the last 14 days, oldest first, one entry per day including days with none. Absent when the stack has never deployed, which is a different thing from fourteen zeroes: no history at all means \&quot;not deployed yet\&quot;, where a run of zeroes means \&quot;deployed once, then went quiet\&quot;. Counted from a tally written alongside each release rather than from the releases themselves, because release retention prunes old rows and a busy stack would otherwise report as a quiet one. Set on list responses only. | [optional] [readonly] 
 **CreatedAt** | Pointer to **time.Time** |  | [optional] [readonly] 
 **UpdatedAt** | Pointer to **time.Time** |  | [optional] [readonly] 
 
@@ -379,6 +380,31 @@ SetLatestRelease sets LatestRelease field to given value.
 `func (o *Stack) HasLatestRelease() bool`
 
 HasLatestRelease returns a boolean if a field has been set.
+
+### GetDeployHistory
+
+`func (o *Stack) GetDeployHistory() []int32`
+
+GetDeployHistory returns the DeployHistory field if non-nil, zero value otherwise.
+
+### GetDeployHistoryOk
+
+`func (o *Stack) GetDeployHistoryOk() (*[]int32, bool)`
+
+GetDeployHistoryOk returns a tuple with the DeployHistory field if it's non-nil, zero value otherwise
+and a boolean to check if the value has been set.
+
+### SetDeployHistory
+
+`func (o *Stack) SetDeployHistory(v []int32)`
+
+SetDeployHistory sets DeployHistory field to given value.
+
+### HasDeployHistory
+
+`func (o *Stack) HasDeployHistory() bool`
+
+HasDeployHistory returns a boolean if a field has been set.
 
 ### GetCreatedAt
 

@@ -57,7 +57,10 @@ export function useSelectionSlide(
     // Widths are set by their words, so they move when the webfont swaps in or
     // the container is resized. Without this the face keeps the width it was
     // measured at and sits proud of the label it is meant to be behind.
-    const ro = new ResizeObserver(measure)
+    // Wrapped rather than passed straight in: `measure` takes no arguments and
+    // ResizeObserver hands its callback two, which reads as a mismatched
+    // signature to a static analyser and to the next person.
+    const ro = new ResizeObserver(() => measure())
     ro.observe(track)
     track.querySelectorAll(itemSelector).forEach((el) => ro.observe(el))
     return () => ro.disconnect()
