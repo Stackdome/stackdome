@@ -363,7 +363,20 @@
      canvas that pans for it are reading the same width. `drawerRegionWidthPx`
      and `PEER_SHEET_GUTTER_PX` in `ui/drawer.tsx` are the same two values on
      the JS side — the canvas has to pan by half their sum. */
-  --peer-sheet-width: 400px;
+  /* **480, the region drawer's `form` rung — not 400.**
+     This is the width the slot RESERVES, and the panel that lands in it is a
+     `DrawerContent size="form"`, which is 480 wide and always has been. At 400
+     the slot reserved 408 for a 488-wide panel, so **80px of the inspector hung
+     off the frame**: measured at 1280, 1512 and 1728, the panel's right edge sat
+     72px past the window every time, and the canvas never gave up the room.
+
+     The two numbers have to be one number. `canvas-editor-shell` already says
+     "the inspector takes 480 off the right" and `drawerRegionWidthPx` — which
+     the canvas pans by half of — already reads 480; this token was the only
+     place still saying 400. With the gutter it reserves 488, which puts the
+     panel's right edge exactly on the frame's own 8px padding: the whole
+     inspector, and air after it. */
+  --peer-sheet-width: 480px;
   --peer-sheet-gutter: 8px;
   /* **One curve for a large surface moving.** The rail and the drawer are the
      same job — a big plane changing where it is — so they share it rather than
