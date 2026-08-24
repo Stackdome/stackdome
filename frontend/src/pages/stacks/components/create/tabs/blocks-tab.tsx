@@ -11,11 +11,10 @@ import {
   SearchGlyph,
 } from "@/components/branded"
 import { BlockGlyph } from "@/pages/stacks/components/blocks/block-glyph"
-import { blockCatalog, BLOCK_CATEGORY_META } from "@/pages/stacks/data/blocks/registry"
-import { blockMatchesQuery } from "@/pages/stacks/components/blocks/block-picker"
+import { blockCatalog, BLOCK_CATEGORY_META, blockMatchesQuery } from "@/pages/stacks/data/blocks/registry"
 import { usePostgresAddons } from "@/hooks/use-postgres-addons"
 
-import { SearchField } from "../search-field"
+import { SearchField } from "@/components/branded/search-field"
 import { StickyBar } from "../sticky-bar"
 import type { BlockInstance } from "../selection"
 
@@ -85,7 +84,11 @@ export function BlocksTab({
                         key={block.id}
                         icon={<BlockGlyph icon={block.icon} size={16} />}
                         name={block.name}
-                        meta={[{ text: block.summary, mono: true }]}
+                        // **Not mono.** `postgres:16 · :5432` is an image tag
+                        // and a port; `empty container shape` is an English
+                        // sentence. Neither is a URL, which is the whole list of
+                        // what mono is for.
+                        meta={[{ text: block.summary }]}
                         onClick={() => onAddBlock(block.id)}
                         trailing={
                           <>

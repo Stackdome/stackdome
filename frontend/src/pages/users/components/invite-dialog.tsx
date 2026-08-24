@@ -64,7 +64,7 @@ function RoleCard({
         "flex flex-col items-start gap-1.5 rounded-md border p-3.5 text-left transition-colors",
         selected
           ? "border-border-strong bg-foreground/5"
-          : "border-border bg-card hover:bg-muted/30",
+          : "border-border bg-card hover:bg-[var(--wash-hover)]",
         disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
       ].join(" ")}
     >

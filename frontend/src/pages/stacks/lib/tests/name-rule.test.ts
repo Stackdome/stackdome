@@ -6,6 +6,8 @@ import {
   NAME_PATTERN,
   NAME_RULE_BROKEN,
   NAME_RULE_HINT,
+  sanitizeName,
+  sanitizeNameAt,
 } from "../name-rule";
 
 /**
@@ -71,5 +73,55 @@ describe("what the rule actually accepts", () => {
     ["wéb", "non-ascii"],
   ])("rejects %s (%s)", (name) => {
     expect(NAME_PATTERN.test(name)).toBe(false);
+  });
+});
+
+describe("the field performs the rule as you type", () => {
+  it.each([
+    ["Orders API", "orders-api", "a capital is the same name typed the way a person writes it"],
+    ["my_service", "my-service", "an underscore is the other separator people reach for"],
+    ["a  b", "a-b", "a run of separators is one separator"],
+    ["a--b", "a--b", "but a hyphen you typed yourself is left alone"],
+    ["-lead", "lead", "it cannot start with a hyphen, and there is nothing to perform"],
+    ["---lead", "lead", "nor with several"],
+    ["api@v2.1/beta", "apiv21beta", "no sensible substitute exists, so it is dropped"],
+    ["Web  API_v2!", "web-api-v2", "all of it at once"],
+  ])("%s -> %s", (raw, want) => {
+    expect(sanitizeName(raw)).toBe(want);
+  });
+
+  it("lets a trailing hyphen stand WHILE typing", () => {
+    // `orders-` is the state every hyphenated name passes through. Blocking it
+    // makes the hyphen key dead in the only position anyone presses it; the
+    // finished value is caught by NAME_PATTERN instead.
+    expect(sanitizeName("orders-")).toBe("orders-");
+    expect(NAME_PATTERN.test("orders-")).toBe(false);
+  });
+
+  it("caps at the server's length", () => {
+    expect(sanitizeName("a".repeat(200))).toHaveLength(MAX_NAME_LENGTH);
+  });
+
+  it("everything it emits is either empty or a legal name", () => {
+    for (const raw of ["Orders API", "my_service", "a  b", "-x", "@@@", "Ω-name", "UP-per_2"]) {
+      const out = sanitizeName(raw);
+      if (out === "" || out.endsWith("-")) continue; // both are legal mid-typing
+      expect(NAME_PATTERN.test(out), `${raw} -> ${out}`).toBe(true);
+    }
+  });
+
+  describe("and puts the caret where the typist left it", () => {
+    it("keeps position when a separator is transformed", () => {
+      // "orders|api", a space typed at the caret
+      expect(sanitizeNameAt("orders api", 7)).toEqual({ value: "orders-api", caret: 7 });
+    });
+
+    it("does not jump to the end when a character is dropped", () => {
+      expect(sanitizeNameAt("orders@api", 7)).toEqual({ value: "ordersapi", caret: 6 });
+    });
+
+    it("pulls back to the start when the leading hyphen is refused", () => {
+      expect(sanitizeNameAt("-ab", 1)).toEqual({ value: "ab", caret: 0 });
+    });
   });
 });

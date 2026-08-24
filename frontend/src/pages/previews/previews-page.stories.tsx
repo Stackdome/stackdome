@@ -161,7 +161,9 @@ export const OneRepository: Story = {
   play: async ({ canvas }) => {
     await expect(await canvas.findByRole('heading', { name: 'web-storefront' })).toBeInTheDocument()
     await expect(canvas.getByText('github.com/acme/web-storefront · main')).toBeInTheDocument()
-    await expect(canvas.getByText('3 of 5 active')).toBeInTheDocument()
+    // The cap is not on this band. It reports in the banner, on the one day it
+    // binds — every other day it was a permanent slot spending itself on `3 of 5`.
+    await expect(canvas.queryByText(/active$/)).toBeNull()
     // The Repository column is gone — the context line already names the one
     // repository every row belongs to.
     await expect(canvas.queryByText('Repository')).toBeNull()
@@ -170,14 +172,17 @@ export const OneRepository: Story = {
 }
 
 /**
- * **At the cap.** The number turns `state/warn`, a `blocking` banner states the
- * consequence, and `New preview` blocks before the click.
+ * **At the cap.** A `blocking` banner states the limit and the consequence
+ * under it, and `New preview` blocks before the click. This is the only place
+ * the cap is reported — a number that binds on one day does not earn a
+ * permanent slot on the band above.
  */
 export const AtTheCap: Story = {
   decorators: at('/previews/c2'),
   play: async ({ canvas }) => {
-    await expect(await canvas.findByText('1 of 1 active')).toBeInTheDocument()
-    await expect(canvas.getByRole('alert')).toHaveTextContent(/at its limit of 1 environment\./)
+    const alert = await canvas.findByRole('alert')
+    await expect(alert).toHaveTextContent(/at the limit of 1 environment/i)
+    await expect(alert).toHaveTextContent(/new pull requests will not get one/i)
     await expect(canvas.getByRole('button', { name: /new preview/i })).toBeDisabled()
   },
 }

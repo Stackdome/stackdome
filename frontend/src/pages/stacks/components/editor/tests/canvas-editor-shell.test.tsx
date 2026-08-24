@@ -202,21 +202,51 @@ describe("CanvasEditorShell deploy-failed chip", () => {
 
 describe("CanvasEditorShell actions menu", () => {
   it("exposes the actions trigger for existing stacks with no 'Discard all changes' item", () => {
-    // Radix dropdown content mounts on pointer interaction (not in jsdom), so we
+    // Radix popover content mounts on pointer interaction (not in jsdom), so we
     // assert the trigger exists and that the removed item never renders eagerly.
     render(<CanvasEditorShell {...base} isActive dirtyTotal={2} />);
     expect(screen.getByRole("button", { name: "Stack actions" })).toBeInTheDocument();
     expect(screen.queryByText("Discard all changes")).toBeNull();
   });
 
-  it("defers onDelete until after the menu has closed, avoiding the Radix pointer-events lock", async () => {
-    // Regression test for a Radix DropdownMenu -> AlertDialog composition bug:
-    // if the dialog-opening callback fires synchronously from the menu item,
-    // the menu's close and the dialog's mount race and can leave
-    // document.body.style.pointerEvents stuck at "none" forever (the dialog
-    // captures "none" as the value to restore on unmount). Deferring the
-    // callback lets the menu finish closing (and reset pointer-events) before
-    // the dialog mounts. See https://github.com/radix-ui/primitives/issues/1836
+  /**
+   * **A menu holding one destructive item is not a menu.** It opened as a
+   * `role="menu"` whose whole content was `Delete stack` in danger ink — with
+   * its cost written nowhere. §10 puts deleting a stack in the danger zone.
+   */
+  it("opens a danger zone, not a menu, and states the blast radius", async () => {
+    const user = userEvent.setup();
+    render(<CanvasEditorShell {...base} isActive />);
+    await user.click(screen.getByRole("button", { name: "Stack actions" }), { pointerEventsCheck: 0 });
+
+    const trigger = await screen.findByRole("button", { name: /delete stack/i });
+    // No fake menu semantics: a role="menu" with no menu items is a lie a
+    // screen reader reads out.
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(trigger.closest('[role="menuitem"]')).toBeNull();
+
+    const zone = screen.getByRole("heading", { name: /danger zone/i }).parentElement!;
+    expect(zone).toContainElement(trigger);
+    expect(zone).toHaveTextContent(/stops running/i);
+  });
+
+  /** Nothing is disabled without saying why (§11). */
+  it("refuses the delete without write access, and says why", async () => {
+    const user = userEvent.setup();
+    render(<CanvasEditorShell {...base} isActive canDeleteStack={false} />);
+    await user.click(screen.getByRole("button", { name: "Stack actions" }), { pointerEventsCheck: 0 });
+
+    expect(await screen.findByRole("button", { name: /delete stack/i })).toBeDisabled();
+  });
+
+  it("fires onDelete without leaving the Radix pointer-events lock on body", async () => {
+    // The `setTimeout(0)` this used to need is gone with the DropdownMenu.
+    // That defer existed for a Radix DropdownMenu -> AlertDialog race: the
+    // menu's close and the dialog's mount could leave
+    // document.body.style.pointerEvents stuck at "none" forever, because the
+    // dialog captured "none" as the value to restore on unmount.
+    // (radix-ui/primitives#1836). A Popover is not modal by default, so it takes
+    // no body lock to release and the callback can run on the click.
     const user = userEvent.setup();
     const pointerEventsAtCall: string[] = [];
     const onDelete = vi.fn(() => {
@@ -224,10 +254,8 @@ describe("CanvasEditorShell actions menu", () => {
     });
     render(<CanvasEditorShell {...base} isActive onDelete={onDelete} />);
     await user.click(screen.getByRole("button", { name: "Stack actions" }), { pointerEventsCheck: 0 });
-    await user.click(await screen.findByText("Delete stack"), { pointerEventsCheck: 0 });
+    await user.click(await screen.findByRole("button", { name: /delete stack/i }), { pointerEventsCheck: 0 });
     await waitFor(() => expect(onDelete).toHaveBeenCalled());
-    // At the moment the dialog-opening callback runs, the menu must already
-    // have released its body pointer-events lock.
     expect(pointerEventsAtCall[0]).not.toBe("none");
   });
 });

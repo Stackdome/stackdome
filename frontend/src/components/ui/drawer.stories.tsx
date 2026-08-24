@@ -265,3 +265,46 @@ export const CrumbsGoBack: Story = {
     await expect(within(path()).queryByRole('button', { name: 'New stack' })).toBeNull()
   },
 }
+
+/**
+ * **An unbreakable string never widens the panel.**
+ *
+ * A grid item's automatic minimum size is its min-content on both axes, so a
+ * band holding a 56-character name set the column track wider than the drawer
+ * and every band stretched to match — measured at 480, the track went to 522
+ * and the body carried its 20px inset 42px past the panel's own edge. The
+ * column is `minmax(0,1fr)`, so the bands shrink and their own `truncate`
+ * decides what is shown.
+ */
+export const ALongTitleDoesNotWidenTheDrawer: Story = {
+  render: () => (
+    <Drawer defaultOpen>
+      <DrawerContent size="form">
+        <DrawerHeader
+          title="production-us-east-1-primary-multi-az-autoscaling-cluster"
+          description="k8s-production-us-east-1-primary-multi-az.control-plane.internal.example.com:6443"
+        />
+        <DrawerBody>
+          <span className="min-w-0 truncate font-mono text-meta">
+            cluster-01J9Z4XK7QW3B8N2M6P5R1T0YV-primary-multi-az-autoscaling
+          </span>
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
+  ),
+  play: async () => {
+    const drawer = await within(document.body).findByRole('dialog')
+    await Promise.all(drawer.getAnimations().map((a) => a.finished))
+    const panel = drawer.getBoundingClientRect()
+    await expect(Math.round(panel.width)).toBe(480)
+
+    for (const slot of ['drawer-header', 'drawer-body']) {
+      const band = drawer.querySelector(`[data-slot="${slot}"]`) as HTMLElement
+      const box = band.getBoundingClientRect()
+      // The band stays inside the panel — its right edge never passes the
+      // panel's, and it is never wider than the panel's content box.
+      await expect(box.right).toBeLessThanOrEqual(panel.right)
+      await expect(box.width).toBeLessThanOrEqual(panel.width)
+    }
+  },
+}

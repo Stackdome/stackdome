@@ -51,6 +51,12 @@ export function EnvVarsEditor({ value, onChange }: EnvVarsEditorProps) {
       keyLabel="Variable name"
       removeLabel="Remove variable"
       valueLabel="Variable value"
+      emptyTitle="No variables"
+      /* **The `?` above already says "applied to every preview".** An empty
+         state answers a different question — WHAT would go in here — so it
+         names the kinds of value rather than repeating the behaviour two lines
+         under the mark that states it. */
+      emptyHint="Connection strings, API keys, feature flags — anything the stack reads from its environment."
       renderValue={(row, _i, update) => {
         const refMatch = EXACT_SECRET_REF.exec(row.value);
         if (!refMatch) {

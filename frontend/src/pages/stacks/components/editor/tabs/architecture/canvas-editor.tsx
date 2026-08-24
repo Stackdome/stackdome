@@ -112,6 +112,29 @@ export function CanvasEditor({
           have measured — so nothing is lost but a resize re-fit nobody asked
           for. `fitViewOptions` stays: the manual `fitView()` call reads it. */}
       <ReactFlow
+        /**
+         * **Enter and Space open the focused node.**
+         *
+         * ReactFlow makes every node focusable — `tabindex="0"`, `role="group"`
+         * — so a keyboard user can reach one and see the ring land. Nothing
+         * happened when they pressed anything: opening a node was `onNodeClick`,
+         * a MOUSE handler, and the inspector is the only place a resource can be
+         * edited. Verified in the browser before this: focus a node, press
+         * Enter, no drawer.
+         *
+         * The listener sits on the wrapper because the focusable element is
+         * ReactFlow's node container, not our card inside it — a handler on the
+         * card never sees the event, which travels UP from the wrapper and not
+         * down into it. `.click()` on that wrapper is what ReactFlow is already
+         * listening for, so the keyboard path and the mouse path stay one path.
+         */
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          const node = (e.target as HTMLElement)?.closest?.(".react-flow__node");
+          if (!node) return;
+          e.preventDefault();
+          (node as HTMLElement).click();
+        }}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -134,36 +157,41 @@ export function CanvasEditor({
         snapGrid={SNAP_GRID}
         proOptions={{ hideAttribution: true }}
       >
-        {/* bgColor: the Background SVG paints xyflow's default (#141414 in
-            dark) over the pane — pin it to the app token so the canvas
-            matches the sidebar/chrome in both modes. Two dot layers give the
-            grid a fine/bold tier from the dedicated canvas tokens instead of
-            xyflow's default dot color.
+        {/* **One grid, one dot.**
 
-            **The fine grid is the SNAP grid.** It was 24 against a `snapGrid` of
-            16, so the dots you could see and the positions a node could actually
-            take were two different lattices — you aimed at a dot and the card
-            landed between two. At 16 they are the same lattice, which is both
-            the denser grid the canvas needed to read as a space and the honest
-            one. The bold tier stays every fifth dot: 120 was 5 × 24, 80 is
-            5 × 16.
+            It was two `Background` layers: a fine tier at 16 and a bold tier
+            every fifth dot at 80, drawn at 2px so the field had a coarse rhythm
+            over the fine one. The bold tier is gone. Two dot weights made the
+            canvas read as ruled at two scales — the eye kept resolving 80px
+            cells that nothing in the graph corresponds to, and a node dropped
+            near a bold dot looked deliberately aligned to a landmark that means
+            nothing. A uniform field is a ground; a tiered one is a measure.
 
-            **The second tier stayed a DOT.** A cross was built and judged in the
-            running app: legible, but it reads as a printed registration mark and
-            it made the canvas look ruled rather than open. Lines were rejected
-            earlier for the stronger reason — a line implies a cell, and the
-            things here are nodes in a graph, not entries in a table. Grain and a
-            vignette were both built and measured invisible at real scale. Dots
-            at two weights is the answer. */}
+            **16 is the SNAP grid** (`SNAP_GRID`), so the dots you can see and
+            the positions a node can actually take are one lattice.
+
+            **2px, not 1.** At 1px the disc is entirely antialiasing — measured,
+            a 0.5 paint peaked at rgb(173) on a 251 ground, so the "dot" was
+            never drawn at the alpha it was given. At 2px it covers a whole
+            device pixel and the token means what it says.
+
+            bgColor: the Background SVG paints xyflow's default (#141414 in dark)
+            over the pane — pinned to the app token so the canvas matches the
+            sidebar and chrome in both modes.
+
+            The alternatives are settled and in the log: a cross was built and
+            judged in the running app (legible, but it reads as a printed
+            registration mark), lines were rejected because a line implies a cell
+            and these are nodes in a graph, and grain and a vignette both
+            measured invisible at real scale. */}
         <Background
-          id="grid-fine"
+          id="grid"
           variant={BackgroundVariant.Dots}
           gap={16}
-          size={1}
+          size={2}
           color="var(--grid)"
           bgColor="var(--surface-canvas)"
         />
-        <Background id="grid-bold" variant={BackgroundVariant.Dots} gap={80} size={2} color="var(--grid-bold)" />
         <CanvasControls
           showConnections={showConnections}
           onToggleConnections={onToggleConnections}

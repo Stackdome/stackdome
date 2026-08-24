@@ -1,3 +1,423 @@
+## 2026-08-24 16:49 — The stack editor's ops tabs, board to running app
+
+**Did:** Drew four new frames on the Figma board (`2IcCJOgsROpgajjXlay1h9`,
+section `991:36666`) — deployments as an activity feed, a live-anchor treatment
+comparison, an A/B on row grouping, a stage-tracker comparison — then **built all
+three ops tabs in code**: stage tracker, deploy-failed banner, config diff, split
+console, timeline rows, live anchor, page heading, tabs→sections, metrics grid,
+log stream. Created the `column/400` Figma style (11.5/16). Added the preview
+fixtures the tabs needed to be reviewable at all: four releases, a ten-event
+stream, per-release rollout status and snapshots, and scripted metrics streams.
+Rules landed in `DESIGN-PRODUCT.md` **§16**; reasoning in `docs/design/redesign-log.md`.
+
+**Decided (Jaseem):** Grouping **B** for release rows, off the two drawn side by
+side. The live anchor as a quiet line (treatment 1), not the green band. Dots in
+place of the stage tracker's rings and glyphs, **keeping the spin** for in-flight.
+Draft goes neutral — brand is never a status. The rail's line stays on
+`line/hairline`. Diff items keep a **box**, after my first rewrite stripped the
+structure with them. Containers sized to content, not the column. Line two at
+**11.5**. The tracker's now-inert links kept "for now".
+
+**Corrected by measurement, not by eye:** the rail was 6px off the header button;
+the connector was geometrically exact but rendering across two device pixels; the
+dot sat 8.9px above the title because the line box is 32px (the menu sets it) and
+text centres on cap height. All three now within 0.11px.
+
+**Open:** Two Storybook-browser tests (`previews-page`,
+`connect-provider-drawer`) unverified — they timed out while the review servers
+were running, and `repo-combobox` failed the same way then passed clean in
+isolation. Five findings from the populated frames are named but undecided (see
+`docs/tasks.md`). Nothing committed — the tree still carries the two earlier
+sweeps.
+
+## 2026-08-23 13:40 — Five articles read, the foundations audited, and two shadows that were never shadows
+
+**Did:** Read five **Interface Craft** articles (Josh Puckett) and extracted them
+into a new `docs/design/reading/` — one file per source, each mapping every claim
+to a `DESIGN-PRODUCT.md` § as *confirms / extends / contradicts / new*, with
+candidate rules carrying a status. Then **audited every foundation** against the
+code: 438 files, everything counted, nothing changed
+(`docs/design/foundations-audit-2026-08-23.md`). Then **relayered `--shadow-sm`
+and `--shadow-2xl`** in both themes, updated §5, and pushed the same two values to
+the Figma board's `elevation/sm` and `elevation/2xl`.
+
+**Decided (Jaseem):** *"c for both"* — the firmer candidate for `sm` and the
+three-layer stack for `2xl`, chosen off rendered specimen panes rather than the
+spec. He raised `sm` himself; the audit had let it pass as *"defensible"* and was
+wrong to.
+
+**The measurements that mattered:**
+
+| | Edge Δlum | Reach |
+|---|---|---|
+| `sm` light | 2.0 → **6.0** | **1px → 5px** |
+| `sm` dark | 2.9 → **5.1** | 2px → 9px |
+| `2xl` light | 15.9 → **31.0** | — |
+| `2xl` dark | 6.9 → **11.1** | — |
+
+**`sm` reached one pixel.** It was a shadow in the stylesheet and nothing on the
+screen, on every button, input and select in the product.
+
+**The finding that argued with the file.** `index.css` recorded from 16 Aug that a
+contact layer in dark *"moved the toast's edge by nothing at all"*. Re-taken at the
+other rungs the same layer moves `sm` by 2.2 and `2xl` by 4.2 — **the finding was
+about a toast on `lg`, not about the theme.** Its scope is narrowed in the
+stylesheet, not deleted; the measurement that produced it still stands.
+
+**What the audit found, and what it got wrong.** Colour discipline is the best
+thing in the codebase — **0 hardcoded colours across 438 files**. Iconography
+passes all three of the article's checks. **The borders task was wrong on both
+counts**: `select` was already converted and `card` isn't elevated, so nothing was
+left in it. Real gaps: **44 copy strings on a typewriter apostrophe** to 5 curly,
+**53 call sites above weight 500**, the editor's three tabs running their own
+`px-[30px] py-[26px]` spacing, an undocumented **9px type rung** used 12 times,
+`--chart-*` unnormalised at a 7-point lightness spread, and *content is flat*
+having **one stated exception and five real ones**.
+
+**Verified:** 299 files / **2286 tests** pass, `tsc` clean — re-run after the divider sweep and again after the segmented track, same result every time but one — a dropdown story caught a real miss mid-fix, and was right to. Real components shot
+from Storybook in both themes — the segmented control's face still reads as a
+raised key inside its well, and the dialog now seats on the scrim. The three lint
+errors are Jaseem's trailing whitespace in `env-row.tsx` and
+`canvas-editor-shell.test.tsx`, untouched.
+
+**Then the navbar and the two sheets.** Jaseem asked for the nav gap at **6px**;
+built it, measured it at 6, he called it *"too far"* on sight and it went back to
+**2**. Reverted cleanly — `sidebar.tsx` is untouched and `app-sidebar.tsx` carries
+only a comment recording that 6 was tried, so nobody re-proposes it. His other
+three asks — the nav selected row, the main sheet and the detail sheet as
+**subtle outlines** — were **already shipping**, each verified live with computed
+styles rather than read off the class list. The sheet edge measures **Δ 15.9**
+below the frame. He confirmed he was checking the rule, not asking for a change.
+
+**Then a rule change.** Jaseem: *"all dividers will be subtle from now on, this
+is a rule."* It **reverses §4's region clause**, which had said a seam between two
+regions takes the 11% hairline and `subtle` is *"the line inside a control, and
+nothing else."* Swept: **42** `border-border` retinted on one-sided rules, **8**
+inheriting the default given an explicit token, `.sheet-edge-b` / `.sheet-edge-t`
+(the sheet header rule he named), and `Separator`. **29 files, 0 dividers left at
+11%**, re-scanned rather than assumed. Checked first for lines carrying both a box
+border and a divider — **there were none**, so nothing was retinted by accident.
+§4 now tests **what the line is doing**: a line that *divides* is 6%, a line that
+*draws a shape* is 11%. The old region clause is **kept as superseded**, because
+the four-rail measurement behind it is what made anyone look.
+
+**Then the segmented track.** Jaseem: *"reads too dark... I think we should use
+alpha color so that it sits well on top of any color."* He was right about the
+mechanic and the fault was worse than the symptom — the track was painted
+`--background`, **the frame's own colour**, so it sat 21.3 below the white sheet
+and **0.0 below the paper frame**, where the control dissolved into the page.
+New token **`--well`** (4% ink light, **16% BLACK** dark), option **A** of three
+from the specimens. Δ 9.0 on the sheet, 8.3 on the frame — within 0.7 of itself
+across grounds that differ by 21.
+
+**Two calls worth keeping:** `--well` is deliberately **not** a `--wash-*` rung,
+because those are interaction states and a track is a static ground. And dark's
+`--well` **stays black while every wash beside it inverts** — a wash is a mark and
+lightens on a near-black field, but a well is a *hole*, and a hole is darker than
+its ground in both themes. It is the only token in §4 that does not flip.
+
+**His second ask — `shadow-sm` on the selected face, masked by the track — was
+already shipping.** Measured rather than asserted: the band under the face reads
+**20.2** darker than the plain track in light, **11.0** in dark, clipped to the 2px
+gutter by the track's `overflow-hidden`. It is stronger than it was this morning
+because the face inherits the relayered `shadow-sm` — **which is the likeliest
+reason the track started reading heavy.**
+
+**Everything then went to Figma, and the trip found a regression I had caused.**
+The morning's raw-value write to `elevation/sm` and `elevation/2xl` had **unbound
+them from their Elevation variables** — `md` and `lg` still bound, those two did
+not — which meant **they had stopped switching with Dark mode**. Fixed properly:
+renamed to the board's own `-1` per-layer convention, added `elevation/sm-2`,
+`2xl-2`, `2xl-3` with Light and Dark values, and rebound every layer. All four
+styles now report `everyLayerBound: true`.
+
+Also pushed: **`surface/well`** (Light 4% ink, Dark 16% black), and the divider
+rule — **213 nodes rebound to `line/subtle`** (206 one-sided strokes + 7 `LINE`
+nodes), with **1006 full-box strokes deliberately left at 11%** because they draw
+a shape rather than divide one. 26 VECTORs named `Rectangle 4` / `Vector` were
+skipped as illustrations. Verified: **0 one-sided strokes left on the hairline**.
+
+Then the shadow propagation: **308 nodes bound to `elevation/sm`**, taking the
+board from **341 to 793** nodes following a style.
+
+**The alpha fingerprint stopped working mid-job, which is worth remembering.**
+The 308 were not hardcoded — they bound the `elevation/sm` *colour variable*
+without binding the *style*, so renaming and revaluing that variable moved them
+3.5% → 5% under me and my first match on `y1/r2/s0/3.5%` found nothing. Matching
+on **geometry** rather than colour is what found them.
+
+**Last, the hover ladder.** Jaseem: *"the hover color in the menu is not the same
+as the hover color in the table and add resources menu, the select menu hover is
+different."* All four right. Measured on white, the product carried **five**
+neutral hovers — the select and dropdown menus at **Δ16.9**, the table at **8.5**,
+env rows at 5.1, volume rows at 3.4, and only Command / add-resource on the
+correct **9.0**. **The select menu was twice the table.**
+
+**Two faults under it.** `--muted` and `--accent` are **picked solids** — the same
+fault as the segmented track, one section after §4 says washes are ink tints. And
+the **sidebar used `--wash-selected` for hover**, so on the rail hover and selected
+read identically, which is the exact failure the three-rung ladder exists to fix.
+
+**34 declarations across 14 files** moved onto `--wash-hover`. `--muted` itself
+untouched — it is a genuine ground for the switch track, avatar fallback and table
+footer; the fix was to stop using a ground as a wash. Four left off the rung
+deliberately, each for a stated reason (a control's fill hover, the picker row's
+card treatment, and two chip hovers that sit on a tinted ground rather than the
+sheet). Verified live: sidebar row, list row and dropdown item all read
+`rgba(25, 23, 20, 0.04)`. **The select menu's options did not open under the probe
+— that one is verified in source only.**
+
+**Two last calls, and the first was my own mess.** Jaseem: *"remove the border
+from segmented control, not needed there."* **It was never a border** — a 1px
+outline painted in the track's own fill so the control's PAINTED extent matched an
+Input or Select beside it, both of which stroke 1px outside their 32 box.
+**It stopped being invisible the moment I moved the fill to `--well`:** the shim
+still named `--background`, so a 4% tinted track shipped ringed in opaque frame
+colour — measured, `rgba(25,23,20,.04)` inside `rgb(235,234,227)`. **The trick only
+ever worked while the outline and the fill were the same value, and nothing tied
+them together.** Removed. The control now paints 32 against a peer's 34; if that
+ever reads wrong the fix is to point the shim at `--well`, not to bring back a
+line — written into the file so the next person does not re-derive it.
+
+Then: **`--ring-width` 2px → 1.5px.** One token drives all three ring forms.
+`AlertBanner` hardcoded `outline-2` and did not follow — **its documented exception
+is the COLOUR, not the width**, so it is now `outline-[1.5px]`. Verified by tabbing
+the running app: `0 0 0 1.5px rgb(59,111,224)`.
+
+**Both pushed to Figma:** `focus/ring` and `focus/ring-inset` blue spread 4 → 3.5
+(gap stays 2, `--ring-offset` did not move), `focus/ring-edge` 2 → 1.5; and all
+**8 segmented track variants** stripped of their OUTSIDE stroke with their fill
+rebound to `surface/well` at 4%.
+
+**A correction I made mid-report:** I first said the de-outlined control painted
+38px. Wrong — with `outline-style: none` the browser still reports a default
+`outline-width`, which my arithmetic picked up. It paints 32.
+
+**The last one was the biggest.** Jaseem: *"the menu from the sort button looks
+different from other menus in the drawer and in canvas, it does not have border."*
+He was right, and the cause was not the Sort menu.
+
+**Radix writes `outline: none` as an INLINE style on every portalled `Content`** —
+menus, popovers, tooltips, dialogs — and inline beats any class. So
+`outline outline-1 outline-border-subtle` on those components **had never drawn
+anything.** The signature, measured on the Sort menu: `outline-style: none`,
+`outline-width: 3px` (the *initial* value), colour `currentColor`. A probe node
+with the same two classes rendered `1px solid rgba(53,35,0,0.06)` correctly —
+**the utilities work everywhere except the components that need them**, which is
+why the sheet and peer sheet measured clean and every menu was quietly bare.
+
+A second fault came out with it: **`tailwind-merge` collapses a bare `outline`
+against `outline-1`**, so the class that sets `outline-style: solid` was being
+stripped before it reached the DOM.
+
+**Fix:** `--edge-hairline: 0 0 0 1px var(--border-subtle)`, composed ahead of the
+elevation rung on select, dropdown, popover, tooltip, dialog and alert-dialog. A
+shadow ring survives the inline reset and keeps the property §4 cares about —
+outside the box, no layout cost. Verified live on the Sort menu.
+
+**Three corrections to what I had already reported.** (1) I told him this morning
+the outline task had *"nothing left in it"* — wrong three times: `SelectContent`,
+`AlertDialogContent` and a drawer glyph tile were all still on borders. I had
+checked `select.tsx`'s **trigger** and never its **content**. (2) An hour before
+this I removed `SelectContent`'s working `border` and replaced it with an outline,
+which would have left it with no edge at all. (3) **A story caught a mistake I
+made mid-fix** — `dropdown-menu.tsx` has three `shadow-lg` occurrences and my
+regex replaced one, so the submenu kept the plain rung; `dropdown-menu.stories`
+asserts both panels share a shadow and failed exactly as it should. The script had
+printed `(had 3)` and I read past it.
+
+> **The lesson, now in §4: a class list is not a rendered pixel.** Three surfaces
+> were recorded as *converted to an outline* in `DESIGN-PRODUCT.md` and
+> `docs/tasks.md` on the evidence of their class strings alone.
+
+**No Figma change needed** — the board draws real strokes, so its menus already
+show the 6% hairline the code was only claiming to.
+
+**Then the table's typefaces.** Jaseem: *"there is still mono being used in
+random places."* The rule was fine; **mono was being set by where a string sits
+rather than by what it is.** `DataListName` defaults to `mono` and the stacks row
+handed it the joined `project · ref`, so a project called `default` rendered in
+JetBrains — while `StackCard` had already split the same line correctly, with a
+test asserting it. Fixed by letting `secondary` take a node; the caller that knows
+which half is machine does the splitting.
+
+**Then I scanned the RUNNING APP** for every string actually rendering in
+JetBrains across five pages, rather than grepping source. Two human phrases turned
+up — **`building…`** and **`no URL`** — both sitting in a Previews cell marked
+`mono` unconditionally, though that cell holds a hostname when there is one and a
+sentence when there is not. Everything else was a branch, ref, hostname, cluster
+id or username. **"Random places" was three real spots, not a systemic mess.**
+
+**One self-inflicted break:** the first edit put a `{/* */}` beside an existing
+comment inside a ternary's parens and broke the build. The mono scan then reported
+**"0 strings everywhere"** — a blank app, not a clean result. Caught it because
+zero was too good, fixed, re-ran.
+
+**Found, not asked for:** `EntityCard`, `StatusWord` and `CardMetaGrid` are dead —
+only `relativeAge`/`absoluteAge` are imported from that file. `StatusWord` sets a
+status word in mono, the exact case §6 forbids. Left alone; the question is
+whether they should exist.
+
+**Then the stacks table, column by column.** Jaseem measured the header at 11px
+and called it too small. New rung **`text-column` 11.5/16** — half a pixel over
+`label`, on the same line box so the band stays 25px and nothing below it moves;
+12 was rejected because that is `meta`, which is what the DATA in the column is
+set in, **and a header must not match its own rows.**
+
+**It failed the first time and the reason is now in §6.** The token emitted fine
+— a probe measured 11.5/16 — but the header renders `cn(…, "text-column
+text-fg-muted")` and **tailwind-merge classified `text-column` as a text COLOUR
+and dropped it.** `lib/utils.ts` already documents that exact trap and keeps a
+`TEXT_SCALE` list; `column` was not on it. **A size token is two edits, not one.**
+
+**And 11.5 becomes the floor.** Jaseem: *"11.5 will be the smallest text size
+from now on, we will be abandoning 11, we will do it step by step."* Recorded as
+a direction in §6 and `docs/tasks.md`, **not swept** — `text-label` keeps its 112
+call sites until each surface is worked, the same way the two-weight rule was
+landed ahead of its code.
+
+**Then the status column lost its reason line** (Jaseem). Every row is now
+**exactly 64px** — measured, one distinct height across all eight — so the column
+scans as one straight run. The text is not lost: the card and the stack's own
+page still carry it.
+
+**Three stories asserted the old mechanic and had to be re-aimed, not deleted.**
+`FailedWithReason` → `FailedShowsNoReason` (the reason must be ABSENT and the
+pitch 64), `TwoLineRowsAreTheAttentionSet` → `EveryRowIsOnePitch` (no status cell
+has a second child, one height, no backend message reaches the table), and
+`DeployingStaysOneLine` → `DeployingShowsWordOnly`. Plus a comment in
+`stack-card.test.tsx` that still claimed the reason line made a *row* taller —
+it makes a *card* taller now.
+
+**Then the columns split.** Jaseem: *"I feel like there should be one data per
+column, us combining I don't think is a good idea, what are your thoughts?"* He
+was right, and **§11 already contained the argument** — measured with realistic
+project names, the joined `project · branch@sha` line put the ref at **four x
+positions 100px apart**, so the one fact you would scan down the column never
+landed twice in the same place. **The fixture hid it**: every stack shipped in
+`default`, so the refs happened to align.
+
+Shown as an artifact first, approved, then shipped: `Name` 420→300 (one fact),
+new `Project` 140 and `Source` 260, `Status` 560→200 — it was holding 465px of
+nothing since the reason line came off. Sheet still 1162, no horizontal scroll,
+pitch still 64. **Verified: every ref now starts at one x.**
+
+**The preview got three projects**, because a dataset with one value in a column
+is not a test of that column. `default` stays first and stays default; the
+`empty` scenario still answers with one, since a brand-new org has exactly one
+and three would be a first-run state nobody is in. **That gating was a real catch
+— the first version handed a new org three projects.** A second bug on the way:
+`PROJECTS` was declared after the stacks array that consumed it, so the page died
+on a temporal-dead-zone error until it moved.
+
+**The suite stayed green through all of it** — 2286 — which was worth checking
+rather than assuming, since the row's cell order changed under three stories.
+
+**Three more on the stacks table.** `Status` moved to **second** — it is the
+column the page is opened to read, so it sits where the eye lands after the name
+rather than behind two facts identifying a row you already found. Verified every
+cell column sits on its header and the ref still starts at one x.
+
+**Table data went to primary ink.** Every cell was `fg-muted`, the same tier as
+the column header above it, so a row read as a caption of itself. Header stays
+muted (it is chrome); cells are `foreground`. **This is the shared primitive, so
+it moved eight list pages** — two cells keep `fg-2` deliberately.
+
+**And the nav's clipped top edge, reported through the annotation toolbar.** Not
+a mask: `overflow-auto` on `SidebarContent` is a clipping boundary, and the
+selected row's 1px **outline** paints outside its box. Measured **0px above it
+against 12px either side**. Fixed with `pt-px` — one pixel is exact, not a guess,
+because both `shadow-sm` layers are offset downward and never reached above the
+box. **It had been wrong for as long as that row was a card, and only became
+visible this morning when §5's relayering tripled its lift** — a latent clipping
+bug surfaces when the clipped thing grows, not when the bug lands.
+
+**Open:** **23 Figma nodes still draw a shadow by hand and did not move when the styles
+did** — every one an off-ladder value that is a design call, not a propagation.
+Flagged in `docs/tasks.md`. **The board's drawers use three different shadows,
+none of them `elevation/2xl`**, which predates this pass. `md` and `lg` still run their tight layer
+*lighter* than their ambient, which is the inverse of the model — deliberately not
+touched. The alignment audit (counting invisible alignment lines) needs the
+browser harness and was not run. Nothing committed.
+
+## 2026-08-23 12:08 — The volume dock, the Storybook audit, and a column off its control
+
+**Did:** Rebuilt the canvas card's **docked volume rows** — name onto the 40
+column (it sat at 34), glyph 14 → **16**, row 24 → **28** with even 6/6 air so the
+hover wash centres, and the last row **flush to the card's bottom edge** so the
+wash rounds into its corners. Ran a **Storybook audit**: 12 revamped components
+had no story and 5 call sites still rendered hand-rolled copies of the old
+`SearchField`. Wrote **12 story files / 77 stories**, removed all 5 copies, added
+`makeGitIntegration` + `makeGitRepository` to `.storybook/fixtures.ts`, and added
+two stories that actually OPEN the Deployment and Environment drawer tabs — no
+story had ever rendered those bodies. Then fixed the **Ports columns**:
+`DirtyField` dropped its `className` on the no-baseline branch, collapsing the
+control group while the header divided the full width. 299 files / **2286 tests**
+pass; tsc clean.
+
+**Decided (Jaseem):** the docked volume is **flush on the card's two columns**,
+not indented — the indent the code claimed had never rendered, so joining the
+existing columns beat restoring something nobody had seen. Row at the **28** rung.
+No padding under the last row: *"it can sit flush against the card."* Storybook is
+corrected **in batches he judges**, primitives first. The `SearchField` copies on
+four real pages were swapped too, not just in the story.
+
+**Two bugs the measuring found, both "a width stated twice":** `pl-6` on the
+volume row never reached the DOM (tailwind-merge resolves `px-*` over `pl-*`), and
+`Visibility`'s header carried a hand-computed `121` against a control hugging at
+**120.04** — 1px out from the day it was written. Both now in §11's amendment and
+the gotchas table.
+
+**The one that mattered:** the Ports drift only reproduced on a resource with
+**no baseline** — i.e. one you have just added, and the whole create-stack page.
+Four Storybook drawer states measured clean, which is why it survived; his
+screenshot was the state nobody had a story for. Guarded now by
+`ColumnsSitOnTheirControls`, verified by reintroducing the bug and watching it
+fail.
+
+**Open:** nothing committed — still all working tree on `graphite-pass-2`.
+`env-row.tsx` and `canvas-editor-shell.test.tsx` still carry his trailing
+whitespace that fails lint; untouched. The measured numbers under §11 (`Port` 138
+· `Protocol` 92 · `Visibility` 141) are **stale** — today's are 135 · 135 · 121;
+flagged in the amendment, not rewritten. The board's `Canvas node` symbol still
+predates the volume dock. **His preview session on :5274 has an extra Postgres I
+added to reproduce the bug — that draft needs discarding.**
+
+## 2026-08-23 10:48 — The canvas cards, the multi-select, and the line ladder by job
+
+**Did:** Rebuilt `MultiSelect` as a system primitive from `Popover` + `Command` +
+`Checkbox` + `Badge` — designed in Figma first (`851:32349`), then matched
+property by property, 26 measured and equal. Added radius rung **`xs` = 4** in
+both code and Figma, and WEB code syntax to all six radius variables. Moved every
+floating surface from `border` to **`outline`** and onto the **6%** rung. Unified
+the two canvas card kinds (cursor, clipping, and a vertical inset that was 8 on
+one and 12 on the other). Card inset is **16 on every side**; the first row hugs
+its content, because a `h-8` row was padding wearing a row's name. Mount path
+moved off the browser `title` and onto the card, truncating from the left. Name
+fields now perform their rule as you type (`sanitizeName`) and the helper text is
+gone. Page ground darkened `#F5F4F1` → `#EBEAE3`.
+
+**Decided (all Jaseem):** the chip is radius **4**, not a pill. The line ladder
+splits **by job, not by boundary kind** — a raised surface gets 6% because its
+shadow is doing the separating; this overrides "a seam between two REGIONS takes
+the 11% hairline" for the inspector's edge, and is now an amendment in
+`DESIGN-PRODUCT.md`. Detail pages are **propagated, never redesigned**. Logs,
+Metrics and Deployments tabs he is taking himself, later.
+
+**Three bugs found by measuring:** a canvas node could be focused but never
+opened (`onNodeClick` is a mouse handler, and the inspector is the only place a
+resource can be edited); the command row's icon rule was a descendant selector,
+so a nested `Checkbox` rendered its tick at `fg-muted` on near-black; the docked
+volume was never indented, because `pl-6` sat before `NODE_CARD.inset` in the
+`cn()` and `px-*` wins.
+
+**Open:** nothing committed — the whole session is in the working tree on
+`graphite-pass-2`. `env-row.tsx` and `canvas-editor-shell.test.tsx` carry
+committed trailing whitespace that fails lint; his files, untouched. Three stale
+Figma frames flagged and not swept: `Select`'s 12/8 inset, its `body/500` value,
+and its focus ring filled `surface/control`. The board's `Canvas node` symbol
+still predates the volume dock.
+
 ## 2026-08-17 06:40 — Validation, and the canvas gets an implementation plan
 
 **"There are validations for some fields — how are we handling this?"** Audited,

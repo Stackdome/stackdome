@@ -11,7 +11,7 @@ export interface EventRowProps {
 
 export function EventRow({ ok, kind, title, sub, when, duration }: EventRowProps) {
   return (
-    <div className="flex items-center gap-3.5 border-b border-border px-4 py-3 last:border-b-0">
+    <div className="flex items-center gap-3.5 border-b border-border-subtle px-4 py-3 last:border-b-0">
       <span
         aria-hidden="true"
         className={cn(

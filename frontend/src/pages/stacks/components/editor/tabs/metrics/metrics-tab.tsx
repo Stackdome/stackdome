@@ -60,7 +60,7 @@ export function MetricBar({ label, value, pct, fill }: { label: string; value: s
         <span className="font-mono text-meta text-foreground">{value}</span>
       </div>
       {/* deliberate off-scale: 5px-tall usage bar, rounded-sm (9px) would read as a full pill here */}
-      <div className="mt-1.5 h-[5px] overflow-hidden rounded-full bg-muted">
+      <div className="mt-1.5 h-[5px] overflow-hidden rounded-full bg-[var(--well)]">
         <span className={cn("block h-full rounded-full", fill)} style={{ width: `${Math.max(2, Math.min(100, pct))}%` }} />
       </div>
     </div>
@@ -135,7 +135,7 @@ export function MetricsTab({ stackId, organizationId, resources, liveStatusResou
   const updatedAt = stackMetrics?.timestamp ? new Date(stackMetrics.timestamp).toLocaleTimeString() : null;
 
   return (
-    <div className="mx-auto max-w-[1000px] px-[30px] py-[26px]">
+    <div className="mx-auto max-w-[1280px] px-[26px] py-4">
       {/* Header */}
       <div className="mb-[18px] flex items-center gap-3">
         <h2 className="text-title font-medium tracking-[-0.01em] text-foreground">Stack metrics</h2>
@@ -196,7 +196,9 @@ export function MetricsTab({ stackId, organizationId, resources, liveStatusResou
           description="Metrics will appear once the stack starts emitting data."
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
+        // Two columns, not `auto-fill`: at 1130 the auto-fill grid made three
+        // 280px cards and a short fourth, so the row never squared up.
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {resourceCards.map((r) => (
             <div key={r.resourceName} className="rounded-md border border-border bg-card p-[14px_15px]">
               <div className="mb-3 flex items-center gap-2.5">
@@ -208,7 +210,7 @@ export function MetricsTab({ stackId, organizationId, resources, liveStatusResou
                 <span className="flex-1 truncate text-body font-medium text-foreground">{r.resourceName}</span>
                 <span
                   className={cn(
-                    "font-mono text-[9px]",
+                    "font-mono text-label",
                     r.ready ? "text-success" : "text-fg-muted",
                   )}
                 >

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, waitFor } from 'storybook/test'
+import { expect, waitFor, within } from 'storybook/test'
 import { http, HttpResponse } from 'msw'
 import { Route, Routes, useNavigate } from 'react-router-dom'
 import { makeProject, makeProjectMembership, makeUser } from '../../../.storybook/fixtures'
@@ -124,7 +124,13 @@ export const MembersError: Story = {
   },
 }
 
-export const DefaultProjectReadOnly: Story = {
+/**
+ * **One door to the project's own settings**, the same drawer the list row
+ * opens. The header used to carry a `Rename` button that went dead on the
+ * default project with the reason hidden in a `title` attribute; the drawer
+ * refuses both acts out loud instead (§11).
+ */
+export const DefaultProjectRefusesInTheDrawer: Story = {
   parameters: {
     msw: [
       http.get(PROJECT_PATH, () => HttpResponse.json(makeProject({ name: 'platform', default_project: true }))),
@@ -132,8 +138,13 @@ export const DefaultProjectReadOnly: Story = {
       ...baselineHandlers,
     ],
   },
-  play: async ({ canvas }) => {
-    const renameButton = await canvas.findByRole('button', { name: /rename/i })
-    await expect(renameButton).toBeDisabled()
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    const settings = await canvas.findByRole('button', { name: /project settings/i })
+    await expect(settings).toBeEnabled()
+    await userEvent.click(settings)
+
+    const drawer = within(canvasElement.ownerDocument.body)
+    await expect(await drawer.findByLabelText(/^name/i)).toBeDisabled()
+    await expect(drawer.getByRole('button', { name: /delete project/i })).toBeDisabled()
   },
 }

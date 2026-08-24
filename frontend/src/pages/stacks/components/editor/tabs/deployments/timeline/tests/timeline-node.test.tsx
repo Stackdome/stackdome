@@ -69,9 +69,12 @@ describe("TimelineNode", () => {
     expect(onToggle).toHaveBeenCalledWith("r1");
   });
 
-  it("shows a Failed release's message in danger", () => {
+  // The state word carries the tone now, not the message beside it — one
+  // channel, said once (§7). The message stays furniture-grey.
+  it("names a Failed release's state in danger, and leaves its message muted", () => {
     render(<Wrap release={{ id: "r1", sequence: 9, state: "Failed", message: "apply quota error" } as StackRelease} />);
-    expect(screen.getByText(/apply quota error/)).toHaveClass("text-danger");
+    expect(screen.getByText("Failed")).toHaveClass("text-danger");
+    expect(screen.getByText(/apply quota error/)).toHaveClass("text-fg-muted");
   });
 
   it("tags the live release with a LIVE chip", () => {
@@ -87,8 +90,7 @@ describe("TimelineNode", () => {
 
   it("renders the historical post-mortem for a non-active node when open", async () => {
     render(<Wrap release={{ id: "r1", sequence: 13, state: "Released" } as StackRelease} isOpen prevReleaseId="r0" prevSeq={12} />);
-    await userEvent.click(await screen.findByRole("button", { name: /Changes/ }));
-    expect(screen.getByText(/vs #12/i)).toBeInTheDocument();
+    expect(await screen.findByText(/vs #12/i)).toBeInTheDocument();
   });
 
   it("renders async validation errors on the live body and jumps to the offending resource", async () => {

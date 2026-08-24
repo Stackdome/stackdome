@@ -43,7 +43,15 @@ const selectTriggerVariants = cva(
   //
   // `open` keeps the stronger line: the trigger stays engaged for as long as
   // the menu is out. Not the press inset — you are not still pushing it.
-  "[outline-width:1px] [outline-style:solid] [outline-color:var(--border)] data-[placeholder]:text-fg-muted [&_svg:not([class*='text-'])]:text-fg-2 aria-invalid:[outline-color:var(--danger)] bg-card shadow-sm flex w-fit items-center justify-between gap-1.5 py-0 text-body font-medium whitespace-nowrap transition-[color,box-shadow,background-color,border-color] hover:[outline-color:var(--border-strong)] data-[state=open]:[outline-color:var(--border-strong)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:[outline-color:var(--border)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 focus-ring-edge",
+  //
+  // **The value is `body/400`, not `body/500`.** §6's binary is that weight
+  // reports whether a string is ABOUT something or IS something: the label above
+  // is about the value, so it takes 500; the value itself is the content and
+  // takes 400. Shipping 500 here put a select's answer at a heavier weight than
+  // the input's answer 16px below it, which read as one of them being more
+  // important than the other. Measured in the inspector: `Field` 13/400,
+  // `Select` 13/500, and eleven controls at 12/400.
+  "[outline-width:1px] [outline-style:solid] [outline-color:var(--border)] data-[placeholder]:text-fg-muted [&_svg:not([class*='text-'])]:text-fg-2 aria-invalid:[outline-color:var(--danger)] bg-card shadow-sm flex w-fit items-center justify-between gap-1.5 py-0 text-body font-normal whitespace-nowrap transition-[color,box-shadow,background-color,border-color] hover:[outline-color:var(--border-strong)] data-[state=open]:[outline-color:var(--border-strong)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:[outline-color:var(--border)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 focus-ring-edge",
   {
     variants: {
       // **8 and 8 at 32px, like every other control.** The board's Select node
@@ -118,7 +126,7 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border shadow-lg",
+          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg shadow-[var(--edge-hairline),var(--shadow-lg)]",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
           className
@@ -175,7 +183,7 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default rounded-md py-1.5 pr-8 pl-2 text-body outline-hidden select-none data-[disabled]:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus:bg-[var(--wash-hover)] focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default rounded-md py-1.5 pr-8 pl-2 text-body outline-hidden select-none data-[disabled]:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         // The dim moves onto the label when there is a reason, so the reason
         // itself stays readable. See DropdownMenuItem for the same mechanic.
         explained
@@ -264,4 +272,13 @@ export {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
+  // **Exported so a searchable picker can BE a select field.**
+  //
+  // A combobox built on Popover + Command cannot use `SelectTrigger` — Radix's
+  // trigger belongs to Radix's Select — but it is the same control to a reader:
+  // a field that opens a list. Both `RepoCombobox` and `ImageRegistrySelect`
+  // were wearing `Button variant="outline"` instead, which is the toolbar's
+  // dropdown BUTTON, so two of the drawer's fields were a different object from
+  // the eight around them. The look is the export; the machinery stays theirs.
+  selectTriggerVariants,
 }

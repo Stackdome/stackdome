@@ -8,11 +8,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowRight, HardDrive, ChevronRight } from "lucide-react";
+import { ArrowRight, HardDrive } from "lucide-react";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { DirtyField } from "@/pages/stacks/components/editor/tabs/architecture/drawer-tabs/dirty-field";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { FieldGrid, FieldShell, FormSection, RecordColumns, RecordList, RecordRow } from "@/components/branded";
+import {
+  FieldGrid,
+  FieldShell,
+  FormSection,
+  RecordColumns,
+  RecordList,
+  RecordRow,
+  Disclosure,
+} from "@/components/branded";
 import { RepoCombobox } from "@/components/git-source-picker/repo-combobox";
 import { ImageRegistrySelect } from "./image-registry-select";
 import { splitImageRef, joinImageRef } from "@/pages/stacks/lib/image-ref";
@@ -20,8 +28,14 @@ import { onNameInput } from "@/pages/stacks/lib/name-rule";
 import { cn } from "@/lib/utils";
 import { isFieldDirty } from "@/pages/stacks/lib/stack-model/field-dirt";
 
-import type { FormStackResourceData, FormVolumeExtendedData as VolumeFormData } from "@/pages/stacks/schemas/form-schema";
-import { DEFAULT_BUILD_CONTEXT, DEFAULT_DOCKERFILE_PATH } from "@/pages/stacks/lib/stack-model/policy";
+import type {
+  FormStackResourceData,
+  FormVolumeExtendedData as VolumeFormData,
+} from "@/pages/stacks/schemas/form-schema";
+import {
+  DEFAULT_BUILD_CONTEXT,
+  DEFAULT_DOCKERFILE_PATH,
+} from "@/pages/stacks/lib/stack-model/policy";
 
 type Resource = Partial<FormStackResourceData>;
 type VolumeMount = NonNullable<FormStackResourceData["volume_mounts"]>[number];
@@ -96,18 +110,28 @@ export function pickConfigurationDraft(resource: Resource): ConfigurationDraft {
  * and an input reading `8080` split the slack by how long their text happens to
  * be. Zero basis, and the two are one pair at any panel width.
  *
- * `VISIBILITY_COL` — **the header word only.** The control itself HUGS: it is a
- * closed set of two fixed words and it should be exactly as wide as they are,
- * not a width someone picked. 121 is what that hug measures — the track pays 2
- * all round and each segment pays 8 either side of its word, so
- * `2 + (8+38+8) + (8+47+8) + 2` for `Public` and `Internal` — and the strip
- * above needs a number because a header cannot hug something it is not inside.
- * If either word ever changes, the control adapts and this follows it.
+ * `VISIBILITY_COL` — **the header cell AND the control, from one constant.**
+ *
+ * It used to be the header's width only, with the control left to hug: a closed
+ * set of two fixed words should be exactly as wide as they are. The trouble is
+ * that a header cannot hug something it is not inside, so the strip needed a
+ * number — and the number was computed by hand from the board's rounded metrics,
+ * `2 + (8+38+8) + (8+47+8) + 2`. Measured, the words set 37.56 and 46.48, so the
+ * hug comes out at 120.04 and the header sat 1px wider than the thing it names,
+ * from the day it was written.
+ *
+ * One number, spent on both, is the only version of this that cannot drift. The
+ * ~1px of slack inside the track is invisible; two numbers kept in step by hand
+ * are not — `ColumnsSitOnTheirControls` in the story file fails the build if
+ * these two ever disagree again.
  */
 const PORT_COL = "min-w-0 flex-1 basis-0";
 const VISIBILITY_COL = "w-[121px]";
 
-const getError = (errors: { [field: string]: string | undefined }, path: string) => {
+const getError = (
+  errors: { [field: string]: string | undefined },
+  path: string,
+) => {
   if (errors[path]) return errors[path];
   for (const key in errors) {
     if (key === path || key.startsWith(`${path}.`)) return errors[key];
@@ -129,8 +153,12 @@ function StackResourceConfigurationTabImpl({
 }: StackResourceConfigurationTabProps) {
   const update = onPatchResource;
 
-  type GitSource = NonNullable<NonNullable<FormStackResourceData["source"]>["git"]>;
-  type ImageSource = NonNullable<NonNullable<FormStackResourceData["source"]>["image"]>;
+  type GitSource = NonNullable<
+    NonNullable<FormStackResourceData["source"]>["git"]
+  >;
+  type ImageSource = NonNullable<
+    NonNullable<FormStackResourceData["source"]>["image"]
+  >;
 
   // Merge a patch into source.git. dockerfile_path/build_context carry the
   // API defaults (they are required on the resolved GitSource type).
@@ -139,7 +167,7 @@ function StackResourceConfigurationTabImpl({
     update({
       source: {
         git: {
-          repo_url: current?.repo_url ?? '',
+          repo_url: current?.repo_url ?? "",
           dockerfile_path: current?.dockerfile_path ?? DEFAULT_DOCKERFILE_PATH,
           build_context: current?.build_context ?? DEFAULT_BUILD_CONTEXT,
           branch: current?.branch,
@@ -158,7 +186,7 @@ function StackResourceConfigurationTabImpl({
     update({
       source: {
         image: {
-          ref: current?.ref ?? '',
+          ref: current?.ref ?? "",
           registry_credentials_id: current?.registry_credentials_id,
           ...patch,
         },
@@ -182,14 +210,24 @@ function StackResourceConfigurationTabImpl({
         // Name derived from the number (port-<number>) so outputs read e.g.
         // url.port-8080 instead of a meaningless positional url.port-2. k8s port
         // names must contain a letter, so a bare number can't be the name.
-        { name: `port-${number}`, number, protocol: "tcp", exposed_to_public: false },
+        {
+          name: `port-${number}`,
+          number,
+          protocol: "tcp",
+          exposed_to_public: false,
+        },
       ],
     });
   };
 
   const updatePort = (
     pidx: number,
-    patch: Partial<{ number: number; protocol: "http" | "tcp"; exposed_to_public: boolean; subdomain_prefix: string }>,
+    patch: Partial<{
+      number: number;
+      protocol: "http" | "tcp";
+      exposed_to_public: boolean;
+      subdomain_prefix: string;
+    }>,
   ) => {
     update({
       ports: (draft.ports || []).map((port: Port, i: number) => {
@@ -198,7 +236,10 @@ function StackResourceConfigurationTabImpl({
         // Re-derive the auto name (url.port-8080) only while it still matches the
         // auto PATTERN — not the current number, which a cleared field desyncs —
         // so a hand-set name is never overwritten.
-        if (patch.number !== undefined && (!port.name || /^port-(\d+|undefined)$/.test(port.name))) {
+        if (
+          patch.number !== undefined &&
+          (!port.name || /^port-(\d+|undefined)$/.test(port.name))
+        ) {
           next.name = `port-${patch.number}`;
         }
         return next;
@@ -232,12 +273,17 @@ function StackResourceConfigurationTabImpl({
    */
   /** The same question Ports asks, for this list — see `reserveInlineReset`. */
   const mountsAnyDirty =
-    baseline !== undefined && !!onDiscardField &&
+    baseline !== undefined &&
+    !!onDiscardField &&
     (draft.volume_mounts || []).some((_: VolumeMount, i: number) =>
-      isFieldDirty(draft as never, baseline as never, `volume_mounts.${i}`));
+      isFieldDirty(draft as never, baseline as never, `volume_mounts.${i}`),
+    );
 
   const portsAnyDirty =
-    portsHaveReset && ports.some((_: Port, pidx: number) => isFieldDirty(draft as never, baseline as never, `ports.${pidx}`));
+    portsHaveReset &&
+    ports.some((_: Port, pidx: number) =>
+      isFieldDirty(draft as never, baseline as never, `ports.${pidx}`),
+    );
   /**
    * **The heading is the word `Ports` and nothing else.**
    *
@@ -277,7 +323,9 @@ function StackResourceConfigurationTabImpl({
               baseline={baseline}
               path="name"
               compact
-              onReset={onDiscardField ? () => onDiscardField("name") : undefined}
+              onReset={
+                onDiscardField ? () => onDiscardField("name") : undefined
+              }
             >
               <Input
                 id={`resource-name-${index}`}
@@ -304,21 +352,32 @@ function StackResourceConfigurationTabImpl({
               baseline={baseline}
               path="depends_on"
               compact
-              onReset={onDiscardField ? () => onDiscardField("depends_on") : undefined}
+              onReset={
+                onDiscardField ? () => onDiscardField("depends_on") : undefined
+              }
             >
               {allResources ? (
                 <MultiSelect
                   options={allResources
-                    .filter((r) => r.index !== index && r.name && r.name.trim() !== "")
+                    .filter(
+                      (r) =>
+                        r.index !== index && r.name && r.name.trim() !== "",
+                    )
                     .map((r) => ({ label: r.name, value: r.name }))}
                   onValueChange={updateDependsOn}
                   defaultValue={draft.depends_on || []}
-                  placeholder={allResources.length <= 1 ? "No other resources available" : "Select dependencies"}
+                  placeholder={
+                    allResources.length <= 1
+                      ? "No other resources available"
+                      : "Select dependencies"
+                  }
                   disabled={allResources.length <= 1}
                   className="w-full"
                 />
               ) : (
-                <div className="text-body text-muted-foreground">No dependency information available</div>
+                <div className="text-body text-muted-foreground">
+                  No dependency information available
+                </div>
               )}
             </DirtyField>
           </FieldShell>
@@ -337,7 +396,9 @@ function StackResourceConfigurationTabImpl({
               baseline={baseline}
               path="sourceType"
               compact
-              onReset={onDiscardField ? () => onDiscardField("sourceType") : undefined}
+              onReset={
+                onDiscardField ? () => onDiscardField("sourceType") : undefined
+              }
             >
               {/* **It hugs.** `fill` splits the track into even halves so every
                   trailing edge lands on the grid — right for a control whose
@@ -357,14 +418,24 @@ function StackResourceConfigurationTabImpl({
                   if (sourceType === "git") {
                     update({
                       sourceType,
-                      source: { git: draft.stashedGitSource ?? { repo_url: "", dockerfile_path: DEFAULT_DOCKERFILE_PATH, build_context: DEFAULT_BUILD_CONTEXT } },
-                      stashedImageSource: draft.source?.image ?? draft.stashedImageSource,
+                      source: {
+                        git: draft.stashedGitSource ?? {
+                          repo_url: "",
+                          dockerfile_path: DEFAULT_DOCKERFILE_PATH,
+                          build_context: DEFAULT_BUILD_CONTEXT,
+                        },
+                      },
+                      stashedImageSource:
+                        draft.source?.image ?? draft.stashedImageSource,
                     });
                   } else {
                     update({
                       sourceType,
-                      source: { image: draft.stashedImageSource ?? { ref: "" } },
-                      stashedGitSource: draft.source?.git ?? draft.stashedGitSource,
+                      source: {
+                        image: draft.stashedImageSource ?? { ref: "" },
+                      },
+                      stashedGitSource:
+                        draft.source?.git ?? draft.stashedGitSource,
                     });
                   }
                 }}
@@ -381,7 +452,6 @@ function StackResourceConfigurationTabImpl({
               />
             </DirtyField>
           </FieldShell>
-
         </FieldGrid>
 
         {draft.sourceType === "image" ? (
@@ -393,14 +463,23 @@ function StackResourceConfigurationTabImpl({
                   baseline={baseline}
                   path="source.image"
                   compact
-                  onReset={onDiscardField ? () => onDiscardField("source.image") : undefined}
+                  onReset={
+                    onDiscardField
+                      ? () => onDiscardField("source.image")
+                      : undefined
+                  }
                 >
                   <ImageRegistrySelect
                     id={`image-registry-${index}`}
                     imageRef={draft.source?.image?.ref || ""}
-                    registryCredentialsId={draft.source?.image?.registry_credentials_id}
+                    registryCredentialsId={
+                      draft.source?.image?.registry_credentials_id
+                    }
                     onChange={(patch) =>
-                      updateImageSource({ ref: patch.ref, registry_credentials_id: patch.registry_credentials_id })
+                      updateImageSource({
+                        ref: patch.ref,
+                        registry_credentials_id: patch.registry_credentials_id,
+                      })
                     }
                   />
                 </DirtyField>
@@ -417,10 +496,16 @@ function StackResourceConfigurationTabImpl({
                   baseline={baseline}
                   path="source.image"
                   compact
-                  onReset={onDiscardField ? () => onDiscardField("source.image") : undefined}
+                  onReset={
+                    onDiscardField
+                      ? () => onDiscardField("source.image")
+                      : undefined
+                  }
                 >
                   {(() => {
-                    const { host, remainder } = splitImageRef(draft.source?.image?.ref || "");
+                    const { host, remainder } = splitImageRef(
+                      draft.source?.image?.ref || "",
+                    );
                     return (
                       // **One well, not a chip beside a box.** `ghcr.io/acme/api:1.4.2`
                       // is a single value whose head is set by the registry picker
@@ -430,8 +515,16 @@ function StackResourceConfigurationTabImpl({
                       // A registry host IS a URL, so the head keeps mono (§6).
                       <InputGroup
                         id={`container-image-${index}`}
-                        prefix={host ? <span className="font-mono">{host}/</span> : undefined}
-                        placeholder={host ? "e.g., acme/api:1.4.2" : "e.g., nginx:latest, redis:7"}
+                        prefix={
+                          host ? (
+                            <span className="font-mono">{host}/</span>
+                          ) : undefined
+                        }
+                        placeholder={
+                          host
+                            ? "e.g., acme/api:1.4.2"
+                            : "e.g., nginx:latest, redis:7"
+                        }
                         value={remainder}
                         onChange={(e) => {
                           const typed = e.target.value;
@@ -439,7 +532,9 @@ function StackResourceConfigurationTabImpl({
                           // whole ref outright; otherwise compose against the
                           // active head as before.
                           const { host: typedHost } = splitImageRef(typed);
-                          updateImageSource({ ref: typedHost ? typed : joinImageRef(host, typed) });
+                          updateImageSource({
+                            ref: typedHost ? typed : joinImageRef(host, typed),
+                          });
                         }}
                         required={draft.sourceType === "image"}
                         aria-invalid={!!getError(errors, "source.image.ref")}
@@ -464,17 +559,24 @@ function StackResourceConfigurationTabImpl({
                   baseline={baseline}
                   path="source.git.repo_url"
                   compact
-                  onReset={onDiscardField ? () => {
-                    onDiscardField("source.git.repo_url");
-                    onDiscardField("source.git.integration_id");
-                  } : undefined}
+                  onReset={
+                    onDiscardField
+                      ? () => {
+                          onDiscardField("source.git.repo_url");
+                          onDiscardField("source.git.integration_id");
+                        }
+                      : undefined
+                  }
                 >
                   <RepoCombobox
                     id={`git-repo-${index}`}
                     value={draft.source?.git?.repo_url || ""}
                     integrationId={draft.source?.git?.integration_id}
                     onChange={(pick) =>
-                      updateGitSource({ repo_url: pick.repo_url, integration_id: pick.integration_id })
+                      updateGitSource({
+                        repo_url: pick.repo_url,
+                        integration_id: pick.integration_id,
+                      })
                     }
                     hasError={!!getError(errors, "source.git.repo_url")}
                   />
@@ -494,13 +596,21 @@ function StackResourceConfigurationTabImpl({
                   baseline={baseline}
                   path="gitRevisionType"
                   compact
-                  onReset={onDiscardField ? () => onDiscardField("gitRevisionType") : undefined}
+                  onReset={
+                    onDiscardField
+                      ? () => onDiscardField("gitRevisionType")
+                      : undefined
+                  }
                 >
                   <Select
                     value={draft.gitRevisionType ?? "default"}
                     onValueChange={(val) =>
                       val === "default"
-                        ? update({ gitRevisionType: undefined, gitRevisionValue: undefined, gitCommitPin: undefined })
+                        ? update({
+                            gitRevisionType: undefined,
+                            gitRevisionValue: undefined,
+                            gitCommitPin: undefined,
+                          })
                         : update({ gitRevisionType: val as "branch" | "tag" })
                     }
                   >
@@ -522,7 +632,11 @@ function StackResourceConfigurationTabImpl({
 
               {draft.gitRevisionType && (
                 <FieldShell
-                  label={draft.gitRevisionType === "branch" ? "Branch name" : "Tag name"}
+                  label={
+                    draft.gitRevisionType === "branch"
+                      ? "Branch name"
+                      : "Tag name"
+                  }
                   htmlFor={`git-revision-value-${index}`}
                   required
                   span={1}
@@ -533,14 +647,23 @@ function StackResourceConfigurationTabImpl({
                     baseline={baseline}
                     path="gitRevisionValue"
                     compact
-                    onReset={onDiscardField ? () => onDiscardField("gitRevisionValue") : undefined}
+                    onReset={
+                      onDiscardField
+                        ? () => onDiscardField("gitRevisionValue")
+                        : undefined
+                    }
                   >
                     <Input
                       id={`git-revision-value-${index}`}
                       value={draft.gitRevisionValue || ""}
-                      onChange={(e) => update({ gitRevisionValue: e.target.value })}
-                      placeholder={draft.gitRevisionType === "branch" ? "e.g., main, develop" : "e.g., v1.0.0"}
-
+                      onChange={(e) =>
+                        update({ gitRevisionValue: e.target.value })
+                      }
+                      placeholder={
+                        draft.gitRevisionType === "branch"
+                          ? "e.g., main, develop"
+                          : "e.g., v1.0.0"
+                      }
                       required={!!draft.gitRevisionType}
                       aria-invalid={!!getError(errors, "gitRevisionValue")}
                       onBlur={() => {
@@ -564,15 +687,20 @@ function StackResourceConfigurationTabImpl({
                   baseline={baseline}
                   path="gitCommitPin"
                   compact
-                  onReset={onDiscardField ? () => onDiscardField("gitCommitPin") : undefined}
+                  onReset={
+                    onDiscardField
+                      ? () => onDiscardField("gitCommitPin")
+                      : undefined
+                  }
                 >
                   <Input
                     id={`git-commit-pin-${index}`}
                     value={draft.gitCommitPin || ""}
-                    onChange={(e) => update({ gitCommitPin: e.target.value || undefined })}
+                    onChange={(e) =>
+                      update({ gitCommitPin: e.target.value || undefined })
+                    }
                     placeholder="e.g., a1b2c3d4e5..."
                     disabled={!draft.gitRevisionType && !draft.gitCommitPin}
-
                     aria-invalid={!!getError(errors, "gitCommitPin")}
                   />
                 </DirtyField>
@@ -588,97 +716,111 @@ function StackResourceConfigurationTabImpl({
                 It is the same disclosure `New preview` uses: a ghost button at
                 its natural width, and a chevron that TURNS rather than swapping
                 glyph — one shape moving is read faster than two alternating. */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-expanded={advanced}
-              className="-mx-2 self-start px-2 text-fg-2"
-              onClick={() => setAdvanced((v) => !v)}
+            <Disclosure
+              label="Advanced — build & push"
+              open={advanced}
+              onOpenChange={setAdvanced}
             >
-              <ChevronRight className={cn("transition-transform duration-150", advanced && "rotate-90")} />
-              Advanced — build &amp; push
-            </Button>
-            {advanced && (
-              <>
-                <FieldShell
-                  label="Dockerfile path"
-                  htmlFor={`dockerfile-path-${index}`}
-                  help="Relative to the build context."
-                  error={getError(errors, "source.git.dockerfile_path")}
+              <FieldShell
+                label="Dockerfile path"
+                htmlFor={`dockerfile-path-${index}`}
+                help="Relative to the build context."
+                error={getError(errors, "source.git.dockerfile_path")}
+              >
+                <DirtyField
+                  draft={draft}
+                  baseline={baseline}
+                  path="source.git.dockerfile_path"
+                  compact
+                  onReset={
+                    onDiscardField
+                      ? () => onDiscardField("source.git.dockerfile_path")
+                      : undefined
+                  }
                 >
-                  <DirtyField
-                    draft={draft}
-                    baseline={baseline}
-                    path="source.git.dockerfile_path"
-                    compact
-                    onReset={onDiscardField ? () => onDiscardField("source.git.dockerfile_path") : undefined}
-                  >
-                    <Input
-                      id={`dockerfile-path-${index}`}
-                      value={draft.source?.git?.dockerfile_path ?? ""}
-                      onChange={(e) => updateGitSource({ dockerfile_path: e.target.value })}
-                      onBlur={(e) => {
-                        if (!e.target.value.trim()) updateGitSource({ dockerfile_path: DEFAULT_DOCKERFILE_PATH });
-                      }}
-                      placeholder="Dockerfile"
+                  <Input
+                    id={`dockerfile-path-${index}`}
+                    value={draft.source?.git?.dockerfile_path ?? ""}
+                    onChange={(e) =>
+                      updateGitSource({ dockerfile_path: e.target.value })
+                    }
+                    onBlur={(e) => {
+                      if (!e.target.value.trim())
+                        updateGitSource({
+                          dockerfile_path: DEFAULT_DOCKERFILE_PATH,
+                        });
+                    }}
+                    placeholder="Dockerfile"
+                  />
+                </DirtyField>
+              </FieldShell>
 
-                    />
-                  </DirtyField>
-                </FieldShell>
-
-                <FieldShell
-                  label="Build context"
-                  htmlFor={`build-context-${index}`}
-                  help="Directory passed to the image build."
-                  error={getError(errors, "source.git.build_context")}
+              <FieldShell
+                label="Build context"
+                htmlFor={`build-context-${index}`}
+                help="Directory passed to the image build."
+                error={getError(errors, "source.git.build_context")}
+              >
+                <DirtyField
+                  draft={draft}
+                  baseline={baseline}
+                  path="source.git.build_context"
+                  compact
+                  onReset={
+                    onDiscardField
+                      ? () => onDiscardField("source.git.build_context")
+                      : undefined
+                  }
                 >
-                  <DirtyField
-                    draft={draft}
-                    baseline={baseline}
-                    path="source.git.build_context"
-                    compact
-                    onReset={onDiscardField ? () => onDiscardField("source.git.build_context") : undefined}
-                  >
-                    <Input
-                      id={`build-context-${index}`}
-                      value={draft.source?.git?.build_context ?? ""}
-                      onChange={(e) => updateGitSource({ build_context: e.target.value })}
-                      onBlur={(e) => {
-                        if (!e.target.value.trim()) updateGitSource({ build_context: DEFAULT_BUILD_CONTEXT });
-                      }}
-                      placeholder="."
+                  <Input
+                    id={`build-context-${index}`}
+                    value={draft.source?.git?.build_context ?? ""}
+                    onChange={(e) =>
+                      updateGitSource({ build_context: e.target.value })
+                    }
+                    onBlur={(e) => {
+                      if (!e.target.value.trim())
+                        updateGitSource({
+                          build_context: DEFAULT_BUILD_CONTEXT,
+                        });
+                    }}
+                    placeholder="."
+                  />
+                </DirtyField>
+              </FieldShell>
 
-                    />
-                  </DirtyField>
-                </FieldShell>
-
-                <FieldShell
-                  label="Push registry"
-                  htmlFor={`push-repo-${index}`}
-                  help="Blank uses the internal cluster registry."
-                  error={getError(errors, "source.git.push.repository")}
+              <FieldShell
+                label="Push registry"
+                htmlFor={`push-repo-${index}`}
+                help="Blank uses the internal cluster registry."
+                error={getError(errors, "source.git.push.repository")}
+              >
+                <DirtyField
+                  draft={draft}
+                  baseline={baseline}
+                  path="source.git.push.repository"
+                  compact
+                  onReset={
+                    onDiscardField
+                      ? () => onDiscardField("source.git.push.repository")
+                      : undefined
+                  }
                 >
-                  <DirtyField
-                    draft={draft}
-                    baseline={baseline}
-                    path="source.git.push.repository"
-                    compact
-                    onReset={onDiscardField ? () => onDiscardField("source.git.push.repository") : undefined}
-                  >
-                    <Input
-                      id={`push-repo-${index}`}
-                      value={draft.source?.git?.push?.repository || ""}
-                      onChange={(e) =>
-                        updateGitSource({ push: e.target.value ? { repository: e.target.value } : undefined })
-                      }
-                      placeholder="e.g., ghcr.io/your-org/your-image"
-
-                    />
-                  </DirtyField>
-                </FieldShell>
-              </>
-            )}
+                  <Input
+                    id={`push-repo-${index}`}
+                    value={draft.source?.git?.push?.repository || ""}
+                    onChange={(e) =>
+                      updateGitSource({
+                        push: e.target.value
+                          ? { repository: e.target.value }
+                          : undefined,
+                      })
+                    }
+                    placeholder="e.g., ghcr.io/your-org/your-image"
+                  />
+                </DirtyField>
+              </FieldShell>
+            </Disclosure>
           </>
         )}
       </FormSection>
@@ -702,57 +844,74 @@ function StackResourceConfigurationTabImpl({
             <div className="flex flex-col gap-0.5">
               <p className="text-body font-medium text-fg-2">No ports</p>
               <p className="text-meta text-fg-muted">
-                A port is how traffic reaches this service — from the stack, or from the internet.
+                A port is how traffic reaches this service — from the stack, or
+                from the internet.
               </p>
             </div>
-            <Button variant="outline" size="sm" className="self-start" onClick={addPort}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start"
+              onClick={addPort}
+            >
               Add port
             </Button>
           </div>
         ) : (
-        /* 8, not 16: the header, the rows and the button that adds one more
+          /* 8, not 16: the header, the rows and the button that adds one more
             are one subject, not a column of separate things. */
-        <RecordList>
-          {/* **The three names live here, once — not as `Port 1` down the
+          <RecordList>
+            {/* **The three names live here, once — not as `Port 1` down the
               left.** The ordinal was the only word in the section and it was
               the one word that carried nothing: it counts the row rather than
               naming it, it does not move when 8080 becomes 3000, and it cost a
               20px label row per record. Meanwhile the three controls beside it
               were unlabelled, so what `TCP` and `Public ǀ Internal` governed
               was left to inference. See `RecordRow`. */}
-          {ports.length > 0 && (
-            <RecordColumns>
-              <span className={PORT_COL}>Port</span>
-              <span className={PORT_COL}>Protocol</span>
-              <span className={cn(VISIBILITY_COL, "flex-none")}>Visibility</span>
-              {/* Spacers, so the three words stay over their own columns: the
+            {ports.length > 0 && (
+              <RecordColumns>
+                <span className={PORT_COL}>Port</span>
+                <span className={PORT_COL}>Protocol</span>
+                <span className={cn(VISIBILITY_COL, "flex-none")}>
+                  Visibility
+                </span>
+                {/* Spacers, so the three words stay over their own columns: the
                   reset slot `DirtyField` reserves, then `RecordRow`'s remove. */}
-              {portsAnyDirty && <span className="w-5 flex-none" />}
-              <span className="w-8 flex-none" />
-            </RecordColumns>
-          )}
-          {ports.map((port: Port, pidx: number) => (
-            <RecordRow
-              key={pidx}
-              error={
-                getError(errors, `ports.${pidx}.number`) || getError(errors, `ports.${pidx}.protocol`)
-              }
-              onRemove={() => removePort(pidx)}
-              removeLabel={port.number ? `Remove port ${port.number}` : `Remove port ${pidx + 1}`}
-            >
-              <DirtyField
-                draft={draft}
-                baseline={baseline}
-                path={`ports.${pidx}`}
-                compact
-                onReset={onDiscardField ? () => onDiscardField(`ports.${pidx}`) : undefined}
-                reserveInlineReset={portsAnyDirty}
-                // Inline, because a label-less row has no label line above it
-                // for the arrow to sit on — the same answer the mount rows take.
-                resetPlacement="inline"
-                className="min-w-0 flex-1"
+                {portsAnyDirty && <span className="w-5 flex-none" />}
+                <span className="w-8 flex-none" />
+              </RecordColumns>
+            )}
+            {ports.map((port: Port, pidx: number) => (
+              <RecordRow
+                key={pidx}
+                error={
+                  getError(errors, `ports.${pidx}.number`) ||
+                  getError(errors, `ports.${pidx}.protocol`)
+                }
+                onRemove={() => removePort(pidx)}
+                removeLabel={
+                  port.number
+                    ? `Remove port ${port.number}`
+                    : `Remove port ${pidx + 1}`
+                }
               >
-                {/* **The number and the protocol split the slack evenly**, the
+                <DirtyField
+                  draft={draft}
+                  baseline={baseline}
+                  path={`ports.${pidx}`}
+                  compact
+                  onReset={
+                    onDiscardField
+                      ? () => onDiscardField(`ports.${pidx}`)
+                      : undefined
+                  }
+                  reserveInlineReset={portsAnyDirty}
+                  // Inline, because a label-less row has no label line above it
+                  // for the arrow to sit on — the same answer the mount rows take.
+                  resetPlacement="inline"
+                  className="min-w-0 flex-1"
+                >
+                  {/* **The number and the protocol split the slack evenly**, the
                     visibility sits at its own width, and the remove button is
                     packed straight after by `RecordRow` — never pushed to the
                     far edge.
@@ -762,69 +921,90 @@ function StackResourceConfigurationTabImpl({
                     fixed columns plus a 92 ate 233 of the row's 324, leaving the
                     port field 59px — four digits and no room to see them. Even
                     halves is the board's answer and it gives both 97.5 here. */}
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <Input
-                    id={`port-number-${index}-${pidx}`}
-                    // The ordinal was worth announcing and never worth drawing:
-                    // it is how a screen reader tells this row from the next.
-                    aria-label={`Port ${pidx + 1}`}
-                    inputMode="numeric"
-                    value={port.number?.toString() ?? ""}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "");
-                      updatePort(pidx, { number: digits === "" ? undefined : parseInt(digits, 10) });
-                    }}
-                    className={PORT_COL}
-                    aria-invalid={!!getError(errors, `ports.${pidx}.number`)}
-                    required
-                  />
-                  <Select
-                    value={port.protocol || "tcp"}
-                    onValueChange={(value) => updatePort(pidx, { protocol: value as "tcp" | "http" })}
-                  >
-                    {/* `!` because a record member is the exception FieldShell
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <Input
+                      id={`port-number-${index}-${pidx}`}
+                      // The ordinal was worth announcing and never worth drawing:
+                      // it is how a screen reader tells this row from the next.
+                      aria-label={`Port ${pidx + 1}`}
+                      inputMode="numeric"
+                      value={port.number?.toString() ?? ""}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "");
+                        updatePort(pidx, {
+                          number:
+                            digits === "" ? undefined : parseInt(digits, 10),
+                        });
+                      }}
+                      className={PORT_COL}
+                      aria-invalid={!!getError(errors, `ports.${pidx}.number`)}
+                      required
+                    />
+                    <Select
+                      value={port.protocol || "tcp"}
+                      onValueChange={(value) =>
+                        updatePort(pidx, { protocol: value as "tcp" | "http" })
+                      }
+                    >
+                      {/* `!` because a record member is the exception FieldShell
                         names: its fill rule reaches every select inside a field.
                         Here it takes the same half of the slack the number does,
                         so the two open controls are one pair. */}
-                    <SelectTrigger aria-label="Protocol" className={cn("!w-auto", PORT_COL)}>
-                      <SelectValue placeholder="Protocol" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tcp">TCP</SelectItem>
-                      <SelectItem value="http">HTTP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {/* A segmented, not a switch: a switch needs a word beside it to
+                      <SelectTrigger
+                        aria-label="Protocol"
+                        className={cn("!w-auto", PORT_COL)}
+                      >
+                        <SelectValue placeholder="Protocol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tcp">TCP</SelectItem>
+                        <SelectItem value="http">HTTP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {/* A segmented, not a switch: a switch needs a word beside it to
                     say what it toggles, and that word was `public`/`internal` in
                     mono at the far end of an `ml-auto`. A segmented IS its own
                     label.
 
                     It does NOT fill: `fill` splits a track into even halves, and
                     the board draws these two segments hugging their own words —
-                    54 for `Public`, 63 for `Internal`. Same width either way for
-                    these two labels; different the moment a word changes, and
-                    the hug is the one that stays right. */}
-                  <SegmentedControl
-                    aria-label="Visibility"
-                    className="w-auto flex-none"
-                    value={port.exposed_to_public ? "public" : "internal"}
-                    onValueChange={(v) => updatePort(pidx, { exposed_to_public: v === "public" })}
-                    options={[
-                      { value: "public", label: "Public" },
-                      { value: "internal", label: "Internal" },
-                    ]}
-                  />
-                </div>
-              </DirtyField>
-            </RecordRow>
-          ))}
-          {/* No glyph. `Add port` is two words that already say the whole act,
+                    54 for `Public`, 63 for `Internal`.
+
+                    **It takes `VISIBILITY_COL` rather than hugging, though.** The
+                    hug is the truer width, but the header cell cannot hug what
+                    it is not inside, so a hugging control meant the same number
+                    written twice — and the hand-computed copy was 1px out from
+                    the first day. One constant on both boxes is the only shape
+                    that cannot drift; the segments still hug their words inside
+                    it. See `VISIBILITY_COL`. */}
+                    <SegmentedControl
+                      aria-label="Visibility"
+                      className={cn(VISIBILITY_COL, "flex-none")}
+                      value={port.exposed_to_public ? "public" : "internal"}
+                      onValueChange={(v) =>
+                        updatePort(pidx, { exposed_to_public: v === "public" })
+                      }
+                      options={[
+                        { value: "public", label: "Public" },
+                        { value: "internal", label: "Internal" },
+                      ]}
+                    />
+                  </div>
+                </DirtyField>
+              </RecordRow>
+            ))}
+            {/* No glyph. `Add port` is two words that already say the whole act,
               and a ⊕ in front of them is the same word drawn twice — on the one
               control in the section whose label leaves nothing to infer. */}
-          <Button variant="outline" size="sm" onClick={addPort} className="self-start">
-            Add port
-          </Button>
-        </RecordList>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addPort}
+              className="self-start"
+            >
+              Add port
+            </Button>
+          </RecordList>
         )}
       </FormSection>
 
@@ -840,13 +1020,20 @@ function StackResourceConfigurationTabImpl({
              not do, on the one screen where nothing else refuses to act. */
           <div className="flex flex-col gap-4 pt-1">
             <div className="flex flex-col gap-0.5">
-              <p className="text-body font-medium text-fg-2">No volumes mounted</p>
+              <p className="text-body font-medium text-fg-2">
+                No volumes mounted
+              </p>
               <p className="text-meta text-fg-muted">
                 A volume gives this service storage that survives a restart.
               </p>
             </div>
             {onAddVolume && (
-              <Button variant="outline" size="sm" className="self-start" onClick={onAddVolume}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={onAddVolume}
+              >
                 Add volume
               </Button>
             )}
@@ -867,7 +1054,11 @@ function StackResourceConfigurationTabImpl({
                      change and offered no way out of it. Resetting the field
                      restores the mount's own values — it does not detach the
                      volume, which is still the canvas's act. */
-                  onReset={onDiscardField ? () => onDiscardField(`volume_mounts.${vmIdx}`) : undefined}
+                  onReset={
+                    onDiscardField
+                      ? () => onDiscardField(`volume_mounts.${vmIdx}`)
+                      : undefined
+                  }
                   resetPlacement="inline"
                   reserveInlineReset={mountsAnyDirty}
                 >
@@ -881,7 +1072,9 @@ function StackResourceConfigurationTabImpl({
                     type="button"
                     disabled={!onOpenVolume || !volumeName}
                     onClick={() => volumeName && onOpenVolume?.(volumeName)}
-                    aria-label={volumeName ? `Open volume ${volumeName}` : undefined}
+                    aria-label={
+                      volumeName ? `Open volume ${volumeName}` : undefined
+                    }
                     className={cn(
                       "focus-ring-edge -mx-1.5 flex h-8 w-full items-center gap-1.5 rounded-md px-1.5",
                       "transition-colors enabled:hover:bg-[var(--wash-hover)]",
@@ -889,15 +1082,23 @@ function StackResourceConfigurationTabImpl({
                     )}
                   >
                     <span className="flex min-w-0 flex-1 basis-0 items-center gap-2">
-                      <HardDrive className="size-4 flex-none text-fg-muted" aria-hidden />
-                      <span className="truncate text-body text-foreground">{volumeName}</span>
+                      <HardDrive
+                        className="size-4 flex-none text-fg-muted"
+                        aria-hidden
+                      />
+                      <span className="truncate text-body text-foreground">
+                        {volumeName}
+                      </span>
                     </span>
                     {/* The path is a machine value, so it is mono (§6). */}
                     <span className="min-w-0 flex-1 basis-0 truncate text-left font-mono text-meta text-fg-2">
                       {vm.target_path}
                     </span>
                     {onOpenVolume && volumeName && (
-                      <ArrowRight className="size-4 flex-none text-fg-muted" aria-hidden />
+                      <ArrowRight
+                        className="size-4 flex-none text-fg-muted"
+                        aria-hidden
+                      />
                     )}
                   </button>
                 </DirtyField>
@@ -910,7 +1111,8 @@ function StackResourceConfigurationTabImpl({
   );
 }
 
-
 /** Memoized so a keystroke in (say) the Environment tab does not re-render
  * Configuration. Parent must pass projected `draft` + stable `onPatchResource`. */
-export const StackResourceConfigurationTab = React.memo(StackResourceConfigurationTabImpl);
+export const StackResourceConfigurationTab = React.memo(
+  StackResourceConfigurationTabImpl,
+);

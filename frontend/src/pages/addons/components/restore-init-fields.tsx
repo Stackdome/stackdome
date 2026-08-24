@@ -114,7 +114,7 @@ export function RestoreInitFields({
           // Shortened to fit one line in a 292 column. A hint that wraps to
           // leave one word alone on line two reads as a mistake, and the field
           // is not the place to spend a second line.
-          hint="Start empty, or restore from a backup."
+          help="Start empty, or restore from a backup."
         >
           <Select
             value={isRestore(init) ? "restore" : "new"}
@@ -160,7 +160,7 @@ export function RestoreInitFields({
             label="Source addon"
             span={1}
             htmlFor="restore-source"
-            hint="Addons that have an object store for backups."
+            help="Addons that have an object store for backups."
             error={errors["initialization.sourceAddonId"]}
           >
             <Select value={sourceAddonId || undefined} onValueChange={onPickSource}>
@@ -191,7 +191,7 @@ export function RestoreInitFields({
               <FieldShell
                 label="Recover to"
                 span={1}
-                hint="Latest restores to the most recent archived WAL."
+                help="Latest restores to the most recent archived WAL."
               >
                 <Select
                   value={

@@ -16,7 +16,7 @@ vi.mock("@/components/ui/use-toast", () => ({
 }));
 
 import { updateRegistryCredential } from "@/api/registry-credentials";
-import { UpdateCredentialsDialog } from "../update-credentials-dialog";
+import { RegistryDrawer } from "../registry-drawer";
 import { PURPOSE_PULL } from "../../lib/providers";
 import type { RegistryCredential } from "@/api/registry-credentials";
 
@@ -30,9 +30,9 @@ const credential: RegistryCredential = {
 beforeEach(() => vi.clearAllMocks());
 afterEach(() => cleanup());
 
-describe("UpdateCredentialsDialog", () => {
+describe("RegistryDrawer", () => {
   it("prefills username, leaves password empty, shows host read-only", () => {
-    render(<UpdateCredentialsDialog credential={credential} onOpenChange={vi.fn()} onUpdated={vi.fn()} />);
+    render(<RegistryDrawer credential={credential} onOpenChange={vi.fn()} onUpdated={vi.fn()} onVerify={vi.fn()} onRemove={vi.fn()} />);
     expect(screen.getByLabelText(/username/i)).toHaveValue("old-bot");
     expect(screen.getByLabelText(/password/i)).toHaveValue("");
     expect(screen.getByText("quay.io")).toBeInTheDocument();
@@ -44,7 +44,9 @@ describe("UpdateCredentialsDialog", () => {
     const onOpenChange = vi.fn();
     const onUpdated = vi.fn();
     const user = userEvent.setup();
-    render(<UpdateCredentialsDialog credential={credential} onOpenChange={onOpenChange} onUpdated={onUpdated} />);
+    render(<RegistryDrawer credential={credential} onOpenChange={onOpenChange} onUpdated={onUpdated}
+      onVerify={vi.fn()}
+      onRemove={vi.fn()} />);
 
     await user.clear(screen.getByLabelText(/username/i));
     await user.type(screen.getByLabelText(/username/i), "new-bot");
@@ -64,21 +66,33 @@ describe("UpdateCredentialsDialog", () => {
     });
   });
 
-  it("requires a password and does not call the API without one", async () => {
+  /**
+   * **Blocked before the click, and it says which field** (§9).
+   *
+   * The dialog this replaced let you press `Update credentials` with an empty
+   * password and answered with a field error underneath it. The drawer's
+   * primary refuses instead — the reason is on the control, in the verb of the
+   * act, before you spend the click.
+   */
+  it("refuses without a password and says which field is missing", async () => {
     const user = userEvent.setup();
-    render(<UpdateCredentialsDialog credential={credential} onOpenChange={vi.fn()} onUpdated={vi.fn()} />);
+    render(<RegistryDrawer credential={credential} onOpenChange={vi.fn()} onUpdated={vi.fn()} onVerify={vi.fn()} onRemove={vi.fn()} />);
 
-    await user.click(screen.getByRole("button", { name: /update credentials/i }));
+    const submit = screen.getByRole("button", { name: /update credentials/i });
+    expect(submit).toBeDisabled();
 
-    expect(await screen.findByText(/password is required/i)).toBeInTheDocument();
+    // The reason anchors to a focusable wrapper — a disabled control swallows
+    // pointer events, so it is reachable by keyboard and not by hover alone.
+    submit.parentElement!.focus();
+    expect(await screen.findAllByText(/enter the password/i)).not.toHaveLength(0);
     expect(updateRegistryCredential).not.toHaveBeenCalled();
   });
 
-  it("keeps the dialog open and shows the failure in it", async () => {
+  it("keeps the drawer open and shows the failure in it", async () => {
     vi.mocked(updateRegistryCredential).mockRejectedValue(new Error("boom"));
     const onOpenChange = vi.fn();
     const user = userEvent.setup();
-    render(<UpdateCredentialsDialog credential={credential} onOpenChange={onOpenChange} onUpdated={vi.fn()} />);
+    render(<RegistryDrawer credential={credential} onOpenChange={onOpenChange} onUpdated={vi.fn()} onVerify={vi.fn()} onRemove={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/password/i), "n3w-secret");
     await user.click(screen.getByRole("button", { name: /update credentials/i }));
@@ -91,12 +105,12 @@ describe("UpdateCredentialsDialog", () => {
   it("resets fields when a different credential is opened", async () => {
     const user = userEvent.setup();
     const { rerender } = render(
-      <UpdateCredentialsDialog credential={credential} onOpenChange={vi.fn()} onUpdated={vi.fn()} />,
+      <RegistryDrawer credential={credential} onOpenChange={vi.fn()} onUpdated={vi.fn()} onVerify={vi.fn()} onRemove={vi.fn()} />,
     );
     await user.type(screen.getByLabelText(/password/i), "typed");
 
     const other: RegistryCredential = { id: "r2", host: "ghcr.io", username: "gh-bot" };
-    rerender(<UpdateCredentialsDialog credential={other} onOpenChange={vi.fn()} onUpdated={vi.fn()} />);
+    rerender(<RegistryDrawer credential={other} onOpenChange={vi.fn()} onUpdated={vi.fn()} onVerify={vi.fn()} onRemove={vi.fn()} />);
 
     expect(screen.getByLabelText(/username/i)).toHaveValue("gh-bot");
     expect(screen.getByLabelText(/password/i)).toHaveValue("");

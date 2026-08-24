@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuChevron,
@@ -19,6 +18,7 @@ import {
   SearchGlyph,
   StackArchitectureGlyph,
 } from "@/components/branded";
+import { SearchField } from "@/components/branded/search-field";
 import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
 import { previewStatusVariant, statusVariantLabel } from "@/components/branded/status-variant";
@@ -227,9 +227,13 @@ export default function PreviewsPage() {
   const active = selected ? activeEnvs(inScope).length : 0;
   const atCap = selected ? isAtCap(selected, active) : false;
   const max = selected?.max_active_previews ?? 0;
-  /** The banner says the CONSEQUENCE — the thing that is about to go wrong and
-   *  nobody would guess: the next pull request silently gets nothing. */
-  const capMessage = `This repository is at its limit of ${max} ${max === 1 ? "environment" : "environments"}. New pull requests will not get one until you delete an environment, or raise the limit in its settings.`;
+  /** **The state, then the consequence.** The headline is the fact you can act
+   *  on from across the page; the line under it is the thing that is about to
+   *  go wrong and nobody would guess — the next pull request silently gets
+   *  nothing. Run together as one paragraph, the second half was never read. */
+  const capTitle = `At the limit of ${max} ${max === 1 ? "environment" : "environments"}`;
+  const capMessage =
+    "New pull requests will not get one until you delete an environment, or raise the limit in its settings.";
   /** The blocked button says the ACT, in the verb of the act (§9). Not the same
    *  sentence: a tooltip on a control is read in the middle of reaching for it. */
   const capReason = atCap ? `Delete an environment, or raise the limit in settings` : null;
@@ -308,18 +312,16 @@ export default function PreviewsPage() {
 
   const toolbar = showToolbar ? (
     <>
-      <div className="relative w-[300px]">
-        <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-fg-muted" />
-        {/* A placeholder is not a label. The field's own name has to survive
-            the first keystroke, and a screen reader has to hear it at all. */}
-        <Input
-          placeholder="Filter previews…"
-          aria-label="Filter previews"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-8"
-        />
-      </div>
+      {/* A placeholder is not a label. The field's own name has to survive the
+          first keystroke, and a screen reader has to hear it at all — which is
+          `SearchField`'s `label`, not something this page arranges itself. */}
+      <SearchField
+        className="w-[300px]"
+        value={query}
+        onChange={setQuery}
+        placeholder="Filter previews…"
+        label="Filter previews"
+      />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           {/* Filters are working controls: `flat`, never a pill, never a fill. */}
@@ -442,11 +444,20 @@ export default function PreviewsPage() {
           {/* 16 left, 8 right — the rows' own inset, so the column headers and
               the context line above them share one left edge. */}
           <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto py-4 pl-4 pr-2">
-            {selected && <RepositoryContextLine config={selected} activeCount={active} />}
+            {selected && <RepositoryContextLine config={selected} />}
 
             {/* `blocking`: it has not failed, it will fail unless you deal with
-                this first. Above the list, because it is about the whole list. */}
-            {atCap && <AlertBanner tone="blocking">{capMessage}</AlertBanner>}
+                this first. Above the list, because it is about the whole list.
+
+                **This is the only place the cap is reported now.** The context
+                line used to carry `3 of 5 active` on its right, which spent a
+                permanent slot on a number that matters on exactly one day — and
+                on that day the banner says it, with what to do about it. */}
+            {atCap && (
+              <AlertBanner tone="blocking" title={capTitle}>
+                {capMessage}
+              </AlertBanner>
+            )}
 
             {envsError ? (
               <EmptyState

@@ -301,7 +301,7 @@ export default function AddClusterDrawer({
           <FieldShell
             label="Image registry"
             htmlFor="enable-registry"
-            hint="A private registry inside the cluster, for the images your builds produce."
+            help="A private registry inside the cluster, for the images your builds produce."
             inline
           >
             <Switch
@@ -325,7 +325,8 @@ export default function AddClusterDrawer({
                  constraint is a **hint**. The unit is the constraint, so it is
                  the hint; the field opens on a real value, so there is no
                  specimen left to show. */
-              hint="The disk the registry stores images on. Use a value like 20Gi or 100Gi."
+              hint="Use a value like 20Gi or 100Gi."
+              help="The disk the registry stores images on. Use a value like 20Gi or 100Gi."
             >
               <Input
                 id="registry-size"

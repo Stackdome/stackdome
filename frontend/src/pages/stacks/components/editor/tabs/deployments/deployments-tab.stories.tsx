@@ -98,7 +98,7 @@ type Story = StoryObj<typeof meta>
 // Live release open at the top of the rail; detail + events resolve through MSW.
 export const Default: Story = {
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Deploy timeline')).toBeInTheDocument()
+    await expect(canvas.getByRole('heading', { name: 'Deployments' })).toBeInTheDocument()
     await expect(await canvas.findByText('all resources', undefined, { timeout: 4000 })).toBeInTheDocument()
   },
 }
@@ -161,7 +161,7 @@ export const DeployFailed: Story = {
   },
 }
 
-// Saved-but-undeployed changes lead the rail as a dashed draft node.
+// Saved-but-undeployed changes lead the rail as a draft node — a hollow muted ring.
 export const WithDraft: Story = {
   args: {
     lifecycle: { phase: 'staged', stagedDiff, vsSeq: 13, nextSeq: 14 },

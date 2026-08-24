@@ -91,17 +91,25 @@ export const TheSwitchSitsOnTheStatement: Story = {
     await settled()
     const registry = await drawer().findByRole('switch', { name: /^image registry$/i })
     const label = await drawer().findByText(/^image registry$/i)
-    const hint = await drawer().findByText(/for the images your builds produce/i)
 
-    const [rs, rl, rh] = [registry, label, hint].map((el) => el.getBoundingClientRect())
+    // **The sentence moved to the `?`.** It is a gloss on what the switch turns
+    // on, not direction on what to type, so it rides the mark rather than
+    // holding a permanent line under a 32px control.
+    await expect(drawer().queryByText(/for the images your builds produce/i)).toBeNull()
+    // The mark is a SIBLING of the `<label>`, never inside it — a `?` nested in
+    // a label would answer to the field's own name.
+    const mark = label.closest('label')!.nextElementSibling as HTMLElement
+    await expect(mark.getAttribute('aria-label')).toBe('What does this do?')
+
+    const [rs, rl] = [registry, label].map((el) => el.getBoundingClientRect())
+    const rm = mark.getBoundingClientRect()
 
     // 24 between the statement and the control that answers it — the gap, not
-    // either edge's position.
-    await expect(Math.round(rs.left - Math.max(rl.right, rh.right))).toBeGreaterThanOrEqual(24)
-    // Centred on BOTH lines, not pinned to the first: the switch's centre is
-    // the centre of the label/hint block.
-    const statementMid = (rl.top + rh.bottom) / 2
-    await expect(Math.abs((rs.top + rs.bottom) / 2 - statementMid)).toBeLessThanOrEqual(1)
+    // either edge's position. The mark is part of the statement, so it is the
+    // rightmost thing the gap is measured from.
+    await expect(Math.round(rs.left - Math.max(rl.right, rm.right))).toBeGreaterThanOrEqual(24)
+    // Centred on the statement, not pinned to a line above it.
+    await expect(Math.abs((rs.top + rs.bottom) / 2 - (rl.top + rl.bottom) / 2)).toBeLessThanOrEqual(1)
   },
 }
 

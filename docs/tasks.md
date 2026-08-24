@@ -6,6 +6,130 @@ only *what is not done yet*.
 
 ## Now
 
+- [ ] **Confirm two Storybook-browser tests, or fix them.** `previews-page`
+      (`One Repository`) and `connect-provider-drawer` (`Waiting On The Git Hub
+      Popup`) failed as **30-second timeouts**, not assertions, while Storybook
+      and `dev:mock` were both running. `repo-combobox` failed identically in the
+      same run and **passed 9/9 clean in isolation**, so these are very likely the
+      same starvation — but that is inference. Done = one full `pnpm test:run`
+      with no dev server running, and either green or a real fix. — added 2026-08-24
+
+- [ ] **Decide the five findings the populated deployments tab exposed.** All are
+      real, none is blocking, and each is a small change once called:
+
+      | # | Finding |
+      |---|---|
+      | 1 | `Deploy failed · 1 of 4 resources failed to become ready` renders **twice within ~90px** — the release row's line two, then the banner. The last event of a failed release always restates its header |
+      | 2 | The `Changes` heading renders over *"No configuration changes since #2."* — a heading introducing an absence |
+      | 3 | The stack header carries **`Degraded` and `Failed` together** — two status words for one stack |
+      | 4 | Header says `Draft 3 changes`, the section says `Changes 1` — different objects, adjacent, both numbers |
+      | 5 | The stage tracker restates the row's own sentence once a release is terminal. It earns its row **in flight**, where there is no sentence yet |
+
+      Done = each either landed or explicitly parked in `DESIGN-PRODUCT.md` §15. — added 2026-08-24
+
+- [ ] **The diff's key column is one typeface for two kinds of string.**
+      `LOG_LEVEL` is an env-var name and `sync before use` is English, and both
+      render mono in the same column — the case §6 forbids ("mono follows the
+      CONTENT, never the column"). The component cannot tell them apart:
+      `labelForField` returns both from one call. Done = `policy.ts` marks which
+      labels are identifiers, and `ConfigDiff` sets the typeface per row. — added 2026-08-24
+
+- [ ] **`w-fit` diff cards will go ragged on a real multi-resource diff.** Each
+      card sizes to its own widest row, so a long image ref sits beside a short
+      env change with two different right edges. The preview has only matching
+      rows, so it has never been seen. Done = judged on a diff with three or more
+      resources of differing row lengths, and either kept or floored to a shared
+      width. — added 2026-08-24
+
+- [ ] **The live anchor has no chevron, and now that is visible.** Every rail row
+      leads with a disclosure; the anchor's title starts where their chevrons are.
+      It is a pinned summary rather than a tree node, so it does not branch — but
+      it sits directly above the rail. Done = either it takes a chevron in the
+      same slot, or its dot leaves the rail column. — added 2026-08-24
+
+
+- [ ] **Retire `text-label` (11px) in favour of `text-column` (11.5).** Jaseem,
+      23 Aug 2026: *"11.5 will be the smallest text size from now on, we will be
+      abandoning 11, we will do it step by step."* The rung is on the scale and
+      the stacks header uses it; **`text-label` is still defined and still has
+      call sites.** Done = no `text-label` left, and the token removed from
+      `index.css` and from `TEXT_SCALE` in `lib/utils.ts` — a size token is two
+      edits in both directions. **Explicitly per surface, not a sweep**, the same
+      way the two-weight rule was landed. — added 2026-08-23
+
+- [ ] **23 nodes on the Figma board still draw a shadow by hand, and each one is
+      a design call rather than a propagation.** The other 308 were bound to
+      `elevation/sm` on 23 Aug; **793 nodes now follow a style**, up from 341.
+      What is left carries a value that is on no rung, so binding it would change
+      how the frame looks and that is not mine to decide:
+
+      | Count | Shape | Frames | Probably wants |
+      |---|---|---|---|
+      | **11** | `y16/r40/s0/22%` | `Drawer — New stack`, `A ready-made app`, … | `elevation/2xl` |
+      | **6** | `y12/r32/s0/18%` | `Drawer — New addon`, `Add domain` | `elevation/2xl` |
+      | **5** | `y2/r8/s0/10%` | `sheet` | `elevation/md` |
+      | **1** | `y0/r8/s-3/5% + y1/r1/s0/8%` | `Button` | `elevation/sm` — right layers, `y0` not `y3` |
+
+      **The drawers are the real finding: they use three different shadows and
+      not one of them is `elevation/2xl`.** That predates this pass. Done = each
+      bound to a style, so the next token change propagates on its own.
+      **Jaseem updates the board frame by frame.** — added 2026-08-23
+
+- [ ] **Sweep the other places a width is stated twice.** §11's amendment
+      (23 Aug) settles the rule — one exported constant spent on both the header
+      cell and the control, never a number computed once and copied — and
+      `ColumnsSitOnTheirControls` guards Ports. **Mounts was never measured**: it
+      renders no `RecordColumns` header today, so it has nothing to drift from,
+      but it will the moment it gains one. Environment measured clean (0/0/0)
+      after the `DirtyField` fix and has **no guard test**. Done = Environment
+      carries the same alignment assertion Ports does, and any list that gains a
+      column header gains one with it. — added 2026-08-23
+
+- [ ] **Decide the docked volume's fate on the Figma board.** The card shipped
+      today with its volume rows **flush on the card's two columns** — glyph 16,
+      name 40, row at the 28 rung, and the last row running to the card's bottom
+      edge with no padding under it, so the hover wash rounds into the corners.
+      The board's `Canvas node` symbol still predates the volume dock entirely
+      (flagged 22 Aug, still open). Done = the symbol draws the settled card.
+      **Jaseem updates the board frame by frame.** — added 2026-08-23
+
+
+- [ ] **Propagate the settled section shape to every DETAIL surface — one sweep,
+      not two designs.** Jaseem, 2026-08-23: *"for all details, we should not
+      design separately, we already have the sections and layout finalised, just
+      propagate that design everywhere."* The shape is `FormSection` (a full-bleed
+      rule and a `body/500` label, never a card) + `FieldGrid` (16) + `FieldShell`
+      (4 label→control), controls at 32, sections 16 above the label and 16 below
+      the last field. **The swap is `Panel` → `FormSection`.** Surfaces:
+      `pages/addons/postgres-detail-page.tsx` (0 stories, 1 file since the bulk
+      pass), `pages/clusters/components/detail/index.tsx` (**0** files since),
+      `pages/addons/components/postgres-connection-panel.tsx`,
+      `pages/object-stores/index.tsx`. Done = every one measures the same rhythm
+      as the resource drawer, verified in the browser, and `Panel` has no callers
+      left outside the canvas files that use the word for something else.
+      — added 2026-08-23
+
+- [~] **The hairline on an elevated surface is an OUTLINE, not a border.**
+      **Corrected twice on 2026-08-23 — read this before trusting the note below.**
+
+      The first correction: "Left: `card` and `select`" was **wrong on both
+      counts.** `select`'s *trigger* was already converted (I had checked it and
+      not its *content*), and `card` carries no shadow, so it is not an elevated
+      surface and keeps its border.
+
+      The second, larger correction: **converting a class is not the same as
+      drawing a line.** `popover`, `dropdown-menu`, `tooltip` and `dialog` were
+      all recorded as converted and **none of them rendered a hairline** — Radix
+      writes `outline: none` inline on every portalled `Content`, which beats any
+      class. All six floating surfaces now compose `--edge-hairline` ahead of
+      their elevation rung instead. See §4.
+
+      **Left: the drawer's 32px glyph tile** (`drawer.tsx`, `shadow-md` with a
+      `border`). It is the one case where converting changes the PAINTED size —
+      32 → 34 on a stated 32 rung — so it is a design call, not a sweep.
+      Done = that tile decided, either way. — corrected 2026-08-23
+
+      Original note follows, kept because its reasoning is still the rule.
 - [ ] **The hairline on an elevated surface is an OUTLINE, not a border.** It is
       drawn outside the box and costs the layout nothing, so the drawn size and
       the spec'd size stay one number. Code `outline: 1px solid`; Figma
@@ -230,6 +354,16 @@ only *what is not done yet*.
       **Jaseem's call.** — added 2026-08-16
 
 ## Next
+
+- [ ] **Keep "every revamped component has a story" true.** Cleared 23 Aug: the
+      audit found 12 revamped components with no story and 5 hand-rolled copies
+      of `SearchField` still being rendered in its place. Storybook now covers
+      all of them (121 story files, 2286 tests). This decays silently — a
+      component revamped without a story is invisible again, and a copy made at a
+      call site goes on showing the old version. Done = a check that fails when a
+      component under `src/components` has no story and no parent story that
+      renders it. — added 2026-08-23
+
 
 ### The adds still on a dialog
 

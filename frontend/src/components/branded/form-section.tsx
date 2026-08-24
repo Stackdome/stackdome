@@ -135,7 +135,7 @@ export function FormSection({
 }) {
   if (collapsible) {
     return (
-      <Collapsible defaultOpen={defaultOpen} className={cn("relative -mx-5 border-t border-border first:border-t-0", className)}>
+      <Collapsible defaultOpen={defaultOpen} className={cn("relative -mx-5 border-t border-border-subtle first:border-t-0", className)}>
         <CollapsibleTrigger asChild>
           {/* The whole row is the target. A trigger that stops partway across —
               because something else shares its line — hovers to a seam, and two

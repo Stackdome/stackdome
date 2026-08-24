@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, fn, userEvent, within } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
 import { ResourceDrawer } from './resource-drawer'
 import type { UseStackEditSession } from '@/pages/stacks/hooks/use-stack-edit-session'
 import type { FormStackResourceData, FormVolumeExtendedData } from '@/pages/stacks/schemas/form-schema'
@@ -81,24 +81,26 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * Eight sections in one scroll — the shape that replaced three sub-tabs — under
- * the two that did NOT come back with them.
+ * **EXPERIMENT — the form is back behind three tabs.**
+ * `Configuration ǀ Deployment ǀ Environment ǀ Logs`, Configuration open.
  *
- * `Configuration ǀ Deployment ǀ Environment` cut one subject into arbitrary
- * thirds. `Settings ǀ Logs` separates a form from a live stream, which cannot
- * share a scroll at any length. The play proves both halves of that: exactly two
- * tabs, and every section still on one page under the first of them.
+ * The merged single scroll read as too long; this is the shape being compared
+ * against it. The play pins the strip at four and proves Configuration's own
+ * sections render under the first tab — Environment now lives behind its own
+ * tab, so it is no longer on this page.
  */
 export const GitService: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    for (const section of ['General', 'Source', 'Ports', 'Mounts', 'Environment']) {
+    for (const section of ['General', 'Source', 'Ports', 'Mounts']) {
       await expect(canvas.getByRole('heading', { name: new RegExp(`^${section}`) })).toBeVisible()
     }
     const tabs = canvas.getAllByRole('tab')
-    await expect(tabs).toHaveLength(2)
-    await expect(tabs[0]).toHaveTextContent('Settings')
-    await expect(tabs[1]).toHaveTextContent('Logs')
+    await expect(tabs).toHaveLength(4)
+    await expect(tabs[0]).toHaveTextContent('Configuration')
+    await expect(tabs[1]).toHaveTextContent('Deployment')
+    await expect(tabs[2]).toHaveTextContent('Environment')
+    await expect(tabs[3]).toHaveTextContent('Logs')
     await expect(tabs[0]).toHaveAttribute('data-state', 'active')
   },
 }
@@ -119,15 +121,74 @@ export const LogsBeforeFirstDeploy: Story = {
 }
 
 /**
- * **Delete lives beside the close, and it is an icon.** A red word at the button
- * rung outranked everything else on a 480 column; removing a resource is the
- * rarest thing anyone does here. Both controls end the drawer, so they share the
- * corner.
+ * **The Deployment tab.** It had no story that opened it — the strip proved the
+ * tab EXISTED, and `Configuration` is the one that renders on mount, so nothing
+ * ever rendered this body. A tab you can only see by clicking is a tab whose
+ * regressions nobody catches.
  */
-export const RemoveIsBesideTheClose: Story = {
+export const DeploymentTab: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('tab', { name: 'Deployment' }))
+    await waitFor(async () => {
+      await expect(canvas.getByRole('tab', { name: 'Deployment' })).toHaveAttribute(
+        'data-state',
+        'active',
+      )
+      // The Configuration body is unmounted, not stacked behind it.
+      await expect(canvas.queryByRole('heading', { name: /^Source/ })).not.toBeInTheDocument()
+    })
+  },
+}
+
+/**
+ * **The Environment tab**, for the same reason — it moved off the Configuration
+ * page into a tab of its own, and the move was never covered.
+ */
+export const EnvironmentTab: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await userEvent.click(canvas.getByRole('tab', { name: 'Environment' }))
+    await waitFor(async () => {
+      await expect(canvas.getByRole('tab', { name: 'Environment' })).toHaveAttribute(
+        'data-state',
+        'active',
+      )
+      await expect(canvas.queryByRole('heading', { name: /^Source/ })).not.toBeInTheDocument()
+    })
+  },
+}
+
+/**
+ * **Delete is at the foot of `Configuration`, in the danger zone.**
+ *
+ * It sat on the header band beside the close, as an icon in `fg-muted` — a
+ * compromise made when the alternative was a red word taking half a footer.
+ * Both readings were wrong about the same thing: removing a service takes every
+ * port, mount and environment reference pointed at it, and §10 puts an act whose
+ * cost lands on OTHER objects in the danger zone — never on a band that is on
+ * screen the whole time you scroll.
+ */
+export const RemoveLivesInTheDangerZone: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole('button', { name: 'Remove resource' }))
+    const remove = canvas.getByRole('button', { name: 'Remove resource' })
+
+    // Not on the band, and it is a word now rather than a glyph.
+    await expect(remove.closest('[data-slot="drawer-header"]')).toBeNull()
+    const zone = canvas.getByRole('heading', { name: /danger zone/i }).parentElement!
+    await expect(zone).toContainElement(remove)
+    // The blast radius is on the page, not behind a `?`.
+    await expect(zone).toHaveTextContent(/environment reference pointing at it/i)
+
+    // At the FOOT — below `Mounts`, which is the last section on this tab, and
+    // therefore below everything you would read before deciding.
+    const mounts = canvas.getByText('Mounts')
+    await expect(zone.getBoundingClientRect().top).toBeGreaterThan(
+      mounts.getBoundingClientRect().bottom,
+    )
+
+    await userEvent.click(remove)
     await expect(args.onRemove).toHaveBeenCalledWith(0)
   },
 }
@@ -149,6 +210,53 @@ export const Empty: Story = {
   },
 }
 
+/**
+ * **The Ports header sits on its controls — on a resource with no baseline.**
+ *
+ * This is the case that was broken, and it was broken in the place people meet
+ * it first: a resource you have just added has nothing to diff against, so
+ * `DirtyField` took its no-baseline branch — and that branch returned a bare
+ * fragment, dropping the `className` the caller uses to state the control
+ * group's SIZE. The group stopped taking the row's slack and collapsed onto its
+ * own content while the header strip went on dividing the full width. Measured
+ * at the inspector's 480: `Port` on its column, `Protocol` 14 off, `Visibility`
+ * 28 off — compounding left to right, the signature of two rows dividing two
+ * different widths.
+ *
+ * The second defect this pins is `VISIBILITY_COL`: the header cell and the
+ * segmented control now read ONE constant, where the header used to carry a
+ * hand-computed copy that was 1px out from the day it was written.
+ *
+ * Both are the same mistake — a width stated in two places — so the test is the
+ * same for all three columns: **every header word starts where its control
+ * does.**
+ */
+export const ColumnsSitOnTheirControls: Story = {
+  args: {
+    // No baseline for this resource: the newly-added case.
+    session: session([{ ...web, name: 'postgres' } as Resource]),
+    baselineResources: [],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const left = (el: Element) => Math.round(el.getBoundingClientRect().left)
+    const head = (t: string) =>
+      canvas.getAllByText(t, { selector: 'span' }).find((el) => el.textContent?.trim() === t)!
+
+    const port = canvas.getByRole('textbox', { name: 'Port 1' })
+    const protocol = canvas.getAllByRole('combobox', { name: 'Protocol' })[0]
+    const visibility = canvasElement.querySelector('[aria-label="Visibility"]')!
+
+    await expect(left(head('Port'))).toBe(left(port))
+    await expect(left(head('Protocol'))).toBe(left(protocol))
+    await expect(left(head('Visibility'))).toBe(left(visibility))
+    // And the one that was written twice is now written once.
+    await expect(Math.round(head('Visibility').getBoundingClientRect().width)).toBe(
+      Math.round(visibility.getBoundingClientRect().width),
+    )
+  },
+}
+
 /** The rule repeated in the imperative, replacing the hint it was already stating. */
 export const WithErrors: Story = {
   args: {
@@ -167,7 +275,9 @@ export const WithErrors: Story = {
   },
 }
 
-/** Live view: the converged release, every control disabled, no remove. */
+/** Live view: the converged release, every control disabled, and **no danger
+ *  zone at all** — §10: a block headed *Danger zone* holding nothing you may
+ *  press is a warning about nothing. */
 export const ReadOnlyLive: Story = {
   args: {
     live: { resources: [web], volumes },
@@ -177,6 +287,7 @@ export const ReadOnlyLive: Story = {
     const canvas = within(canvasElement)
     await expect(canvas.getByLabelText(/^Name/)).toBeDisabled()
     await expect(canvas.queryByRole('button', { name: 'Remove resource' })).not.toBeInTheDocument()
+    await expect(canvas.queryByRole('heading', { name: /danger zone/i })).toBeNull()
   },
 }
 

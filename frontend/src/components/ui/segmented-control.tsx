@@ -24,8 +24,13 @@ const SIZES = {
   // segment is 28, not 32. `iconOnly` drops the horizontal padding entirely and
   // pins the width to that same 28, because a lone glyph in a square is the
   // shape this control has; `px` on an icon makes a squat rectangle instead.
-  sm: { track: "h-7 rounded-sm p-0.5", segment: "px-[11px] gap-1 rounded-[4px]", iconOnly: "w-6 px-0" },
-  default: { track: "h-8 rounded-md p-0.5", segment: "px-[13px] gap-1.5 rounded-sm", iconOnly: "w-7 px-0" },
+  // **Segment inset is 8 at the 32 rung** (board `Segmented — label` 227:1207),
+  // the same 8 every other 32px control takes — field, select, button. It ran
+  // at 13, which is the old button base, so a segmented control and the field
+  // beside it started their labels 5px apart. `sm` takes 10, the same rung the
+  // 28px field and button take.
+  sm: { track: "h-7 rounded-sm p-0.5", segment: "px-2.5 gap-1 rounded-[4px]", iconOnly: "w-6 px-0" },
+  default: { track: "h-8 rounded-md p-0.5", segment: "px-2 gap-1.5 rounded-sm", iconOnly: "w-7 px-0" },
 } as const
 
 /**
@@ -137,7 +142,33 @@ export function SegmentedControl<T extends string>({
         // selected segment had to draw the divider as its own border to avoid
         // doubling up beside the track's. Inset, there is nothing to double —
         // the gap IS the divider, so the rules are gone.
-        "bg-background inline-flex items-center overflow-hidden",
+        // **`--well`, an alpha tint — not `--background`, a solid.** The track
+        // used to be painted the FRAME's colour, which is right on exactly one
+        // surface: it sat 21.3 luminance below the white sheet and **0.0 below
+        // the frame**, where the control dissolved into the page. A tint takes
+        // the tone of whatever is under it, so one value holds on both.
+        //
+        // `overflow-hidden` is load-bearing, not tidiness: it masks the
+        // selected face's `shadow-sm` so the lift shows along the divider and
+        // never spills past the track's own radius.
+        "bg-[var(--well)] inline-flex items-center overflow-hidden",
+        // **No outline.** Removed 23 Aug 2026 — Jaseem: *"not needed there."*
+        //
+        // It was never a line. It was a 1px geometry shim: an outline painted in
+        // the track's own fill so the control's PAINTED extent matched an Input
+        // or Select beside it, both of which stroke 1px outside their 32px box.
+        // Measured against `Repository` at the time: 32 against 34.
+        //
+        // It stopped being invisible the moment the fill became `--well`. The
+        // shim still named `--background`, so a tinted track was ringed in
+        // opaque FRAME colour — measured on the sheet: fill `rgba(25,23,20,.04)`
+        // inside an `rgb(235,234,227)` band. **The trick only ever worked while
+        // the outline and the fill were the same value, and nothing tied them
+        // together.**
+        //
+        // The control now paints its own 32 and sits 1px inboard of a Select in
+        // the same row. If that gap ever reads wrong, the fix is to point the
+        // shim at `--well` rather than to reintroduce a line.
         fill && "flex w-full",
         s.track,
         disabled && "opacity-50",
@@ -180,11 +211,12 @@ export function SegmentedControl<T extends string>({
             onClick={() => !isDisabled && onValueChange(option.value)}
             onKeyDown={(e) => onKeyDown(e, index)}
             className={cn(
-              // **`meta/500` — 12/16 at weight 500**, per the board. This ran at
-              // body size and weight 400; the control is chrome sitting beside
-              // content, so it steps down a rung and takes the medium weight
-              // that every other piece of chrome in the shell carries.
-              "relative inline-flex h-full items-center justify-center whitespace-nowrap text-meta font-medium transition-colors",
+              // **`body/500` — 13/20 at weight 500**, which is what the board's
+              // label carries on every variant. Two contradictory notes had
+              // built up here, one arguing for `meta/500` and one for
+              // `body/400`, while the class stayed `body/500` throughout — the
+              // board settles it.
+              "relative inline-flex h-full items-center justify-center whitespace-nowrap text-body font-medium transition-colors",
               "focus-ring-inset",
               "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
               s.segment,

@@ -5,18 +5,18 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-meta font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-ring-edge aria-invalid:border-danger transition-colors overflow-hidden",
+  "inline-flex items-center justify-center rounded-full outline outline-1 px-2 py-0.5 text-meta font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-ring-edge aria-invalid:outline-danger transition-colors overflow-hidden",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-foreground/5 text-fg-2 [a&]:hover:bg-foreground/10",
-        secondary: "border-border bg-transparent text-fg-2 [a&]:hover:bg-foreground/5",
+        default: "outline-transparent bg-foreground/5 text-fg-2 [a&]:hover:bg-foreground/10",
+        secondary: "outline-border-subtle bg-transparent text-fg-2 [a&]:hover:bg-foreground/5",
         destructive:
-          "border-transparent bg-danger-bg text-danger [a&]:hover:bg-danger-bg/70",
-        outline: "border-border text-foreground bg-transparent [a&]:hover:bg-foreground/5",
-        success: "border-transparent bg-success-bg text-success",
-        warning: "border-transparent bg-warn-bg text-warn",
-        info: "border-transparent bg-info-bg text-info",
+          "outline-transparent bg-danger-bg text-danger [a&]:hover:bg-danger-bg/70",
+        outline: "outline-border-subtle text-foreground bg-transparent [a&]:hover:bg-foreground/5",
+        success: "outline-transparent bg-success-bg text-success",
+        warning: "outline-transparent bg-warn-bg text-warn",
+        info: "outline-transparent bg-info-bg text-info",
       },
     },
     defaultVariants: {

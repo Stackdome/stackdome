@@ -54,7 +54,7 @@ function StackResourceDeploymentTabImpl({
     <>
       {/* **The gloss moved behind the mark.** `runs before the main container`
           never changed and never will — it is the section's own title said a
-          second way, and it was spending a permanent line of a 400px panel to
+          second way, and it was spending a permanent line of a 480px panel to
           do it. `state` is for a fact that moves (`4 variables`, `none`). */}
       <FormSection
         label="Pre-deployment step"

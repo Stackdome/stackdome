@@ -277,16 +277,16 @@ export const LongNames: Story = {
  *
  * The reason line is gated on `needsAttention` — the same predicate behind the
  * default sort — so the rows that are two lines must be *exactly* the rows
- * that predicate selects. Before the gate this failed: a cancelled or
- * superseded release writes a message too, so a stack that was serving
- * perfectly well grew a second line and the shape stopped meaning anything.
+ * that predicate selects.
  *
- * The count used to be read out of the header's own fact. That fact is gone,
- * so the expected number is named here: `payments-gateway` (failed) and
- * `auth-gateway` (degraded). `analytics-ingest` carries a message and is
- * healthy — it is the row this test exists to keep at one line.
+ * **The reason line came off the row on 23 Aug 2026 (Jaseem), so no row is two
+ * lines any more.** The mechanic this story was written to guard has moved to
+ * the card and the stack's own page. What is still worth holding here is the
+ * consequence: **the list has ONE pitch.** A failed stack, a degraded stack and
+ * a healthy stack carrying a stray release message are all the same height, and
+ * no backend text leaks into the table.
  */
-export const TwoLineRowsAreTheAttentionSet: Story = {
+export const EveryRowIsOnePitch: Story = {
   parameters: {
     msw: withStacks([
       ...oneFailure,
@@ -325,18 +325,21 @@ export const TwoLineRowsAreTheAttentionSet: Story = {
     }, { timeout: 5000 })
 
     const rows = canvas.getAllByRole('link', { name: /stack$/ })
-    // A row's status cell holds the word and, only when there is one, the why.
-    const twoLine = rows.filter(
+
+    // Every status cell holds exactly one child: the word.
+    const multiLine = rows.filter(
       (r) => r.querySelector('[data-slot="status-text"]')!.parentElement!.children.length > 1,
     )
-    // The named two, and only those — see the note above.
-    await expect(twoLine.map((r) => r.getAttribute('aria-label')).sort()).toEqual([
-      'auth-gateway stack',
-      'payments-gateway stack',
-    ])
-    // And the healthy stack carrying a message is not one of them.
+    await expect(multiLine).toEqual([])
+
+    // One pitch, whatever the state — failed, degraded and healthy alike.
+    const heights = [...new Set(rows.map((r) => r.getBoundingClientRect().height))]
+    await expect(heights).toEqual([64])
+
+    // No release message reaches the table, from either the attention set or a
+    // healthy stack that happens to carry one.
     await expect(canvas.queryByText('superseded by release 12')).toBeNull()
-    await expect(canvas.getByText('session · 1 of 3 replicas available')).toBeVisible()
+    await expect(canvas.queryByText('session · 1 of 3 replicas available')).toBeNull()
   },
 }
 

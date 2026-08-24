@@ -116,7 +116,8 @@ export function ServiceTab({
         label="Build context"
         span={1}
         htmlFor="service-context"
-        hint="Directory passed to the image build, relative to the repository root."
+        hint="Relative to the repository root."
+        help="The directory handed to the image build as its context."
       >
         <Input
           id="service-context"
@@ -148,7 +149,7 @@ export function ServiceTab({
           it. */}
       <FieldShell
         label="Expose publicly"
-        hint="Route external traffic to this port."
+        help="Traffic arriving from outside the cluster is routed here."
         span={2}
         inline
       >

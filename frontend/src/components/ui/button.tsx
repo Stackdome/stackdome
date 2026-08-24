@@ -263,11 +263,23 @@ function Button({
       ) : (
         <>
           {wrapChildren(inner)}
-          {/* **8 from the label, and the button's own 12 from its edge.**
-              The cap has no face any more, so it is content rather than an
-              object pinned to the edge — it sits inside the padding like the
-              label does. `-mr-2` used to pull a boxed cap out to the board's 4;
-              a bare glyph that close reads as falling off the end. */}
+          {/* **A thin rule between the verb and the key, 8 either side.**
+              Measured on the shipped `Deploy`, the label sat 8 from the left
+              edge, 8 from the cap, and the cap 8 from the right edge — three
+              identical gaps in a row, so nothing grouped and `Deploy ⌘⏎` read
+              as one run of glyphs. Grouping needs unequal distance or a mark.
+
+              The rule is the mark, at 18% of the button's own foreground so it
+              works on the near-black primary and on a ghost alike. It costs
+              nothing horizontally the old `ml-1` was not already spending, and
+              unlike a face it adds no second box inside the button. */}
+          {shortcut && (
+            <span
+              aria-hidden
+              data-slot="button-shortcut-rule"
+              className="ml-1 h-3.5 w-px flex-none bg-current opacity-[0.18]"
+            />
+          )}
           {shortcut && <Kbd keys={shortcut} className="ml-1" />}
         </>
       )}

@@ -25,11 +25,15 @@ import { useLayoutEffect, useState } from "react"
  * @param activeKey re-measure when the selection moves
  * @param count re-measure when items are added or removed
  * @param itemSelector the children to watch for resize, alongside the track
+ * @param activeSelector how the active child announces itself. Defaults to the
+ *   hand-rolled `data-active`; Radix-backed rows are already publishing
+ *   `data-state="active"` and must not be made to write the fact twice.
  */
 export function useSelectionSlide(
   activeKey: string,
   count: number,
   itemSelector = "[data-tab]",
+  activeSelector = "[data-active='true']",
 ) {
   // **A callback ref, not `useRef`.** One caller PORTALS its row into a sheet
   // header, and the portal target is only found after the header has mounted —
@@ -45,7 +49,7 @@ export function useSelectionSlide(
   useLayoutEffect(() => {
     if (!track) return
     const measure = () => {
-      const active = track.querySelector<HTMLElement>("[data-active='true']")
+      const active = track.querySelector<HTMLElement>(activeSelector)
       if (!active) return
       setBox({ x: active.offsetLeft, w: active.offsetWidth })
     }
@@ -57,7 +61,7 @@ export function useSelectionSlide(
     ro.observe(track)
     track.querySelectorAll(itemSelector).forEach((el) => ro.observe(el))
     return () => ro.disconnect()
-  }, [track, activeKey, count, itemSelector])
+  }, [track, activeKey, count, itemSelector, activeSelector])
 
   useLayoutEffect(() => {
     if (!box || armed) return

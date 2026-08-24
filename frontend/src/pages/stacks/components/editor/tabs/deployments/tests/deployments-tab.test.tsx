@@ -53,7 +53,7 @@ describe("DeploymentsTab", () => {
     const lifecycle: DeployLifecycle = { phase: "clean", nextSeq: 15, vsSeq: 14 };
     renderTab(<DeploymentsTab {...base} releases={releases} activeRelease={releases[0]} lifecycle={lifecycle} />);
     expect(screen.getByText("#14")).toBeInTheDocument();
-    expect(screen.getByText("Deploy timeline")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Deployments" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^deploy$/i })).not.toBeInTheDocument();
   });
 

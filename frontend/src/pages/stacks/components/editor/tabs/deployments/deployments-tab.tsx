@@ -45,8 +45,13 @@ export function DeploymentsTab({ orgId, projectName, stackId, stack, onJumpToRes
   const showLiveAnchor = liveRelease && releases[0]?.id !== liveRelease.id;
 
   return (
-    <div className="mx-auto max-w-[1280px] px-[30px] py-[26px]">
+    <div className="mx-auto max-w-[1280px] px-[26px] py-4">
       <div className="space-y-4">
+        {/* Deployments opened on a mono `Deploy timeline` label while Logs said
+            `Stack logs` and Metrics said `Stack metrics` — three sibling tabs,
+            two conventions. The heading is the page's name, not the rail's. */}
+        <h2 className="text-title font-medium tracking-[-0.01em] text-foreground">Deployments</h2>
+
         {showLiveAnchor && liveRelease && (
           <LiveReleaseSummary
             release={liveRelease}
@@ -57,7 +62,6 @@ export function DeploymentsTab({ orgId, projectName, stackId, stack, onJumpToRes
           />
         )}
 
-        <div className="font-mono text-label font-medium text-fg-muted">Deploy timeline</div>
 
         {loading && releases.length === 0 && !draftNode ? (
           <p className="text-body text-fg-muted">Loading deployments…</p>

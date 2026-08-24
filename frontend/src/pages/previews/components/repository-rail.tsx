@@ -71,7 +71,7 @@ export function RepositoryRail({
       // so at `w-60` the item measures 223. The item's width is what you look
       // at; the column's total is what nothing depends on (the body is
       // `flex-1`), so the pixel is paid out of the column rather than the row.
-      className="flex w-[241px] flex-none flex-col border-r border-border bg-card py-3"
+      className="flex w-[241px] flex-none flex-col border-r border-border-subtle bg-card py-3"
     >
       <div className="px-2">
         {/* The group label names the column the way the sidebar names its own
@@ -106,7 +106,7 @@ export function RepositoryRail({
       </div>
 
       {canWrite && (
-        <div className="mt-2 border-t border-border px-2 pt-2">
+        <div className="mt-2 border-t border-border-subtle px-2 pt-2">
           {/* `ghost`, matching the row's own gear and the preview row's
               actions — the rail holds no bordered box, so an `outline` here
               would be the only one and it reads lighter than the selected row

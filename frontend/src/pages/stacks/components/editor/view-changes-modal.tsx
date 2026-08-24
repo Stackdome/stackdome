@@ -136,7 +136,7 @@ function ChangeCard({
         )}
       </div>
       {note && (
-        <div className="flex items-start gap-2 border-t border-border px-3 pb-0.5 pt-1.5 text-label text-fg-muted">
+        <div className="flex items-start gap-2 border-t border-border-subtle px-3 pb-0.5 pt-1.5 text-label text-fg-muted">
           <span className="flex-none">−</span>
           <span>{note}</span>
         </div>
@@ -144,7 +144,7 @@ function ChangeCard({
       {sections
         .filter((s) => s.rows.length > 0)
         .map((sec, si) => (
-          <div key={si} className="border-t border-border py-1.5">
+          <div key={si} className="border-t border-border-subtle py-1.5">
             {sec.label && (
               <div className="px-3 pb-0.5 font-mono text-[9px] text-fg-muted">
                 {sec.label}
@@ -194,7 +194,7 @@ export function ViewChangesModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="work" className="gap-0 p-0">
-        <DialogHeader className="flex-row items-center gap-2.5 space-y-0 border-b border-border py-3.5 pl-5 pr-12">
+        <DialogHeader className="flex-row items-center gap-2.5 space-y-0 border-b border-border-subtle py-3.5 pl-5 pr-12">
           <DialogTitle className="text-name">Undeployed changes</DialogTitle>
           {count > 0 && (
             <span className="rounded-full border border-warn-border bg-warn-bg px-2 py-0.5 font-mono text-label font-semibold text-warn">
@@ -247,7 +247,7 @@ export function ViewChangesModal({
           )}
         </div>
 
-        <DialogFooter className="flex-row items-center border-t border-border px-5 py-3 sm:justify-start">
+        <DialogFooter className="flex-row items-center border-t border-border-subtle px-5 py-3 sm:justify-start">
           <Button shape="flat"
             type="button"
             variant="outline"

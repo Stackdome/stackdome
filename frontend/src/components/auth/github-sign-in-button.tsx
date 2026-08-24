@@ -25,9 +25,9 @@ export function GitHubSignInButton({ inviteToken }: GitHubSignInButtonProps) {
         Continue with GitHub
       </Button>
       <div className="my-4 flex items-center gap-3">
-        <div className="flex-1 border-t border-border" />
+        <div className="flex-1 border-t border-border-subtle" />
         <span className="text-meta text-muted-foreground">or</span>
-        <div className="flex-1 border-t border-border" />
+        <div className="flex-1 border-t border-border-subtle" />
       </div>
     </div>
   );

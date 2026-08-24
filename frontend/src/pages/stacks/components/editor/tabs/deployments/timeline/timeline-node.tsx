@@ -1,5 +1,4 @@
 import { ChevronDown } from "lucide-react";
-import { StatusPill } from "@/components/branded";
 import type { StackRelease } from "@/api/releases";
 import type { Stack } from "@/api/stacks";
 import type { EditSessionTab } from "@/pages/stacks/hooks/use-stack-edit-session";
@@ -49,39 +48,78 @@ export function TimelineNode(props: TimelineNodeProps) {
     : release.message || (dur !== "—" ? `took ${dur}` : undefined);
   const ts = formatReleaseTime(release.completed_at ?? release.created_at);
 
-  // Lean chips per the design — tighter than the default StatusPill sizing.
-  const chipClass = "flex-none gap-1 px-2 py-0.5 text-label tracking-[0.06em]";
-  const chip = isLive
-    ? <StatusPill variant="ready" className={chipClass}>Live</StatusPill>
+  // **The state is a word on the second line, not a chip on the first.**
+  // Grouped by axis: line one is identity and trigger, line two is the whole
+  // outcome. A chip put the verdict between `#4` and its cause — two facts from
+  // different axes with the explanation stranded on the line below — and it
+  // made line one ragged, because a released node has no chip and its cause
+  // started 60px left of a failed one's. Jaseem's call on the board, Aug 2026.
+  const stateWord = isLive
+    ? "Live"
     : state === ReleaseState.Failed
-      ? <StatusPill variant="error" withDot={false} className={chipClass}>Failed</StatusPill>
+      ? "Failed"
       : deploying
-        ? <StatusPill variant="pending" className={chipClass}>Deploying</StatusPill>
-        : null;
-
-  const cardBorder = isLive ? "border-success-border" : deploying ? "border-brand-border" : "border-border";
+        ? "Deploying"
+        : state === ReleaseState.Released
+          ? "Released"
+          : state;
+  // One channel: the rail dot and this word. No fill, no border.
+  const stateInk = isLive
+    ? "text-success"
+    : state === ReleaseState.Failed
+      ? "text-danger"
+      : deploying
+        ? "text-warn"
+        : "text-fg-2";
 
   return (
     <div>
       <div
-        className="-mx-2 flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted"
+        className="group -mx-2 cursor-pointer rounded-md px-2 py-1.5 hover:bg-[var(--wash-hover)]"
         onClick={() => onToggle(id)}
       >
-        <span className="flex-none font-sans text-body font-semibold text-foreground">#{release.sequence}</span>
-        <span className="flex-none text-body text-fg-2">{causeLabel(release.cause)}</span>
-        {chip}
-        <span className={`min-w-0 flex-1 truncate text-body ${state === ReleaseState.Failed ? "text-danger" : "text-fg-muted"}`}>
-          {subline ? `· ${subline}` : ""}
-        </span>
-        {ts && <span className="flex-none font-mono text-label text-fg-muted">{ts}</span>}
-        <ChevronDown className={`h-3.5 w-3.5 flex-none text-fg-muted transition-transform ${isOpen ? "rotate-180" : ""}`} />
-        <span onClick={(e) => e.stopPropagation()}>
-          <ReleaseMenu release={release} onRollback={onRollback} onCancel={onCancel} onCopyId={onCopyId} />
-        </span>
+        <div className="flex items-center gap-2.5">
+          {/* **The disclosure leads the row.** On the right it was a control you
+              had to travel to; on the left it is the branch mark, and the row's
+              own content indents past it — the shape of a tree, which is what a
+              rail of releases that open into detail actually is. Rotates from
+              closed (pointing at the row) to open (pointing at what it revealed). */}
+          <ChevronDown className={`h-3.5 w-3.5 flex-none translate-y-[2px] text-fg-muted transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+          <span className="flex-none font-sans text-body font-medium text-foreground">#{release.sequence}</span>
+          <span className="flex-none truncate text-body font-medium text-foreground">{causeLabel(release.cause)}</span>
+          {/* **The time reads with the row, not against the far edge.** Pinned
+              right it was a column of its own, with a gulf between it and the
+              release it belongs to that grew with the viewport. */}
+          {ts && <span className="flex-none text-column text-fg-muted">{ts}</span>}
+          {/* **The menu appears on hover but never leaves the tab order.**
+              `opacity`, not `hidden`: it still takes focus, and `focus-within`
+              brings it back for anyone arriving by keyboard. */}
+          <span
+            onClick={(e) => e.stopPropagation()}
+            className="flex-none opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+          >
+            <ReleaseMenu release={release} onRollback={onRollback} onCancel={onCancel} onCopyId={onCopyId} />
+          </span>
+          <span className="min-w-0 flex-1" />
+        </div>
+        {/* `pl-6` = the chevron (14) plus the row gap (10): everything under the
+            branch mark hangs off the title, not off the rail. */}
+        <div className="mt-[3px] flex items-center gap-1.5 pl-6 text-column">
+          <span className={`flex-none ${stateInk}`}>{stateWord}</span>
+          {subline && <span className="min-w-0 truncate text-fg-muted">· {subline}</span>}
+        </div>
       </div>
 
+      {/* The detail no longer sits in one white card. Each section below brings
+          its own surface — the diff card, the console, the tinted banner — and
+          wrapping them in a second card stacked a sheet on a sheet. */}
       {isOpen && (
-        <div className={`mb-1 mt-1.5 rounded-md border ${cardBorder} bg-card p-4`}>
+        // **Capped, not full-bleed.** The detail is a column of short rows — a
+        // `key  from → to`, a resource and its state — and stretched to the
+        // sheet's full width each box was mostly empty, with the value column
+        // marooned from its key. 900 is the widest thing in here: the console's
+        // longest activity line beside its 256px resource pane.
+        <div className="mb-1 mt-1.5 max-w-[900px] pl-6">
           {isActive ? (
             <LiveReleaseBody
               release={release}

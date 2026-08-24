@@ -1,17 +1,18 @@
 import { type ReactNode } from "react";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSelectionSlide } from "@/hooks/use-selection-slide";
 import { TAB_TRIGGER_CLASS, TabIndicator } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { PageHeader, StatusChip } from "@/components/branded";
-import type { StackLifecycle } from "@/api/stacks";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  BlockedAction,
+  DangerZone,
+  DangerZoneRow,
+  PageHeader,
+  StatusChip,
+} from "@/components/branded";
+import type { StackLifecycle } from "@/api/stacks";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AutosaveStatus } from "./autosave-status";
 import { DeployPill } from "./deploy-pill";
 import { CanvasOverlayContext } from "@/pages/stacks/lib/canvas/canvas-overlay";
@@ -170,34 +171,73 @@ export function CanvasEditorShell({
           ? metrics
           : null;
 
+  /**
+   * **A menu holding one destructive item is not a menu.**
+   *
+   * It was a `DropdownMenu` whose entire content was `Delete stack` in danger
+   * ink — the same shape the row-actions sweep took off seven list pages, and
+   * with the same two faults: you had to open it to find out it held one thing,
+   * and the one thing arrived as a bare red word with its cost written nowhere.
+   * §10 puts deleting a stack in the **danger zone**, because it lands on every
+   * service, volume and preview built from it.
+   *
+   * **A `Popover`, not a `DropdownMenu`.** What opens is a block, not a list of
+   * commands: no roving focus, no `menuitem` roles, no arrow keys to move
+   * between options there are none of. A `role="menu"` containing no menu items
+   * is a lie a screen reader reads out.
+   *
+   * The trigger is unchanged — a face, not a ghost, because it is the last of
+   * three controls in the header cluster and a ghost among two solid faces reads
+   * as absent until you hover it.
+   */
   const actionsMenu = !isNewStack && (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        {/* A face, not a ghost. It is the last thing on a row of three
-            controls, and a ghost among two solid faces reads as absent until
-            you hover it — the same material as the version chip at the other
-            end of the cluster, which is what makes them read as one row. */}
+    <Popover>
+      <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="icon" aria-label="Stack actions">
           <MoreHorizontal className="size-4" />
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[180px]">
-        {/* Defer the dialog-opening callback until after the menu has fully
-            closed. Radix's DropdownMenu→Dialog composition races the menu's
-            close (which resets document.body.style.pointerEvents) against the
-            dialog's mount, and can leave pointer-events "none" on body forever
-            once the dialog unmounts.
-            See https://github.com/radix-ui/primitives/issues/1836 */}
-        <DropdownMenuItem
-          className="text-danger focus:text-danger"
-          onSelect={() => setTimeout(() => onDelete(), 0)}
-          disabled={!canDeleteStack}
-        >
-          <Trash2 className="size-4 text-danger" />
-          Delete stack
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverTrigger>
+      {/* **The popover is the container; the danger zone fills it.**
+
+          Three builds, and this is what the two before it were missing. Leaving
+          `PopoverContent` its padding put a white margin around the tint — a
+          menu with a block floating inside it. Stripping the popover's material
+          entirely (`bg-transparent shadow-none`) went the other way: the block
+          had no container at all, so a 12% tint sat on the dot grid held by
+          nothing but a shadow, and read as loose.
+
+          `p-0` with `overflow-hidden` is the pair that works. The popover keeps
+          its own ground, hairline and `shadow-lg`, and its clip supplies the
+          corners — so the tint runs corner to corner instead of drawing a second
+          radius one pixel inside the first, which is where the white sliver on
+          the diagonals came from. One container, one edge, one shadow.
+
+          The zone drops to `rounded-none` for the same reason: two radii at one
+          corner is the defect, and the outer one is the popover's. */}
+      <PopoverContent align="end" className="w-[420px] overflow-hidden p-0">
+        {/* 420, not 288: at the default width the blast-radius line broke to
+            three lines beside a `Delete stack` that cannot shrink. */}
+        <DangerZone className="rounded-none">
+          <DangerZoneRow
+            title="Delete this stack"
+            description="Every service, volume and preview environment built from it stops running."
+            action={
+              <BlockedAction
+                reason={canDeleteStack ? null : "You do not have write access to this stack."}
+              >
+                <Button
+                  variant="destructive-ghost"
+                  shape="flat"
+                  onClick={() => onDelete()}
+                >
+                  Delete stack
+                </Button>
+              </BlockedAction>
+            }
+          />
+        </DangerZone>
+      </PopoverContent>
+    </Popover>
   );
 
   return (
@@ -362,7 +402,13 @@ export function CanvasEditorShell({
             {architecture}
           </CanvasOverlayContext.Provider>
         </div>
-        {opsBody && <div className="absolute inset-0 overflow-auto bg-background">{opsBody}</div>}
+        {/* **The ops tabs are the white sheet, not the paper frame.** They were
+            painted `--background`, so the content plane matched the page ground
+            behind the shell and the sheet stopped reading as a sheet at all —
+            only the header band above it was white. §3: the content plane and
+            its top bar are one surface. The canvas keeps `--background`; its
+            dot grid is the frame, deliberately. */}
+        {opsBody && <div className="absolute inset-0 overflow-auto bg-card">{opsBody}</div>}
       </div>
     </div>
   );

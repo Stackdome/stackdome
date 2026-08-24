@@ -5,8 +5,9 @@ import { Users, ChevronLeft } from "lucide-react";
 import { useProjectMembers } from "./hooks/use-project-members";
 import { MemberRowMenu } from "./components/member-row-menu";
 import { AddMemberDialog } from "./components/add-member-dialog";
-import { RenameProjectDialog } from "./components/rename-project-dialog";
+import { ProjectDrawer } from "./components/project-drawer";
 import { PageHeader, EmptyState, StackdomeMark } from "@/components/branded";
+import { useConfirm } from "@/components/branded/confirm";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,7 +23,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
 import { getCurrentOrganizationId } from "@/lib/common";
-import { getProject, renameProject } from "@/api/projects";
+import { getProject, renameProject, deleteProject } from "@/api/projects";
 import { getErrorMessage } from "@/api/client";
 import type { Project } from "@/api/projects";
 
@@ -31,7 +32,10 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [renameOpen, setRenameOpen] = useState(false);
+  const confirm = useConfirm();
+  /** The project's own settings, opened over the members list. `null` closes
+   *  it — same shape as the row-driven drawers everywhere else. */
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [project, setProject] = useState<Project | null>(null);
   const [projectLoading, setProjectLoading] = useState(false);
@@ -119,13 +123,11 @@ export default function ProjectDetailPage() {
         actionsAlign="center"
         actions={
           <>
-            <Button
-              variant="outline"
-              disabled={project?.default_project ?? true}
-              title={project?.default_project ? "Default project cannot be renamed" : undefined}
-              onClick={() => setRenameOpen(true)}
-            >
-              Rename
+            {/* One door to the project's own settings, the same one the list
+                row opens — rename and delete both live inside it, so the header
+                stops carrying a button per act. */}
+            <Button variant="outline" onClick={() => setSettingsOpen(true)}>
+              Project settings
             </Button>
             <Button onClick={() => setAddOpen(true)}>
               Add member
@@ -289,30 +291,65 @@ export default function ProjectDetailPage() {
         existingMemberUserIds={existingIds}
       />
 
-      <RenameProjectDialog
-        open={renameOpen}
-        currentName={project?.name ?? ""}
-        onOpenChange={setRenameOpen}
-        onRename={async (newName) => {
-          const orgId = getCurrentOrganizationId();
-          if (!orgId || !project) return { ok: false as const, error: "No project loaded" };
-          const oldName = project.name;
-          try {
-            await renameProject(orgId, oldName, { name: newName });
-            toast({
-              title: "Project renamed",
-              description: `"${oldName}" is now "${newName}".`,
-              variant: "success",
-            });
-            setRenameOpen(false);
-            // The detail route is keyed by project name — move to the new slug.
-            void navigate(`/settings/projects/${encodeURIComponent(newName)}`, { replace: true });
-            return { ok: true as const };
-          } catch (e) {
-            return { ok: false as const, error: getErrorMessage(e) };
-          }
-        }}
-      />
+      {project && settingsOpen && (
+        <ProjectDrawer
+          project={project}
+          onOpenChange={(open) => !open && setSettingsOpen(false)}
+          onRename={async (target, newName) => {
+            const orgId = getCurrentOrganizationId();
+            if (!orgId) return { ok: false as const, error: "No organization is selected." };
+            const oldName = target.name;
+            try {
+              await renameProject(orgId, oldName, { name: newName });
+              toast({
+                title: "Project renamed",
+                description: `"${oldName}" is now "${newName}".`,
+                variant: "success",
+              });
+              setSettingsOpen(false);
+              // The detail route is keyed by project name — move to the new slug.
+              void navigate(`/settings/projects/${encodeURIComponent(newName)}`, { replace: true });
+              return { ok: true as const };
+            } catch (e) {
+              return { ok: false as const, error: getErrorMessage(e) };
+            }
+          }}
+          onDelete={(target) => {
+            void (async () => {
+              // §10 level 3 — a project has dependents, so the gate is the name
+              // retyped. Same words and same gate as the list, because it is
+              // the same act with the same blast radius.
+              const ok = await confirm({
+                title: "Delete project?",
+                description: `Every stack, addon and secret filed under “${target.name}” is destroyed with it.`,
+                confirmLabel: "Delete",
+                variant: "destructive",
+                gate: { kind: "retype", name: target.name },
+              });
+              if (!ok) return;
+              const orgId = getCurrentOrganizationId();
+              if (!orgId) return;
+              try {
+                await deleteProject(orgId, target.name);
+                toast({
+                  title: "Project deleted",
+                  description: `"${target.name}" has been deleted.`,
+                  variant: "success",
+                });
+                // The page is ABOUT the object that just went, so it goes too.
+                void navigate("/settings/projects", { replace: true });
+              } catch (e) {
+                toast({
+                  title: "Failed to delete project",
+                  description: getErrorMessage(e),
+                  variant: "destructive",
+                });
+              }
+            })();
+          }}
+        />
+      )}
+
     </div>
   );
 }

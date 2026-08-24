@@ -11,7 +11,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertBanner, BlockedAction, FieldGrid, FieldShell, reasonList } from "@/components/branded";
+import {
+  AlertBanner,
+  BlockedAction,
+  DangerZone,
+  DangerZoneRow,
+  FieldGrid,
+  FieldShell,
+  reasonList,
+} from "@/components/branded";
 import { KeyValueRows } from "@/components/branded/key-value-rows";
 import {
   Select,
@@ -32,6 +40,13 @@ interface SecretFormDrawerProps {
   isLoading: boolean;
   error: string | null;
   editingSecret?: Secret | null;
+  /**
+   * Ends the secret. Only meaningful while editing one — a form that has not
+   * created anything yet has nothing to destroy, so the danger zone is not
+   * drawn at all on `New secret`.
+   */
+  onDelete?: (secret: Secret) => void;
+  deleting?: boolean;
 }
 
 /**
@@ -53,6 +68,8 @@ export function SecretFormDrawer({
   isLoading,
   error,
   editingSecret,
+  onDelete,
+  deleting = false,
 }: SecretFormDrawerProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -429,7 +446,7 @@ export function SecretFormDrawer({
             <FieldShell
               label="Personal access token"
               htmlFor="token"
-              hint="Use a token instead of a username and password."
+              help="Use a token instead of a username and password."
             >
               <div className="relative">
                 <Input
@@ -528,7 +545,7 @@ export function SecretFormDrawer({
           <FieldShell
             label="Secret data"
             required
-            hint="Each pair is one key the stack can read by name."
+            help="Each pair is one key the stack can read by name."
             error={formErrors.data}
           >
             <KeyValueRows
@@ -628,6 +645,35 @@ export function SecretFormDrawer({
           </FieldShell>
 
           {renderTypeSpecificFields()}
+
+          {/* **Deleting a secret takes every stack that reads it.** The values
+              resolve at deploy, so nothing fails at the moment you press this —
+              it fails on the next release of something else, which is exactly
+              the blast radius §10 puts in the danger zone rather than under a
+              pointer on a list row.
+
+              Not drawn on `New secret`: there is nothing to destroy yet, and a
+              block headed *Danger zone* over an unsaved form is a warning about
+              nothing. */}
+          {isEditing && onDelete && editingSecret && (
+            <DangerZone className="mt-1">
+              <DangerZoneRow
+                title="Delete this secret"
+                description="Stacks that read it start failing on their next deploy."
+                action={
+                  <Button
+                    variant="destructive-ghost"
+                    shape="flat"
+                    disabled={deleting}
+                    onClick={() => onDelete(editingSecret)}
+                  >
+                    {deleting && <Loader2 className="animate-spin" />}
+                    Delete secret
+                  </Button>
+                }
+              />
+            </DangerZone>
+          )}
         </DrawerBody>
 
         <DrawerFooter>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   Drawer,
   DrawerActions,
@@ -10,7 +10,13 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AlertBanner, BlockedAction, FieldShell, reasonList } from "@/components/branded";
+import {
+  AlertBanner,
+  BlockedAction,
+  FieldShell,
+  reasonList,
+  Disclosure,
+} from "@/components/branded";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -23,10 +29,12 @@ import { createPreviewEnv } from "@/api/preview-envs";
 import { getErrorMessage, isErrorStatus } from "@/api/client";
 import { getCurrentOrganizationId } from "@/lib/common";
 import { useResourceProjects } from "@/hooks/use-resource-projects";
-import { cn } from "@/lib/utils";
 import type { StackPreviewConfig } from "@/api/preview-configs";
 import { parseImageOverrides } from "@/pages/previews/lib/parse-image-overrides";
-import { newPreviewEnvSchema, type NewPreviewEnvValues } from "@/pages/previews/lib/form-schemas";
+import {
+  newPreviewEnvSchema,
+  type NewPreviewEnvValues,
+} from "@/pages/previews/lib/form-schemas";
 
 interface NewPreviewEnvDrawerProps {
   open: boolean;
@@ -95,7 +103,9 @@ export function NewPreviewEnvDrawer({
   const [stackfileContent, setStackfileContent] = useState("");
   const [overridesText, setOverridesText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof NewPreviewEnvValues, string>>>({});
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<keyof NewPreviewEnvValues, string>>
+  >({});
   const [saving, setSaving] = useState(false);
 
   const config = configs.find((c) => c.id === configId);
@@ -104,7 +114,9 @@ export function NewPreviewEnvDrawer({
   const atCap = max > 0 && active >= max;
 
   const reset = () => {
-    setConfigId(initialConfigId ?? (configs.length === 1 ? (configs[0].id ?? "") : ""));
+    setConfigId(
+      initialConfigId ?? (configs.length === 1 ? (configs[0].id ?? "") : ""),
+    );
     setPrNumber("");
     setBranch("");
     setStackfileContent("");
@@ -133,12 +145,19 @@ export function NewPreviewEnvDrawer({
     if (!branch.trim()) missing.push("Enter the branch to deploy");
     // The cap is not a missing field, it is a refusal — and it is phrased as
     // what to do about it rather than as what is wrong.
-    if (atCap) missing.push(`Delete one of ${config?.name}'s ${max} previews, or raise its limit in settings`);
+    if (atCap)
+      missing.push(
+        `Delete one of ${config?.name}'s ${max} previews, or raise its limit in settings`,
+      );
     return missing;
   };
 
   const submit = async () => {
-    const parsed = newPreviewEnvSchema.safeParse({ prNumber, branch, overridesText });
+    const parsed = newPreviewEnvSchema.safeParse({
+      prNumber,
+      branch,
+      overridesText,
+    });
     if (!parsed.success) {
       const flat = parsed.error.flatten().fieldErrors;
       setFieldErrors({
@@ -160,7 +179,9 @@ export function NewPreviewEnvDrawer({
         config_id: configId,
         pr_number: parsed.data.prNumber,
         branch: parsed.data.branch,
-        ...(stackfileContent.trim() ? { stackfile_content: stackfileContent } : {}),
+        ...(stackfileContent.trim()
+          ? { stackfile_content: stackfileContent }
+          : {}),
         ...(overrides ? { image_overrides: overrides } : {}),
       });
       onCreated();
@@ -196,11 +217,13 @@ export function NewPreviewEnvDrawer({
             label="Repository"
             htmlFor="env-config"
             required
-            hint={
-              config && max > 0
-                ? `${active} of ${max} previews active.`
-                : "Previews are created against this repository's base branch."
-            }
+            /* **The count stays on the page; the gloss goes to the `?`.** How
+                many previews are already live decides whether this form can be
+                submitted at all, which is live state rather than guidance —
+                behind a mark nobody would look for it. What the repository IS
+                is a gloss, and glosses ride the mark. */
+            hint={config && max > 0 ? `${active} of ${max} previews active.` : undefined}
+            help="Previews are created against this repository's base branch."
           >
             <Select value={configId} onValueChange={setConfigId}>
               <SelectTrigger id="env-config" aria-label="Repository">
@@ -216,7 +239,12 @@ export function NewPreviewEnvDrawer({
             </Select>
           </FieldShell>
 
-          <FieldShell label="PR number" htmlFor="env-pr" required error={fieldErrors.prNumber}>
+          <FieldShell
+            label="PR number"
+            htmlFor="env-pr"
+            required
+            error={fieldErrors.prNumber}
+          >
             <Input
               id="env-pr"
               type="number"
@@ -233,7 +261,7 @@ export function NewPreviewEnvDrawer({
             label="Branch"
             htmlFor="env-branch"
             required
-            hint="The preview deploys this branch's latest commit. Use Sync to pick up later ones."
+            help="The preview deploys this branch's latest commit. Use Sync to pick up later ones."
             error={fieldErrors.branch}
           >
             <Input
@@ -253,49 +281,42 @@ export function NewPreviewEnvDrawer({
               whether the field you wanted was in there was to open it. The
               chevron turns rather than swapping glyph — one shape moving is
               read faster than two shapes alternating. */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-expanded={advanced}
-            className="text-fg-2 -mx-2 self-start px-2"
-            onClick={() => setAdvanced((v) => !v)}
+          <Disclosure
+            label="Advanced — stackfile and image overrides"
+            open={advanced}
+            onOpenChange={setAdvanced}
           >
-            <ChevronRight className={cn("transition-transform duration-150", advanced && "rotate-90")} />
-            Advanced — stackfile and image overrides
-          </Button>
-
-          {advanced && (
-            <>
-              <FieldShell label="Stackfile content" htmlFor="env-stackfile">
-                <Textarea
-                  id="env-stackfile"
-                  rows={6}
-                  placeholder="Paste a stackfile to use instead of the one in the repository"
-                  value={stackfileContent}
-                  onChange={(e) => setStackfileContent(e.target.value)}
-                  className="font-mono text-meta"
-                />
-              </FieldShell>
-              <FieldShell
-                label="Image overrides"
-                htmlFor="env-overrides"
-                error={fieldErrors.overridesText}
-              >
-                <Textarea
-                  id="env-overrides"
-                  rows={3}
-                  placeholder={"resource=registry/image:tag\none per line"}
-                  value={overridesText}
-                  onChange={(e) => {
-                    setOverridesText(e.target.value);
-                    setFieldErrors((prev) => ({ ...prev, overridesText: undefined }));
-                  }}
-                  className="font-mono text-meta"
-                />
-              </FieldShell>
-            </>
-          )}
+            <FieldShell label="Stackfile content" htmlFor="env-stackfile">
+              <Textarea
+                id="env-stackfile"
+                rows={6}
+                placeholder="Paste a stackfile to use instead of the one in the repository"
+                value={stackfileContent}
+                onChange={(e) => setStackfileContent(e.target.value)}
+                className="font-mono text-meta"
+              />
+            </FieldShell>
+            <FieldShell
+              label="Image overrides"
+              htmlFor="env-overrides"
+              error={fieldErrors.overridesText}
+            >
+              <Textarea
+                id="env-overrides"
+                rows={3}
+                placeholder={"resource=registry/image:tag\none per line"}
+                value={overridesText}
+                onChange={(e) => {
+                  setOverridesText(e.target.value);
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    overridesText: undefined,
+                  }));
+                }}
+                className="font-mono text-meta"
+              />
+            </FieldShell>
+          </Disclosure>
         </DrawerBody>
 
         <DrawerFooter>

@@ -141,7 +141,7 @@ interface CardFooterMetaProps {
 
 export function CardFooterMeta({ tone, word, age, ageTitle, alert }: CardFooterMetaProps) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-4 whitespace-nowrap">
+    <div className="flex items-center justify-between gap-3 border-t border-border-subtle/60 pt-4 whitespace-nowrap">
       <span className={cn("inline-flex flex-none items-center gap-2", toneTextClass(tone))}>
         <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
         <StatusWord tone={tone}>{word}</StatusWord>

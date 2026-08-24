@@ -1,6 +1,5 @@
 import type { RegistryCredential } from "@/api/registry-credentials";
 import {
-  DataListActions,
   DataListCell,
   DataListHeader,
   DataListName,
@@ -8,7 +7,6 @@ import {
   DataListSkeleton,
 } from "@/components/branded/data-list";
 import { providerIdForHost, PURPOSE_LABELS, PURPOSE_BOTH, registryProvider } from "../lib/providers";
-import { RowMenu } from "./row-menu";
 
 /**
  * The Stacks list's track shape: the name is capped, one track takes the slack,
@@ -20,9 +18,17 @@ import { RowMenu } from "./row-menu";
  * tile was a card inside a list, and the logo drew no distinction the provider
  * name did not already make one line above the host.
  */
-const REGISTRY_TRACKS = "grid-cols-[minmax(240px,420px)_minmax(0,1fr)_130px_32px]";
+/**
+ * **Three tracks.** The fourth was a 32px slot for a kebab holding `Verify
+ * registry access`, `Update credentials` and `Remove` — three acts on one
+ * object behind a menu you had to open before you could see any of them.
+ *
+ * The row opens the registry's own drawer, which holds all three: verify on the
+ * band, the login in the body, remove in the danger zone.
+ */
+const REGISTRY_TRACKS = "grid-cols-[minmax(240px,420px)_minmax(0,1fr)_130px]";
 
-const LABELS = ["Registry", "Username", "Purpose", ""];
+const LABELS = ["Registry", "Username", "Purpose"];
 
 export function RegistryListHeader() {
   return <DataListHeader columns={REGISTRY_TRACKS} labels={LABELS} />;
@@ -45,7 +51,6 @@ export function RegistryListSkeleton() {
           ],
           { w: 136, h: 3 },
           { w: 72, h: 3 },
-          null,
         ]}
       />
     </div>
@@ -54,31 +59,25 @@ export function RegistryListSkeleton() {
 
 export function RegistryRow({
   credential,
-  onVerify,
-  onUpdateCredentials,
-  onRemove,
+  onOpen,
 }: {
   credential: RegistryCredential;
-  onVerify: (credential: RegistryCredential) => void;
-  onUpdateCredentials: (credential: RegistryCredential) => void;
-  onRemove: (credential: RegistryCredential) => void;
+  /** The row opens the registry's drawer. A credential is a host, a login and
+   *  a purpose — all settings — so there is no read-first step in front of it. */
+  onOpen: (credential: RegistryCredential) => void;
 }) {
   const providerLabel = registryProvider(providerIdForHost(credential.host)).label;
 
   return (
-    <DataListRow columns={REGISTRY_TRACKS}>
+    <DataListRow
+      columns={REGISTRY_TRACKS}
+      label={`${providerLabel} registry`}
+      onActivate={() => onOpen(credential)}
+    >
       {/* The provider you recognise, over the host it actually points at. */}
       <DataListName name={providerLabel} secondary={credential.host} />
       <DataListCell mono>{credential.username}</DataListCell>
       <DataListCell>{PURPOSE_LABELS[credential.purpose ?? PURPOSE_BOTH]}</DataListCell>
-      <DataListActions>
-        <RowMenu
-          label={providerLabel}
-          onVerify={() => onVerify(credential)}
-          onUpdateCredentials={() => onUpdateCredentials(credential)}
-          onRemove={() => onRemove(credential)}
-        />
-      </DataListActions>
     </DataListRow>
   );
 }

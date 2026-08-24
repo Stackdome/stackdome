@@ -121,4 +121,16 @@ export function getBlockById(id: string): BlockPreset | undefined {
   return blockCatalog.find((b) => b.id === id);
 }
 
+/**
+ * The one query predicate every picker filters with.
+ *
+ * It lived in `block-picker.tsx` and outlived it: both callers imported the
+ * component's module for this function alone once the canvas picker moved onto
+ * `PickerRow`. A predicate over the catalogue belongs with the catalogue.
+ */
+export function blockMatchesQuery(block: BlockPreset, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return !q || block.name.toLowerCase().includes(q) || block.summary.toLowerCase().includes(q);
+}
+
 export { BlockId } from "./types";

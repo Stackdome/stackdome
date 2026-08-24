@@ -292,10 +292,18 @@ export function PickerRowTick() {
   return <Check aria-hidden className="text-ring size-4" />
 }
 
-/** How many of this block are in the stack already — `postgres`, `postgres-2`. */
+/**
+ * How many of this block are in the stack already — `postgres`, `postgres-2`.
+ *
+ * **Not mono.** A count is not a URL. It was set in JetBrains alongside a Geist
+ * name 8px to its left, which made two digits look like a different kind of
+ * fact from everything else on the row. `tabular-nums` is what it actually
+ * needed: the number changes under the reader and the glyph beside it must not
+ * shuffle.
+ */
 export function PickerRowCount({ n }: { n: number }) {
   return (
-    <span className="border-border bg-control text-foreground rounded-sm border px-1.5 py-px font-mono text-[11px] leading-4">
+    <span className="border-border bg-control text-foreground rounded-sm border px-1.5 py-px text-[11px] leading-4 tabular-nums">
       ×{n}
     </span>
   )

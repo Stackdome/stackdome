@@ -54,9 +54,20 @@ function Checkbox({
       <span
         aria-hidden
         className={cn(
-          // 4px on a 16px box — the same proportion §2's control ladder runs
-          // (28/6 · 32/8 · 40/12), continued down to the smallest element.
-          "pointer-events-none inline-flex size-4 items-center justify-center rounded-[4px] [outline-width:1px] [outline-style:solid] [outline-color:var(--border-strong)] bg-card shadow-sm transition-colors",
+          // **`xs` — 4 on a 16 box.** §2's ladder continued down to the
+          // smallest element; it was a hardcoded `4px` until the rung existed.
+          //
+          // **A BORDER, not an outline, and the fill is `--input`.**
+          // An outline is drawn outside the box, so a `size-4` checkbox
+          // measured 16 in layout and painted 18 — it sat proud of the 16px
+          // text row beside it and of every 16px glyph in the same list. The
+          // board draws a 16 box with the stroke INSIDE (§8's outline rule is
+          // for cards standing on a ground, not for a control this small).
+          //
+          // `--input` is the recessed fill every other empty control uses; on
+          // `bg-card` the box was the same white as the sheet behind it and
+          // the hairline was doing all the work.
+          "pointer-events-none inline-flex size-4 items-center justify-center rounded-xs border border-[var(--border-strong)] bg-input shadow-sm transition-colors",
           "peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground",
           "peer-indeterminate:border-primary peer-indeterminate:bg-primary peer-indeterminate:text-primary-foreground",
           "focus-ring-peer",
@@ -67,10 +78,14 @@ function Checkbox({
           "[&_svg]:opacity-0 peer-checked:[&_svg]:opacity-100 peer-indeterminate:[&_svg]:opacity-100",
         )}
       >
+        {/* **12px glyph, 1.33px of line.** `strokeWidth` is in the icon's own
+            24 viewBox, so 2.67 there renders 1.33 here — the weight the board
+            draws. At the previous 3 it rendered 1.5 and the tick read as a
+            blob inside a 16 box. */}
         {indeterminate ? (
-          <Minus className="size-3 transition-opacity" strokeWidth={3} />
+          <Minus className="size-3 transition-opacity" strokeWidth={2.67} />
         ) : (
-          <Check className="size-3 transition-opacity" strokeWidth={3} />
+          <Check className="size-3 transition-opacity" strokeWidth={2.67} />
         )}
       </span>
     </span>

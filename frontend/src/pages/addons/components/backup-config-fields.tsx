@@ -192,7 +192,7 @@ export function BackupConfigFields({
         // the schedule is not on screen; once it is, the sentence describes a
         // field the reader is already looking at. Off keeps the promise, on
         // says what the switch would cost to undo.
-        hint={
+        help={
           values.enabled
             ? "Backups run on the schedule below. Turn off for manual backups only."
             : "When off, only manual backups can run. Turn on to set when they run."
@@ -353,7 +353,7 @@ export function BackupConfigFields({
         span={2}
         label="WAL archiving"
         htmlFor="bk-wal"
-        hint="Continuously ships WAL segments. Required for point-in-time recovery."
+        help="Continuously ships WAL segments. Required for point-in-time recovery."
       >
         <Switch
           id="bk-wal"

@@ -1,5 +1,4 @@
-import type React from "react";
-import { TableCell, TableRow, TableRowActions } from "@/components/ui/table";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ProjectChip } from "./project-chip";
 import type { ActiveRow } from "../hooks/use-users";
@@ -7,7 +6,11 @@ import { formatRelative } from "../lib/format-relative";
 
 interface UserRowProps {
   row: ActiveRow;
-  actions?: React.ReactNode;
+  /** The row's one act: open this person's drawer. It carried a trailing cell
+   *  holding a kebab — `Promote`, `Demote` and `Copy ID`, none of them visible
+   *  until the menu was open. Removing the action means removing its cell and
+   *  its header label too. */
+  onOpen: (row: ActiveRow) => void;
   /** Name of the default project in the org (to render star on chip) */
   defaultProjectName?: string;
 }
@@ -20,13 +23,22 @@ function monogram(name: string): string {
   return (name.slice(0, 2) || "?").toUpperCase();
 }
 
-export function UserRow({ row, actions, defaultProjectName }: UserRowProps) {
+export function UserRow({ row, onOpen, defaultProjectName }: UserRowProps) {
   const isAdmin = row.role === "OrgAdmin";
   // last_active_at is not yet on the User model — show — until it is
   const lastActive = formatRelative((row.user as Record<string, unknown>)["last_active_at"] as string | undefined);
 
   return (
-    <TableRow className="border-b border-border hover:bg-muted/50">
+    <TableRow
+      role="link"
+      tabIndex={0}
+      aria-label={`${row.name} member`}
+      className="cursor-pointer border-b border-border-subtle hover:bg-[var(--wash-hover)]"
+      onClick={() => onOpen(row)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onOpen(row);
+      }}
+    >
       {/* User */}
       <TableCell className="py-3.5">
         <div className="flex items-center gap-3">
@@ -70,9 +82,6 @@ export function UserRow({ row, actions, defaultProjectName }: UserRowProps) {
         <span className="text-meta text-fg-muted">{lastActive}</span>
       </TableCell>
 
-      <TableCell className="py-3.5 text-right">
-        <TableRowActions>{actions}</TableRowActions>
-      </TableCell>
     </TableRow>
   );
 }

@@ -27,6 +27,7 @@ export default function ObjectStoresPage() {
   const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [editingStore, setEditingStore] = useState<ObjectStore | null>(null);
+  const [deletingStore, setDeletingStore] = useState(false);
 
   async function requestDelete(store: ObjectStore) {
     if (!store.id) return;
@@ -57,9 +58,15 @@ export default function ObjectStoresPage() {
       return;
     }
 
+    setDeletingStore(true);
     try {
       await deleteObjectStore(orgId, projectName, store.id);
       toast({ title: "Object store deleted", variant: "success" });
+      // The drawer is the surface the act was taken FROM, so it is the surface
+      // that closes — a form still editing a store that is gone is a form
+      // whose Save can only fail.
+      setShowForm(false);
+      setEditingStore(null);
       refetch();
     } catch (e: unknown) {
       toast({
@@ -67,6 +74,8 @@ export default function ObjectStoresPage() {
         description: getErrorMessage(e) || IN_USE_FALLBACK,
         variant: "destructive",
       });
+    } finally {
+      setDeletingStore(false);
     }
   }
 
@@ -138,14 +147,14 @@ export default function ObjectStoresPage() {
       ) : (
         /* Bare. No `Panel`, no box, no card per row (§11) — the rows and the
            sheet edge are the only boundaries there are. */
+        /* The row opens the form. Every field on a store is a setting, so a
+           details drawer would be a read-only mirror of it. */
         <ObjectStoreList
           objectStores={objectStores}
-          onEdit={(store) => {
+          onOpen={(store) => {
             setEditingStore(store);
             setShowForm(true);
           }}
-          onDelete={(store) => void requestDelete(store)}
-          canWrite={(projectId?: string) => canWrite(projectId ?? "")}
         />
       )}
 
@@ -159,6 +168,14 @@ export default function ObjectStoresPage() {
         onSaved={() => {
           refetch();
         }}
+        /* Only where the reader may write to that store's project — a danger
+           zone whose one control refuses is a warning about nothing. */
+        onDelete={
+          editingStore && canWrite(editingStore.project_id ?? "")
+            ? (store) => void requestDelete(store)
+            : undefined
+        }
+        deleting={deletingStore}
       />
     </div>
   );

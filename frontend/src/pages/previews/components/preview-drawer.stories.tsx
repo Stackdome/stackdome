@@ -19,6 +19,7 @@ const makeEnv = (overrides: Partial<PreviewStack> = {}): PreviewStack =>
       phase: 'Ready',
       outputs: { urls: [{ resource: 'web', url: 'https://pr-128.preview.acme.dev' }] },
     },
+    created_at: '2026-08-16T09:00:00Z',
     updated_at: '2026-08-12T12:00:00Z',
     ...overrides,
   }) as PreviewStack
@@ -41,23 +42,54 @@ type Story = StoryObj<typeof meta>
 export const Ready: Story = {}
 
 /**
- * **The URL's actions live inside its well.** A grey well is for reference
- * (§3), and this is the reference the whole page exists to hand you — so `Copy`
- * and `Open ↗` sit on the thing they act on rather than somewhere under it. The
- * trailing ↗ is what says the second one leaves for another tab.
+ * **Every action is on the header band, and none of them hides.** The stack
+ * detail page settled this shape: the object's actions ride the header, the
+ * footer goes, and a drawer that only reads an object stops spending 81px on a
+ * band with nothing to commit.
  */
-export const CopyAndOpenAreInsideTheWell: Story = {
+export const ActionsLiveInTheHeader: Story = {
   play: async () => {
-    const copy = await drawer().findByRole('button', { name: /^copy$/i })
-    const open = drawer().getByRole('link', { name: /open/i })
-    const well = copy.closest('.bg-control')
-    await expect(well).toContainElement(open)
-    await expect(well).toHaveTextContent('https://pr-128.preview.acme.dev')
-    await expect(open).toHaveAttribute('target', '_blank')
+    const sync = await drawer().findByRole('button', { name: /^sync$/i })
+    const del = drawer().getByRole('button', { name: /delete preview/i })
+    const header = '[data-slot="drawer-header"]'
+    await expect(sync.closest(header)).not.toBeNull()
+    await expect(del.closest(header)).not.toBeNull()
+    await expect(document.querySelector('[data-slot="drawer-footer"]')).toBeNull()
   },
 }
 
-/** There is no URL yet, so the well reports rather than sitting empty — and it
+/**
+ * **The URL is the link.** A button called `Open` beside the URL it opens is
+ * the same act twice, and it cost the value enough width to truncate the one
+ * string the drawer exists to hand you. `Copy` is the only control left on the
+ * row, and the scheme comes off — the same string the list row shows.
+ */
+export const TheUrlIsTheLink: Story = {
+  play: async () => {
+    const link = await drawer().findByRole('link', { name: /pr-128\.preview\.acme\.dev/i })
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('href', 'https://pr-128.preview.acme.dev')
+    await expect(drawer().queryByRole('button', { name: /^open/i })).toBeNull()
+    // Copy rides the same row as the value it copies.
+    const copy = drawer().getByRole('button', { name: /^copy$/i })
+    await expect(copy.closest('dd')).toContainElement(link)
+  },
+}
+
+/**
+ * **One idiom, top to bottom.** Every fact is a label and its value on the 32
+ * rung — no stacked labels, no grey well, no sentence pretending to be a row.
+ */
+export const EveryFactIsARow: Story = {
+  play: async () => {
+    for (const label of ['Status', 'Preview URL', 'Branch', 'Commit', 'Stack', 'Created by', 'Created', 'Updated']) {
+      await expect(await drawer().findByText(label)).toBeInTheDocument()
+    }
+    await expect(drawer().getByText('Branch').tagName).toBe('DT')
+  },
+}
+
+/** There is no URL yet, so the row reports rather than sitting empty — and it
  *  reports at `fg-muted`, never the disabled `fg-ghost` tier. */
 export const StillBuilding: Story = {
   args: { env: makeEnv({ status: { phase: 'Deploying' } } as Partial<PreviewStack>) },
@@ -67,32 +99,35 @@ export const StillBuilding: Story = {
   },
 }
 
-/** Both footer actions refuse while the environment is on its way out, and both
+/** Both header actions refuse while the environment is on its way out, and both
  *  say why. */
 export const Deleting: Story = {
   args: { env: makeEnv({ status: { phase: 'Deleting' } } as Partial<PreviewStack>) },
   play: async () => {
     const sync = await drawer().findByRole('button', { name: /^sync$/i })
     await expect(sync).toBeDisabled()
-    await expect(drawer().getByRole('button', { name: /^delete$/i })).toBeDisabled()
+    await expect(drawer().getByRole('button', { name: /delete preview/i })).toBeDisabled()
     await userEvent.hover(sync.parentElement!)
     await expect(await drawer().findAllByText(/being deleted/i)).not.toHaveLength(0)
   },
 }
 
-/** A failure keeps every detail it has. The stack is still one click away —
- *  that is where the logs are, and a failed preview is the case you most need
- *  them for. */
+/**
+ * A failure keeps every detail it has. The stack is still one click away — that
+ * is where the logs are, and a failed preview is the case you most need them
+ * for. **The stack row IS the way there**, rather than a sentence under the
+ * list naming the same destination a second time.
+ */
 export const Failed: Story = {
   args: {
     env: makeEnv({
       status: { phase: 'Failed', reason: 'ImagePullBackOff', message: 'web: image pull failed' },
     } as Partial<PreviewStack>),
   },
-  play: async () => {
-    await expect(
-      await drawer().findByRole('button', { name: /open the stack/i }),
-    ).toBeInTheDocument()
+  play: async ({ args }) => {
+    const stack = await drawer().findByRole('button', { name: /pr-128-web-storefront/i })
+    await userEvent.click(stack)
+    await expect(args.onOpenStack).toHaveBeenCalled()
   },
 }
 
@@ -104,7 +139,7 @@ export const CreatedByHand: Story = {
   },
 }
 
-/** A long branch and a long URL truncate inside their own boxes; the drawer
+/** A long branch and a long URL truncate inside their own cells; the drawer
  *  keeps its width and the labels keep their column. */
 export const LongValues: Story = {
   args: {
@@ -127,14 +162,15 @@ export const LongValues: Story = {
 }
 
 /**
- * Read-only hides every control — **and keeps the URL**, because that is the
- * whole point of the page for a reviewer.
+ * Read-only hides both object actions — **and keeps the URL and its `Copy`**,
+ * because that is the whole point of the page for a reviewer.
  */
 export const ReadOnly: Story = {
   args: { canWrite: false },
   play: async () => {
     await expect(drawer().queryByRole('button', { name: /^sync$/i })).toBeNull()
-    await expect(drawer().queryByRole('button', { name: /^delete$/i })).toBeNull()
-    await expect(await drawer().findByRole('link', { name: /open/i })).toBeInTheDocument()
+    await expect(drawer().queryByRole('button', { name: /delete preview/i })).toBeNull()
+    await expect(await drawer().findByRole('link', { name: /pr-128/i })).toBeInTheDocument()
+    await expect(drawer().getByRole('button', { name: /^copy$/i })).toBeInTheDocument()
   },
 }

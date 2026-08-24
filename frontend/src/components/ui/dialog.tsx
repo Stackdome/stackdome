@@ -77,7 +77,7 @@ function DialogContent({
           // gap-8 (32) is the body ↔ footer break — the only boundary that
           // separates doing from committing. Everything inside the body breaks
           // at 20 or less, so this reads as a different level, not a bigger gap.
-          "bg-popover data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-8 rounded-xl border border-border p-6 shadow-2xl duration-200",
+          "bg-popover data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-8 rounded-xl  p-6 shadow-[var(--edge-hairline),var(--shadow-2xl)] duration-200",
           dialogSizes[size],
           className
         )}

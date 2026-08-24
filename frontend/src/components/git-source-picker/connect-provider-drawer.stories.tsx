@@ -97,7 +97,7 @@ export const AppInstallSaysWhyItIsOff: Story = {
 }
 
 /**
- * The three-segment path, and the form it ends on. `Connect provider › GitHub ›
+ * The three-segment path, and the form it ends on. `Connect provider / GitHub /
  * Access token` — the middle crumb goes back to the question it answers.
  */
 export const TheGitHubTokenPath: Story = {

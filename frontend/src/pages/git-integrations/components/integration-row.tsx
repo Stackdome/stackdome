@@ -3,7 +3,6 @@ import { CircleAlert, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusText } from "@/components/branded/status-text";
 import {
-  DataListActions,
   DataListCell,
   DataListHeader,
   DataListName,
@@ -24,7 +23,6 @@ import {
   PROVIDER_DISPLAY_NAMES,
   type RowViewModel,
 } from "@/lib/git-integrations";
-import { RowMenu } from "./row-menu";
 
 /**
  * The Stacks list's track shape: the name is capped, one track takes the slack,
@@ -35,10 +33,16 @@ import { RowMenu } from "./row-menu";
  * The 40px bordered provider tile is gone: it was a card inside a list, and the
  * logo drew no distinction the provider name did not already make one line
  * above the host.
+ *
+ * **Four tracks, because the row has no actions.** It carried a trailing 32 for
+ * a kebab holding `Verify`, `Update credentials`, `Manage on GitHub` and
+ * `Remove` — four acts you had to open a menu to discover. The row opens the
+ * provider's drawer and all four live there, in the open. Removing an action
+ * means removing its track, its header label and its skeleton shape.
  */
-const INTEGRATION_TRACKS = "grid-cols-[minmax(240px,420px)_150px_minmax(0,1fr)_150px_32px]";
+const INTEGRATION_TRACKS = "grid-cols-[minmax(240px,420px)_150px_minmax(0,1fr)_150px]";
 
-const LABELS = ["Provider", "Auth", "Access", "Status", ""];
+const LABELS = ["Provider", "Auth", "Access", "Status"];
 
 export function IntegrationListHeader() {
   return <DataListHeader columns={INTEGRATION_TRACKS} labels={LABELS} />;
@@ -62,7 +66,6 @@ export function IntegrationListSkeleton() {
           { w: 88, h: 3 },
           { w: 160, h: 3 },
           { w: 80, h: 3 },
-          null,
         ]}
       />
     </div>
@@ -131,15 +134,15 @@ function Banner({
 
 export function IntegrationRow({
   integration,
+  onOpen,
   onVerify,
-  onRemove,
-  onUpdateCredentials,
 }: {
   integration: GitIntegration;
+  /** The row's one act: open this provider's drawer. */
+  onOpen: (integration: GitIntegration) => void;
+  /** The banner's `Verify access` CTA. Verifying is a CHECK, not an edit, so it
+   *  runs its own dialog rather than routing through the drawer. */
   onVerify: (integration: GitIntegration) => void;
-  onRemove: (integration: GitIntegration) => void;
-  /** Opens the update-credentials dialog for this row (credentials-type only). */
-  onUpdateCredentials?: (integration: GitIntegration) => void;
 }) {
   const [installations, setInstallations] = useState<GitInstallation[]>([]);
   const requestSeq = useRef(0);
@@ -173,7 +176,11 @@ export function IntegrationRow({
 
   return (
     <div>
-      <DataListRow columns={INTEGRATION_TRACKS}>
+      <DataListRow
+        columns={INTEGRATION_TRACKS}
+        label={`${providerName} at ${row.host}`}
+        onActivate={() => onOpen(integration)}
+      >
         <DataListName name={providerName} secondary={row.host} />
         <DataListCell>{row.authLabel}</DataListCell>
         {/* The count, then what it covers. They used to sit at opposite ends of
@@ -195,17 +202,6 @@ export function IntegrationRow({
         <div className="min-w-0">
           <StatusText domain="git_integration" state={row.statusKey} icon />
         </div>
-        <DataListActions>
-          <RowMenu
-            label={providerName}
-            onVerify={isGithubApp ? undefined : () => onVerify(integration)}
-            onUpdateCredentials={
-              isGithubApp || !onUpdateCredentials ? undefined : () => onUpdateCredentials(integration)
-            }
-            manageUrl={isGithubApp ? integration.install_url : undefined}
-            onRemove={() => onRemove(integration)}
-          />
-        </DataListActions>
       </DataListRow>
 
       {row.banner && (
@@ -213,9 +209,7 @@ export function IntegrationRow({
           banner={row.banner}
           statusKey={row.statusKey}
           onVerify={() => onVerify(integration)}
-          onUpdateCredentials={
-            isGithubApp || !onUpdateCredentials ? undefined : () => onUpdateCredentials(integration)
-          }
+          onUpdateCredentials={isGithubApp ? undefined : () => onOpen(integration)}
         />
       )}
     </div>

@@ -55,7 +55,7 @@ export interface ResourceTabProps {
    * `bg-muted-foreground` — a second, hand-rolled copy of a mark the canvas
    * card already owns in `node-card.ts`, and the two had drifted: the card's
    * dot is 8px with a 3px halo and pulses while pending, this one was a flat
-   * 6px disc. Same fact, same screen, 400px apart, drawn two ways.
+   * 6px disc. Same fact, same screen, 480px apart, drawn two ways.
    *
    * The variant is the fact; `DOT_CLASS` is the drawing. One drawing.
    */

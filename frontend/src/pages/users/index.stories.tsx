@@ -88,11 +88,62 @@ export const Populated: Story = {
       await expect(tag.className).not.toContain('text-brand')
     }
 
-    // Kebab menu on the admin row opens with a portal-rendered menu.
-    const menuButtons = canvas.getAllByRole('button', { name: /user actions/i })
-    await userEvent.click(menuButtons[0])
-    const menu = within(canvasElement.ownerDocument.body)
-    await expect(await menu.findByText('Demote')).toBeInTheDocument()
+    // **No row kebabs, and no track for them.** Four header cells, not five.
+    await expect(canvas.queryByRole('button', { name: /user actions/i })).toBeNull()
+    await expect(canvas.queryByRole('button', { name: /invite actions/i })).toBeNull()
+    await expect(canvasElement.querySelectorAll('thead th')).toHaveLength(4)
+
+    // The row opens the member's drawer.
+    await userEvent.click(canvas.getByRole('link', { name: 'Ada Lovelace member' }))
+    const drawer = within(canvasElement.ownerDocument.body)
+    await expect(await drawer.findByText('Organisation role')).toBeInTheDocument()
+  },
+}
+
+/**
+ * **Demoting used to be a form built inside a dropdown** — two selects and a
+ * Confirm/Cancel pair, 200px wide, that closed if the pointer wandered. It is a
+ * form now, and the two fields it needs appear WITH the decision that needs
+ * them rather than sitting greyed out beside it.
+ */
+export const DemotingAsksWhereTheyLand: Story = {
+  parameters: { msw: withUsersAndInvites([admin, member], [pendingInvite]) },
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    await userEvent.click(await canvas.findByRole('link', { name: 'Ada Lovelace member' }))
+    const drawer = within(canvasElement.ownerDocument.body)
+
+    // Nothing to save yet — and the refusal says so, in the verb of the act.
+    const save = await drawer.findByRole('button', { name: /save role/i })
+    await expect(save).toBeDisabled()
+    await expect(drawer.queryByText('Project role')).toBeNull()
+
+    await userEvent.click(drawer.getByRole('combobox'))
+    await userEvent.click(await drawer.findByRole('option', { name: 'Org member' }))
+
+    await expect(await drawer.findByText('Project role')).toBeInTheDocument()
+    await userEvent.hover(drawer.getByRole('button', { name: /save role/i }).parentElement!)
+    await expect(await drawer.findAllByText(/Pick the project/i)).not.toHaveLength(0)
+  },
+}
+
+/**
+ * **A pending invite has no settings**, so it takes the preview drawer's shape:
+ * the two acts ride the header, the body is a flat list, and there is no footer
+ * because there is nothing to commit. §10 puts *revoke a pending invite* on the
+ * "no danger zone" side — nothing references it and `Invite user` makes another.
+ */
+export const PendingInviteIsAReading: Story = {
+  parameters: { msw: withUsersAndInvites([admin], [pendingInvite]) },
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    await userEvent.click(await canvas.findByRole('link', { name: 'newhire@example.com invite' }))
+    const drawer = within(canvasElement.ownerDocument.body)
+
+    const revoke = await drawer.findByRole('button', { name: /revoke invite/i })
+    await expect(revoke.closest('[data-slot="drawer-header"]')).not.toBeNull()
+    await expect(drawer.getByRole('button', { name: /resend invite/i })).toBeInTheDocument()
+    await expect(canvasElement.ownerDocument.querySelector('[data-slot="drawer-footer"]')).toBeNull()
+    await expect(drawer.queryByRole('heading', { name: /danger zone/i })).toBeNull()
+    await expect(await drawer.findByText('Invited by')).toBeInTheDocument()
   },
 }
 
@@ -172,14 +223,14 @@ export const LongNameOverflow: Story = {
  *
  *  - The table is not boxed: a border around the whole thing is the card
  *    mistake at a larger scale.
- *  - The kebab appears on hover, not at rest — one per row at rest is eight
- *    pieces of chrome competing with eight names.
+ *  - There is no kebab at all any more: the row is the control, so its track,
+ *    its header cell and its skeleton cell went with it.
  *  - `Developer`, `Viewer` and `default` are words, so they are not mono. Mono
  *    means a machine produced this and a machine will read it back.
  */
 export const ListContract: Story = {
   parameters: { msw: withUsersAndInvites([admin, member], [pendingInvite]) },
-  play: async ({ canvas }) => {
+  play: async ({ canvas, canvasElement }) => {
     // Wait for real rows: the loading skeleton renders a <table> too, so
     // findByRole('table') resolves before any user has arrived.
     await canvas.findByText('Ada Lovelace')
@@ -192,11 +243,9 @@ export const ListContract: Story = {
       await expect(style.boxShadow).toBe('none')
     }
 
-    // Row actions are hidden at rest but keep their tab stop.
-    const kebab = canvas.getAllByRole('button', { name: /user actions/i })[0]
-    const actions = kebab.closest('[data-slot="table-row-actions"]') as HTMLElement
-    await expect(actions).not.toBeNull()
-    await expect(getComputedStyle(actions).opacity).toBe('0')
+    // No row actions at all — the row IS the control, so there is nothing to
+    // reveal on hover and no track holding it.
+    await expect(canvasElement.querySelector('[data-slot="table-row-actions"]')).toBeNull()
 
     // Roles and project names are words, not machine strings.
     for (const word of ['Developer', 'Viewer']) {

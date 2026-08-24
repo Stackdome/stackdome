@@ -94,7 +94,26 @@ export function DirtyField({
   const actionSlot = useFieldActionSlot();
 
   if (baseline === undefined) {
-    return <>{children}</>;
+    /**
+     * **No baseline drops the FRAME, never the LAYOUT.**
+     *
+     * This returned a bare fragment, so `className` — which is how the caller
+     * states the box's size, not how it is painted — went with the frame. On
+     * the ports list the caller passes `min-w-0 flex-1`: the control group is
+     * supposed to take the row's slack, and without it the three controls
+     * collapsed onto their own content while the header strip above went on
+     * dividing the full width. Measured on a newly-added resource at the
+     * inspector's 480: `Port` on its column, `Protocol` 14px off, `Visibility`
+     * 28px off — a drift that compounds left to right, which is the signature
+     * of two rows dividing two different widths.
+     *
+     * A resource with no baseline is every resource you have just added, and
+     * the whole create-stack page, so the columns were wrong in exactly the
+     * places someone is first looking at them.
+     *
+     * The wrapper is only spent when there is something to carry.
+     */
+    return className ? <div className={className}>{children}</div> : <>{children}</>;
   }
 
   const dirty = isFieldDirty(draft as never, baseline as never, path);

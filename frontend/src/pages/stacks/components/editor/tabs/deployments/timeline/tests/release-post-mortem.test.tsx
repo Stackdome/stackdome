@@ -61,9 +61,11 @@ describe("ReleasePostMortem", () => {
     // The image/repo source is sourced from the release snapshot; it pins into the
     // console detail once the resource is selected (uniform with the live body).
     await userEvent.click(screen.getByRole("button", { name: /web/ }));
-    expect(screen.getByText("▢ web:2")).toBeInTheDocument();
-    // Config changes live behind the Changes tab, not an always-open block.
-    await userEvent.click(screen.getByRole("button", { name: /Changes/ }));
+    // The `▢` typed into the copy is now a glyph per source kind (git vs image).
+    // `web:2` appears twice now — the pinned console detail AND the diff row —
+    // because the two sections render together instead of behind tabs.
+    expect(screen.getAllByText("web:2").length).toBeGreaterThan(0);
+    // Config changes are always open beside the console, not behind a tab.
     expect(screen.getByText("vs #12")).toBeInTheDocument();
     expect(screen.getByText("Modified")).toBeInTheDocument();
   });

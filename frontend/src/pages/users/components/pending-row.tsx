@@ -1,6 +1,5 @@
-import type React from "react";
 import { Mail } from "lucide-react";
-import { TableCell, TableRow, TableRowActions } from "@/components/ui/table";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ProjectChip } from "./project-chip";
 import type { PendingRow as PendingRowModel } from "../hooks/use-users";
@@ -8,12 +7,15 @@ import { formatRelative } from "../lib/format-relative";
 
 interface PendingRowProps {
   row: PendingRowModel;
-  actions?: React.ReactNode;
+  /** The row's one act: open this invite's drawer. It carried a trailing cell
+   *  holding a kebab — `Resend` and `Revoke`, neither visible until the menu
+   *  was open. Removing the action means removing its cell too. */
+  onOpen: (row: PendingRowModel) => void;
   /** Name of the default project in the org (to render star on chip) */
   defaultProjectName?: string;
 }
 
-export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps) {
+export function PendingRow({ row, onOpen, defaultProjectName }: PendingRowProps) {
   // Use invite.created_at for "invited X ago" label
   const invitedAgo = formatRelative(row.invite.created_at);
 
@@ -27,7 +29,16 @@ export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps
     : null;
 
   return (
-    <TableRow className="border-b border-border hover:bg-muted/50">
+    <TableRow
+      role="link"
+      tabIndex={0}
+      aria-label={`${row.email} invite`}
+      className="cursor-pointer border-b border-border-subtle hover:bg-[var(--wash-hover)]"
+      onClick={() => onOpen(row)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onOpen(row);
+      }}
+    >
       {/* User */}
       <TableCell className="py-3.5">
         <div className="flex items-center gap-3">
@@ -68,9 +79,6 @@ export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps
         <span className="text-meta text-fg-muted">–</span>
       </TableCell>
 
-      <TableCell className="py-3.5 text-right">
-        <TableRowActions>{actions}</TableRowActions>
-      </TableCell>
     </TableRow>
   );
 }

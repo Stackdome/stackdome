@@ -123,7 +123,7 @@ function BuildLogsBody({
 
   return (
     <>
-      <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b border-border px-4 py-3">
+      <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b border-border-subtle px-4 py-3">
         <DialogTitle className="text-body font-semibold">Build logs — {resourceName}</DialogTitle>
         <DialogDescription className="sr-only">
           Streamed output from the image build for {resourceName}.
@@ -227,8 +227,8 @@ function OutcomeBanner({ state }: { state: string }) {
     <div
       className={
         ok
-          ? "border-t border-border bg-success/10 px-4 py-2 font-mono text-meta text-success"
-          : "border-t border-border bg-danger/10 px-4 py-2 font-mono text-meta text-danger"
+          ? "border-t border-border-subtle bg-success/10 px-4 py-2 font-mono text-meta text-success"
+          : "border-t border-border-subtle bg-danger/10 px-4 py-2 font-mono text-meta text-danger"
       }
     >
       {ok ? "✓ Build succeeded — log stream complete" : "✕ Build failed — log stream complete"}

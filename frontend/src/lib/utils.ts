@@ -13,7 +13,18 @@ import type { ZodIssue } from "zod";
  * component that merges a size and a colour through `cn` silently loses its
  * size.
  */
-const TEXT_SCALE = ["label", "meta", "body", "name", "title", "head"] as const
+/**
+ * **Every rung on §6's scale must be listed here.** A rung that is missing is
+ * not merely unmerged — it is classified as a text COLOUR and dropped by the
+ * next `text-*` class in the same string, silently, with the element falling
+ * back to the inherited size.
+ *
+ * `column` was added 23 Aug 2026 and cost a round trip to find: the utility
+ * emitted correctly (a probe measured 11.5px/16), but the header renders
+ * `cn(..., "text-column text-fg-muted")` and the colour won. **Adding a token
+ * to `index.css` is half the job; this list is the other half.**
+ */
+const TEXT_SCALE = ["label", "column", "meta", "body", "name", "title", "head"] as const
 
 const twMerge = extendTailwindMerge({
   extend: {

@@ -57,15 +57,19 @@ describe("TimelineRail", () => {
     expect(screen.getByText("Live")).toBeInTheDocument();
   });
 
-  it("renders only the live dot solid; every other dot is a hollow ring", () => {
+  // **Hollow means unsettled, not "not live".** Reserving the only solid dot
+  // for the live release left a rail of identical rings where the one thing
+  // worth finding — a failure — looked like every release above it.
+  it("renders a landed release solid and a failed one hollow", () => {
     const r = rels(3);
+    r[0] = { ...r[0], state: "Failed" } as (typeof r)[number];
     const liveStack = { converged_release: { id: "r2" }, spec: { stack_resources: [] } } as unknown as Stack;
     renderRail(<TimelineRail releases={r} activeRelease={r[0]} {...base} stack={liveStack} />);
     const dots = screen.getAllByTestId("rail-dot");
-    const solid = dots.filter((d) => !d.className.includes("border-2") && !d.className.includes("animate-spin"));
-    const ring = dots.filter((d) => d.className.includes("border-2"));
-    expect(solid).toHaveLength(1); // only the live release (#2) is filled
-    expect(ring.length).toBe(2); // #3 and #1 are hollow rings
+    const hollow = dots.filter((d) => d.className.includes("border-[1.5px]"));
+    const solid = dots.filter((d) => !d.className.includes("border-[1.5px]") && !d.className.includes("animate-spin"));
+    expect(hollow).toHaveLength(1); // the failed release
+    expect(solid).toHaveLength(2);  // both releases that landed
   });
 
   it("renders the newest FAILED release as a post-mortem (stored outcome), not the live body", () => {
@@ -132,6 +136,6 @@ describe("TimelineRail", () => {
     await userEvent.click(screen.getByText("#2"));
     // Both post-mortems stay mounted (plus the auto-expanded active node's live body) —
     // an accordion would have closed #3 on opening #2.
-    expect(await screen.findAllByRole("button", { name: "Outcomes" })).toHaveLength(3);
+    expect(await screen.findAllByRole("heading", { name: "Changes" })).toHaveLength(3);
   });
 });

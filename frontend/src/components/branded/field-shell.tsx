@@ -124,9 +124,9 @@ export function HelpTip({
   className?: string
 }) {
   return (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      {/* A button, not a bare glyph — it is the only way to reach the text
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {/* A button, not a bare glyph — it is the only way to reach the text
           from the keyboard, and guidance the tab order skips is guidance only
           a mouse can read. `type="button"` because this sits inside a form
           and a bare button submits it.
@@ -137,30 +137,30 @@ export function HelpTip({
           label. The box carries 3px of air inside it, so the margin is 1: a
           flat 4 here would draw the mark at 7 and a 20px hit area is not
           negotiable. */}
-      <button
-        type="button"
-        aria-label="What does this do?"
-        // **No wash on hover — the tooltip IS the response.**
-        //
-        // It lit a `--wash-hover` face behind a 12px glyph, which made a mark
-        // that annotates the label look like a control that does something,
-        // and put a second thing on screen at the same moment the tooltip
-        // opens. The ink alone answers the pointer, the same way the reset
-        // arrow beside it does.
-        className={cn(
-          "focus-ring-edge inline-flex size-5 flex-none items-center justify-center rounded-sm align-middle text-fg-muted transition-colors hover:text-foreground",
-          className,
-        )}
-      >
-        {/* 12, not 14 — against a 13px label a 14px mark was the larger of
+        <button
+          type="button"
+          aria-label="What does this do?"
+          // **No wash on hover — the tooltip IS the response.**
+          //
+          // It lit a `--wash-hover` face behind a 12px glyph, which made a mark
+          // that annotates the label look like a control that does something,
+          // and put a second thing on screen at the same moment the tooltip
+          // opens. The ink alone answers the pointer, the same way the reset
+          // arrow beside it does.
+          className={cn(
+            "focus-ring-edge inline-flex size-5 flex-none items-center justify-center rounded-sm align-middle text-fg-muted transition-colors hover:text-foreground",
+            className,
+          )}
+        >
+          {/* 12, not 14 — against a 13px label a 14px mark was the larger of
           the two, so the punctuation outweighed the word it annotates. */}
-        <CircleHelp className="size-3" aria-hidden />
-      </button>
-    </TooltipTrigger>
-    {/* Wider than the tooltip's `w-fit` default, or a sentence comes back as
+          <CircleHelp className="size-3" aria-hidden />
+        </button>
+      </TooltipTrigger>
+      {/* Wider than the tooltip's `w-fit` default, or a sentence comes back as
         a one-word-per-line column. */}
-    <TooltipContent className="max-w-[260px]">{children}</TooltipContent>
-  </Tooltip>
+      <TooltipContent className="max-w-[260px]">{children}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -188,18 +188,27 @@ export function FieldShell({
     // The number to reason about is the one you can see — word to glyph — and
     // the 20px target carries 4px of air around its 12px mark. So the row pays
     // 2 and the box pays 4. At `gap-1` the seen distance measured 8.
-    <Label htmlFor={htmlFor} className="gap-0.5 text-body font-medium text-foreground">
-      <span>
-        {label}
-        {/* Red. It was ink at 70%, which put the one mark on the form that
-            says "you cannot skip this" below the label it belongs to in
-            contrast — nothing looked at it. */}
-        {required && (
-          <span className="ml-0.5 text-name font-semibold text-danger leading-none" aria-hidden>*</span>
-        )}
-      </span>
+    //
+    // **The mark is a SIBLING of the `<label>`, never inside it.** A `<label>`
+    // associates every labelable control it contains, so a `?` nested in one
+    // answers to the field's own name: `getByLabelText(/base branch/)` returns
+    // the input AND the help button, and a screen reader announces "Base
+    // branch, button" beside "Base branch, edit text". The gap moved out with
+    // it, so the seen 6 is unchanged.
+    <span className="flex min-w-0 items-center gap-0.5">
+      <Label htmlFor={htmlFor} className="min-w-0 text-body font-medium text-foreground">
+        <span className="truncate">
+          {label}
+          {/* Red. It was ink at 70%, which put the one mark on the form that
+              says "you cannot skip this" below the label it belongs to in
+              contrast — nothing looked at it. */}
+          {required && (
+            <span className="ml-0.5 text-name font-semibold text-danger leading-none" aria-hidden>*</span>
+          )}
+        </span>
+      </Label>
       {helpNode}
-    </Label>
+    </span>
   );
 
   // 4 off the label, the same gap the `?` takes — it is punctuation on the
@@ -214,8 +223,12 @@ export function FieldShell({
   // `text-wrap: pretty` was tried here when the addon drawer came down to 480
   // and a hint broke to leave `number.` alone. **Measured: it changed nothing**
   // — Chromium's orphan avoidance is a hint, not a guarantee, and on a two-line
-  // paragraph it declines to reflow. Removed rather than shipped as a no-op.
-  // §8's answer stands: shorten the copy.
+  // paragraph it declines to reflow.
+  //
+  // **`balance` is the one that works, and it is global now** — `p { text-wrap:
+  // balance }` in `index.css`, so this hint and every other paragraph in the
+  // product evens its lines rather than dumping the remainder on the last one.
+  // Nothing to set here.
   //
   // **The error REPLACES the hint; the two are never on screen together.**
   //
@@ -243,20 +256,24 @@ export function FieldShell({
   // preview config's 110px `Value source` select does.
   const fill = "[&_[data-slot=select-trigger]]:w-full";
 
+  // **The control is centred on the whole statement, and stands 24 off it.**
+  //
+  // It was `items-start` with a 2px nudge, which pinned the switch to the
+  // label's first line — so a one-line row looked centred and a row with a
+  // two-line hint looked top-heavy, on the same form. What the switch answers
+  // is the label AND its hint together, so it centres on both.
+  //
+  // 24, not 16: at 16 the switch read as the last word of the sentence rather
+  // than the control that answers it. 16 is the gap between fields, and a gap
+  // that says "these are two things" cannot also say "these are one statement".
+  //
+  // **This block lived INSIDE the JSX, and JSX rendered it.** `//` in child
+  // position is not a comment — it is text, so every inline field on the
+  // product printed 500 characters of design reasoning above its own label.
+  // Prose about a return goes above the return; prose inside one is `{/* */}`.
   if (inline) {
     return (
       <FieldActionSlotContext.Provider value={actionSlot}>
-      // **The control is centred on the whole statement, and stands 24 off it.**
-      //
-      // It was `items-start` with a 2px nudge, which pinned the switch to the
-      // label's first line — so a one-line row looked centred and a row with a
-      // two-line hint looked top-heavy, on the same form. What the switch
-      // answers is the label AND its hint together, so it centres on both.
-      //
-      // 24, not 16: at 16 the switch read as the last word of the sentence
-      // rather than the control that answers it. 16 is the gap between fields,
-      // and a gap that says "these are two things" cannot also say "these are
-      // one statement".
         <div className={cn("flex items-center gap-6", span === 2 && "col-span-2", className)}>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             {labelRow}

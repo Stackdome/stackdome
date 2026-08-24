@@ -12,8 +12,6 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-export const Bare: Story = {}
-
 /**
  * First run — the one screen that gets to define the product's core noun, and
  * the only one that earns the decorated glyph.
@@ -86,3 +84,11 @@ export const LongDescription: Story = {
     action: <Button>New stack</Button>,
   },
 }
+
+/**
+ * **The floor: title only.** Last in the list on purpose — sitting first it
+ * read as an older, pre-artwork version of the component rather than as the
+ * one case that has nothing to draw. Nothing in the product ships this shape;
+ * it is here so the component's minimum is visible.
+ */
+export const TitleOnly: Story = {}

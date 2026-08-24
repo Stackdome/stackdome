@@ -144,7 +144,12 @@ export function PreviewRow({
           {repositoryName}
         </DataListCell>
       )}
-      <DataListCell mono className={url ? "text-fg-2" : undefined} title={url}>
+      {/* **`mono` follows the CONTENT, not the column** (§6). This cell holds a
+          hostname when there is one and a sentence when there is not — and
+          `building…` / `no URL` set in JetBrains read as machine output the user
+          is not allowed to change, which is the one thing mono is supposed to
+          mean. The URL keeps it; the placeholder does not. */}
+      <DataListCell mono={Boolean(url)} className={url ? "text-fg-2" : undefined} title={url}>
         {url ?? urlPlaceholder(phase)}
       </DataListCell>
       {/* `StatusText`, never `StatusPill`: the word, its colour AND its glyph

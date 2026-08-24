@@ -52,7 +52,7 @@ interface AddonDrawerProps {
  * destination. What it is now:
  *
  *   step 1  New addon              the catalogue, off the service registry
- *   step 2  New addon › Postgres   the form, with the footer committing
+ *   step 2  New addon / Postgres   the form, with the footer committing
  *
  * **Editing is a one-step journey**, so it opens straight on the form and the
  * header carries the addon's name alone — a path of one is a title with

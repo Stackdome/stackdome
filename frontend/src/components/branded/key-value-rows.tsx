@@ -31,6 +31,17 @@ interface KeyValueRowsProps<T extends KeyValueRow> {
   /** What the remove button announces. Named by the caller, because "row" tells
    *  a screen-reader user nothing about what they are about to delete. */
   removeLabel?: string;
+  /**
+   * The empty state's first line — `No variables`, `No keys`.
+   *
+   * **Both halves or neither.** A title with no gloss is a label for a void,
+   * and a gloss with no title is a sentence floating where a list should be.
+   * Omit them and an empty list falls back to the add control alone.
+   */
+  emptyTitle?: string;
+  /** What the group is FOR, under the title. Never an instruction to press the
+   *  button directly below it. */
+  emptyHint?: ReactNode;
   className?: string;
 }
 
@@ -65,12 +76,61 @@ export function KeyValueRows<T extends KeyValueRow>({
   errorFor,
   minRows = 0,
   removeLabel = "Remove row",
+  emptyTitle,
+  emptyHint,
   className,
 }: KeyValueRowsProps<T>) {
   const update = (index: number, patch: Partial<T>) =>
     onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
   const remove = (index: number) => onChange(rows.filter((_, i) => i !== index));
+
+  /**
+   * **The add control, in both states — one definition, two widths.**
+   *
+   * Full width under a list because it reads as the next row, which is what it
+   * makes. Under an EMPTY list there is no row to extend and no column to
+   * continue, and a full-bleed box across 440px reads as a drop zone rather
+   * than a button — so the empty state takes it at its own width, the way the
+   * stack editor's Ports, Mounts and Environment sections already do.
+   */
+  const addButton = (full: boolean) => (
+    /* `outline`, which is the board's Tone=secondary — the same variant Cancel
+       uses. The code's variant literally named `secondary` drops the hairline
+       on purpose, for sitting beside an outline button; alone against a column
+       of fields it just reads as another one. */
+    <Button
+      type="button"
+      variant="outline"
+      shape="flat"
+      className={full ? "w-full" : "self-start"}
+      onClick={() => onChange([...rows, makeRow()])}
+    >
+      <Plus />
+      {addLabel}
+    </Button>
+  );
+
+  /**
+   * **Say what the group is for, then offer the way in.**
+   *
+   * The same shape Ports, Mounts and the stack editor's Environment section
+   * use: a `body/500` line in `fg-2`, its gloss at `meta` two pixels under it,
+   * and the act 16 below. It is `fg-2` and not `foreground` because an empty
+   * group is not the subject of the panel — it is a slot reporting that it is
+   * empty.
+   */
+  if (rows.length === 0 && emptyTitle) {
+    return (
+      <div className={cn("flex flex-col gap-4 pt-1", className)}>
+        <div className="flex flex-col gap-0.5">
+          <p className="text-body font-medium text-fg-2">{emptyTitle}</p>
+          {emptyHint && <p className="text-meta text-fg-muted">{emptyHint}</p>}
+        </div>
+        {addButton(false)}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
@@ -138,20 +198,7 @@ export function KeyValueRows<T extends KeyValueRow>({
           </div>
         );
       })}
-      {/* `outline`, which is the board's Tone=secondary — the same variant
-          Cancel uses. The code's variant literally named `secondary` drops the
-          hairline on purpose, for sitting beside an outline button; alone and
-          full width against a column of fields it just reads as another one. */}
-      <Button
-        type="button"
-        variant="outline"
-        shape="flat"
-        className="w-full"
-        onClick={() => onChange([...rows, makeRow()])}
-      >
-        <Plus />
-        {addLabel}
-      </Button>
+      {addButton(true)}
     </div>
   );
 }

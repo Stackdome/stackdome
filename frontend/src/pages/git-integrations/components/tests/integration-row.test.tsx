@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { IntegrationRow } from "../integration-row";
+import { IntegrationRow, IntegrationListHeader } from "../integration-row";
 import {
   GIT_INTEGRATION_TYPE_GITHUB_APP,
   GIT_INTEGRATION_TYPE_CREDENTIALS,
@@ -39,8 +39,8 @@ function renderRow(props: Partial<Parameters<typeof IntegrationRow>[0]> = {}) {
   return render(
     <IntegrationRow
       integration={integration()}
+      onOpen={vi.fn()}
       onVerify={vi.fn()}
-      onRemove={vi.fn()}
       {...props}
     />,
   );
@@ -57,6 +57,39 @@ describe("IntegrationRow", () => {
     await waitFor(() => expect(listInstallations).toHaveBeenCalled());
     expect(screen.getByText("Connected")).toBeInTheDocument();
     expect(screen.queryByText(/finish install/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * The kebab held `Verify`, `Update credentials`, `Manage on GitHub` and
+   * `Remove` — four acts nobody could see without opening the menu. The row
+   * opens the provider's drawer and all four live there, in the open.
+   */
+  it("has no row menu, and the whole row opens the drawer", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const row = integration();
+    renderRow({ onOpen, integration: row });
+    await waitFor(() => expect(listInstallations).toHaveBeenCalled());
+
+    expect(screen.queryByRole("button", { name: /^actions for /i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: /GitHub at github.com/ }));
+    expect(onOpen).toHaveBeenCalledWith(row);
+  });
+
+  /** Removing an action means removing its track AND its header label. */
+  it("draws four tracks in the row, the header and the skeleton", async () => {
+    const { container } = render(
+      <>
+        <IntegrationListHeader />
+        <IntegrationRow integration={integration()} onOpen={vi.fn()} onVerify={vi.fn()} />
+      </>,
+    );
+    await waitFor(() => expect(listInstallations).toHaveBeenCalled());
+    const header = container.querySelector('[data-slot="data-list-header"]')!;
+    expect(header.children).toHaveLength(4);
+    expect(
+      container.querySelector('[data-slot="data-list-row"]')!.children,
+    ).toHaveLength(4);
   });
 
   it("renders a loud row with a banner CTA anchored to install_url for pending_install", async () => {
@@ -81,31 +114,28 @@ describe("IntegrationRow", () => {
     expect(cta).toBeDisabled();
   });
 
-  it("routes the action_needed banner CTA to onUpdateCredentials, not onVerify", async () => {
+  /** The banner names the fix, and the fix is the drawer — not the verify
+   *  check, which answers a different question. */
+  it("routes the action_needed banner CTA to onOpen, not onVerify", async () => {
     const user = userEvent.setup();
     const onVerify = vi.fn();
-    const onUpdateCredentials = vi.fn();
-    renderRow({
-      onVerify,
-      onUpdateCredentials,
-      integration: integration({
-        type: GIT_INTEGRATION_TYPE_CREDENTIALS,
-        status: STATUS_ACTIVE,
-        host: "gitlab.com",
-        credentials_configured: false,
-      }),
+    const onOpen = vi.fn();
+    const creds = integration({
+      type: GIT_INTEGRATION_TYPE_CREDENTIALS,
+      status: STATUS_ACTIVE,
+      host: "gitlab.com",
+      credentials_configured: false,
     });
-    const cta = screen.getByRole("button", { name: /update credentials/i });
-    await user.click(cta, { pointerEventsCheck: 0 });
-    expect(onUpdateCredentials).toHaveBeenCalledOnce();
+    renderRow({ onVerify, onOpen, integration: creds });
+    await user.click(screen.getByRole("button", { name: /update credentials/i }), {
+      pointerEventsCheck: 0,
+    });
+    expect(onOpen).toHaveBeenCalledWith(creds);
     expect(onVerify).not.toHaveBeenCalled();
   });
 
   it("hides the action_needed banner CTA on GitHub App rows (no PUT rotation path)", () => {
-    renderRow({
-      onUpdateCredentials: vi.fn(),
-      integration: integration({ credentials_configured: false }),
-    });
+    renderRow({ integration: integration({ credentials_configured: false }) });
     expect(screen.getByText(/no credentials are stored/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /update credentials/i })).not.toBeInTheDocument();
   });
@@ -117,48 +147,6 @@ describe("IntegrationRow", () => {
     renderRow();
     await waitFor(() => expect(screen.getByText("1 installation")).toBeInTheDocument());
     expect(screen.getByText("all repositories")).toBeInTheDocument();
-  });
-
-  it("opens the kebab menu and dispatches Verify repository access on a credentials row", async () => {
-    const user = userEvent.setup();
-    const onVerify = vi.fn();
-    const row = integration({ type: GIT_INTEGRATION_TYPE_CREDENTIALS, status: STATUS_ACTIVE, host: "gitlab.com" });
-    renderRow({ onVerify, integration: row });
-    await user.click(screen.getByRole("button", { name: /^actions for /i }), { pointerEventsCheck: 0 });
-    await user.click(await screen.findByText(/verify repository access/i), { pointerEventsCheck: 0 });
-    await waitFor(() => expect(onVerify).toHaveBeenCalledWith(row));
-  });
-
-  it("hides Verify on GitHub App rows (backend only verifies credentials-type directly)", async () => {
-    const user = userEvent.setup();
-    renderRow();
-    await waitFor(() => expect(listInstallations).toHaveBeenCalled());
-    await user.click(screen.getByRole("button", { name: /^actions for /i }), { pointerEventsCheck: 0 });
-    expect(await screen.findByText(/remove integration/i)).toBeInTheDocument();
-    expect(screen.queryByText(/verify repository access/i)).not.toBeInTheDocument();
-  });
-
-  it("dispatching Verify or Remove defers the callback until after the menu has closed, avoiding the Radix pointer-events lock", async () => {
-    // Regression test for a Radix DropdownMenu -> Dialog composition bug: if the
-    // dialog-opening callback fires synchronously from onSelect, the menu's
-    // close and the dialog's mount race and can leave
-    // document.body.style.pointerEvents stuck at "none" forever. Deferring the
-    // callback via setTimeout(0) lets the menu finish closing (and reset
-    // pointer-events) before the dialog mounts.
-    const user = userEvent.setup();
-    const onRemove = vi.fn();
-    const row = integration();
-    renderRow({ onRemove });
-    await waitFor(() => expect(listInstallations).toHaveBeenCalled());
-    await user.click(screen.getByRole("button", { name: /^actions for /i }), { pointerEventsCheck: 0 });
-    const removeItem = await screen.findByText(/remove integration/i);
-    await user.click(removeItem, { pointerEventsCheck: 0 });
-
-    await waitFor(() => expect(onRemove).toHaveBeenCalledWith(row));
-    // Once the deferred callback has run, the dropdown menu's own close
-    // cleanup must have already reset pointer-events — it is not left
-    // stuck at "none" by the callback firing before the menu unmounts.
-    expect(document.body.style.pointerEvents).not.toBe("none");
   });
 
   it("loads installations with refresh=true so missed-webhook state self-heals on every visit", async () => {
@@ -173,55 +161,5 @@ describe("IntegrationRow", () => {
     });
     expect(screen.getByText("gitlab.com")).toBeInTheDocument();
     await waitFor(() => expect(listInstallations).not.toHaveBeenCalled());
-  });
-
-  it("offers Update credentials in the menu for credentials rows and passes the integration", async () => {
-    const onUpdateCredentials = vi.fn();
-    const creds = integration({ type: GIT_INTEGRATION_TYPE_CREDENTIALS, host: "gitlab.com" });
-    const user = userEvent.setup();
-    renderRow({ integration: creds, onUpdateCredentials });
-
-    await user.click(screen.getByRole("button", { name: /^actions for /i }));
-    await user.click(await screen.findByRole("menuitem", { name: /update credentials/i }));
-
-    await waitFor(() => expect(onUpdateCredentials).toHaveBeenCalledWith(creds));
-    expect(screen.queryByRole("menuitem", { name: /manage on github/i })).not.toBeInTheDocument();
-  });
-
-  it("offers Manage on GitHub for app rows with an install_url, not Update credentials", async () => {
-    const user = userEvent.setup();
-    renderRow({
-      integration: integration({ install_url: "https://github.com/apps/x/installations/new" }),
-      onUpdateCredentials: vi.fn(),
-    });
-
-    await user.click(screen.getByRole("button", { name: /^actions for /i }));
-
-    const manage = await screen.findByRole("menuitem", { name: /manage on github/i });
-    expect(manage).toHaveAttribute("href", "https://github.com/apps/x/installations/new");
-    expect(manage).toHaveAttribute("target", "_blank");
-    expect(screen.queryByRole("menuitem", { name: /update credentials/i })).not.toBeInTheDocument();
-  });
-
-  it("hides Manage on GitHub when an app row has no install_url", async () => {
-    const user = userEvent.setup();
-    renderRow({ integration: integration({ install_url: undefined }) });
-
-    await user.click(screen.getByRole("button", { name: /^actions for /i }));
-    await screen.findByRole("menuitem", { name: /remove integration/i });
-    expect(screen.queryByRole("menuitem", { name: /manage on github/i })).not.toBeInTheDocument();
-  });
-
-  it("routes the action_needed banner CTA through onUpdateCredentials with the integration", async () => {
-    const onUpdateCredentials = vi.fn();
-    const creds = integration({
-      type: GIT_INTEGRATION_TYPE_CREDENTIALS,
-      credentials_configured: false,
-    });
-    const user = userEvent.setup();
-    renderRow({ integration: creds, onUpdateCredentials });
-
-    await user.click(screen.getByRole("button", { name: /update credentials/i }));
-    expect(onUpdateCredentials).toHaveBeenCalledWith(creds);
   });
 });

@@ -238,7 +238,7 @@ function StackResourceEnvironmentTabImpl({
    * group.**
    *
    * All three sat here and they did not fit: `Environment` + `none` + three
-   * labelled buttons overran a 400px heading, and the label was printed under
+   * labelled buttons overran a 480px heading, and the label was printed under
    * `clear all`'s ✕. The fix is not to shrink them — it is `FormSection`'s own
    * rule, which was already written down:
    *
@@ -290,7 +290,7 @@ function StackResourceEnvironmentTabImpl({
    *
    * They add to this group, so they belong at the foot of the list they extend
    * (`FormSection`'s own rule) — but three labelled controls on that row spend
-   * most of a 400px panel on ways to do a thing you mostly do one row at a
+   * most of a 480px panel on ways to do a thing you mostly do one row at a
    * time. `Add variable` keeps its words because it is the common act; the
    * other two fold behind a `⋯` that opens beside it.
    *
@@ -399,7 +399,7 @@ function StackResourceEnvironmentTabImpl({
                 <div className="flex items-center justify-center w-full">
                   <label
                     htmlFor={`env-file-upload-${index}`}
-                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/20 hover:bg-muted/30"
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/20 hover:bg-[var(--wash-hover)]"
                   >
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       <FileText className="w-8 h-8 mb-2 text-muted-foreground" />

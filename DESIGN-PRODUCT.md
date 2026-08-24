@@ -16,7 +16,8 @@ travel, not a verdict on what is already there.
 | **The shell** — frame, sidebar, sheet header | Redesigned | **Binding** |
 | **Stacks** — list, canvas, create-stack | Redesigned | **Binding** |
 | Everything else — projects, clusters, addons, previews, users, domains, secrets, git integrations, image registries, auth, 404 | **Swept only** — carries the tokens and primitives, layout untouched | The target, not the standard |
-| **The stack editor** | Not converted (§15) | The target, not the standard |
+| **The stack editor — Deployments, Logs, Metrics** | Redesigned (§16) | **Binding** |
+| The stack editor — Architecture, and every drawer | Not converted (§15) | The target, not the standard |
 
 A rule violated on a swept page is **not a bug to file**. It is work not yet
 done, and it gets done when that page's journey comes up (§2).
@@ -253,21 +254,167 @@ For the board's `#E8E6E2` hairline on white that gives **`rgb(53 35 0)`** at
 
 | Token | Alpha | On the sheet | For |
 |---|---|---|---|
-| `--border-subtle` | 6% | `#F3F2F0` | A line **inside** a control — the divider between segments |
-| **`--border`** | **11%** | **`#E9E7E3`** | **The hairline.** Rows, cards, inputs, the default |
+| `--border-subtle` | 6% | `#F3F2F0` | **Every DIVIDER, and every elevated surface's own edge.** A line that separates two things already on the same plane |
+| **`--border`** | **11%** | **`#E9E7E3`** | **The hairline that draws a SHAPE** — a field, an input, a bordered row, a card that carries no shadow |
 | `--border-strong` | 18% | `#DBD7D1` | Hover and emphasis |
 
 Never hand-write a line colour. If a new rung is genuinely needed, derive it
 from `--line-ink` and add it here.
 
-**A seam between two REGIONS takes the 11% hairline, never `subtle`.** Settled
-August 2026, after four rails on the board — previews' repository rail and three
-new-stack rails — drew the same boundary on two different rungs. `subtle` is the
-line **inside a control**: the divider between segments, and nothing else. The
-edge where a rail meets the body it filters is the same kind of line as the one
-under a column header — chrome on one side, content on the other — and it is the
-default rung. The only line allowed to go quieter than the default is one whose
-separating is already being done by a shadow (§12's sheet edge).
+### Every divider is `subtle`. A line that draws a shape is `border`.
+
+**Jaseem's rule, 23 August 2026** — *"all dividers will be subtle from now on,
+this is a rule"* — and it replaces the region clause preserved below.
+
+The question is no longer *what kind of boundary is this*. It is **what is the
+line doing**:
+
+| The line | Rung | Because |
+|---|---|---|
+| **Divides** two things already on one plane | **`subtle` 6%** | The plane is already established. The line only says *these are two* — it does not have to hold a shape together |
+| **Draws** a shape — a field, an input, a bordered row, an unshadowed card | **`border` 11%** | It is the only thing making that shape exist |
+
+**A one-sided rule is always a divider**, so it is always 6%: the sheet header's
+bottom hairline, a drawer's header and footer rules, a column-header rule, a rail
+against the body it filters, a section divider, `Separator`. **An outline around
+an elevated surface is 6% too**, per the amendment below — which means the whole
+6% rung is now *"anything that isn't drawing a shape on its own."*
+
+| Swept 23 Aug 2026 | |
+|---|---|
+| 42 declarations | `border-border` → `border-border-subtle` on a one-sided rule |
+| 8 declarations | Inheriting the default; given an explicit `border-border-subtle` |
+| `.sheet-edge-b` / `.sheet-edge-t` | `var(--border)` → `var(--border-subtle)` |
+| `Separator` | `bg-border` → `bg-border-subtle` |
+
+> **Superseded — the region clause.** This section used to read: *"A seam between
+> two REGIONS takes the 11% hairline, never `subtle`... `subtle` is the line
+> inside a control: the divider between segments, and nothing else."* It was
+> settled in August after four rails on the board drew the same boundary on two
+> different rungs, and **the problem it solved was real** — one boundary, one
+> rung. The new rule solves that same problem in the other direction, and covers
+> more: a rail, a column header and a sheet edge are all dividers, and now all
+> three land on 6% without anyone having to decide whether a shadow is already
+> separating them.
+>
+> **Kept, not deleted**, because the four-rail measurement is what made anyone
+> look at this in the first place.
+
+> **Amended 23 Aug 2026 — the shadow clause outranks the region clause, and it
+> covers more than the sheet.** The sentence above ends by exempting a line
+> "whose separating is already being done by a shadow" and then names only the
+> sheet edge. Jaseem extended it to **every raised surface**: if a surface
+> carries its own shadow, its line is 6% — the shadow is what holds it off the
+> ground, and at 11% the line reads heavier than the surfaces either side of it.
+>
+> On 6% now: canvas cards (`shadow-md`), popovers, menus, tooltips and dialogs
+> (`shadow-lg`), the chip inside a field, and **the inspector's inner edge**
+> (`--shadow-region`) — which is a seam between two regions, and is the case
+> this amendment exists to settle.
+>
+> Still 11%: inputs, selects, section dividers, column-header rules. Those
+> separate on their own, with no shadow doing the work. The test is not *what
+> kind of boundary is this* but **is anything else already doing the separating.**
+
+### A ground that recedes is a TINT, never a picked solid
+
+**Settled 23 August 2026, on the segmented control.** Its track was painted
+`--background` — a solid, and specifically the **frame's** colour. A solid ground
+can only be correct on one surface, and this one proved it:
+
+| The track sat… | Δ luminance below its ground |
+|---|---|
+| on the white sheet | **21.3** — heavy |
+| **on the paper frame** | **0.0 — the control dissolved into the page** |
+
+**An alpha tint takes the tone of whatever is under it**, so one value holds
+everywhere: at 4% the track reads 9.0 below the sheet and 8.3 below the frame —
+within 0.7 of itself across two surfaces that differ by 21.
+
+| | |
+|---|---|
+| **`--well`** | `rgba(25, 23, 20, 0.04)` light · `rgba(0, 0, 0, 0.16)` dark |
+
+**It is not a `--wash-*` rung.** Those are interaction states — hover, selected,
+pressed — and a track is a static ground that never changes. Same ink, its own
+name, so nothing reads a track as a state.
+
+**Dark's `--well` stays BLACK while every wash beside it inverts.** A wash is a
+mark on a surface, and a light mark is what separates on a near-black field. **A
+well is not a mark, it is a hole** — and a hole is darker than its ground in both
+themes. This is the one token in §4 that does not flip.
+
+**The raised face inside it keeps `shadow-sm`, and the track's `overflow-hidden`
+is what makes that work** — the mask clips the lift to the 2px gutter so it shows
+along the divider and never spills past the track's radius. Measured after §5's
+relayering: the band under the face reads **20.2 darker** than the plain track in
+light, **11.0** in dark.
+
+### An outline dies at a clipping boundary, too
+
+A hairline that paints outside its box is free of layout — and **invisible the
+moment an ancestor clips**. `overflow-auto`, `overflow-hidden` and a Radix inline
+reset all do it; the symptom is the same and the cause is not.
+
+**Found 23 Aug 2026 on the sidebar.** The selected nav row is a card — `bg-card`,
+a 1px outline, `shadow-sm` — and it sat flush against `SidebarContent`, which
+scrolls. Measured: **0px above it, 12px either side.** Its top hairline was cut
+and the card read as an open-topped shape.
+
+**A scroll box must reserve its tallest child's OUTSIDE paint.** Here that is
+`pt-px`, and one pixel is the exact figure rather than a guess: both `shadow-sm`
+layers are offset downward (`0 3px 8px -3px` reaches 2px *below* the box top), so
+the outline is the only thing above the box. **If the treatment grows a shadow
+that rises, the reservation grows with it.**
+
+> It had been wrong for as long as the row was a card, and became visible only
+> when §5's relayering tripled that row's lift. **A latent clipping bug surfaces
+> when the thing being clipped gets bigger, not when the bug is introduced.**
+
+### A Radix surface cannot take an outline — it takes a shadow ring
+
+**Found 23 August 2026**, when Jaseem noticed the Sort menu had no edge while
+menus in the drawer and on the canvas did.
+
+**Radix writes `outline: none` as an INLINE style on every portalled `Content`** —
+dropdown menus, popovers, tooltips, dialogs — for its own focus handling. An
+inline declaration beats any class, so `outline outline-1 outline-border-subtle`
+on those components **had never drawn anything.**
+
+The signature, measured on the Sort menu:
+
+| Property | Computed | Meaning |
+|---|---|---|
+| `outline-style` | `none` | the inline reset |
+| `outline-width` | **`3px`** | the *initial* value — the class never applied |
+| `outline-color` | `currentColor` | ditto |
+
+A probe node with the same two classes rendered `1px solid rgba(53,35,0,0.06)`
+correctly, which is exactly why this survived: **the utilities work everywhere
+except the components that need them.** The sheet and the peer sheet are plain
+DOM, so they were right; every menu was not.
+
+**The rule §4 states is unchanged** — a hairline on an elevated surface paints
+*outside* the box and costs the layout nothing. On a Radix surface the mechanism
+that delivers that is a **shadow ring**, composed ahead of the elevation rung:
+
+```
+--edge-hairline: 0 0 0 1px var(--border-subtle);
+
+shadow-[var(--edge-hairline),var(--shadow-lg)]    menus, popovers, tooltips
+shadow-[var(--edge-hairline),var(--shadow-2xl)]   dialogs
+```
+
+**A second, quieter fault came out with it.** `tailwind-merge` collapses a bare
+`outline` against `outline-1` — they land in one group — so the class that sets
+`outline-style: solid` was being stripped from the rendered list before it ever
+reached the DOM. Any surface relying on `outline outline-1` was doubly dead.
+
+> **The lesson is about verification, not Radix.** Three surfaces were recorded
+> as *converted to an outline* in this file and in `docs/tasks.md`, on the
+> evidence of the class list. **A class list is not a rendered pixel.** The same
+> mistake had already been made once on `SelectContent`, whose *trigger* was
+> checked and whose *content* was not.
 
 ### Alpha is a function of the shape, not the token's name
 
@@ -395,6 +542,39 @@ faces that are *transparent at rest* borrow the wash.
 one wins is not reliably predictable. Branch on the state in the component and
 emit one set of classes — `washes(isActive)` in `sidebar.tsx` is the pattern.
 
+### `--muted` and `--accent` are GROUNDS. Neither is a hover.
+
+**Swept 23 August 2026**, after Jaseem spotted that a select menu, a table row and
+the add-resource menu were three different greys. Measured on white, the product
+was carrying **five** neutral hovers:
+
+| Surface | Was | Δ from white |
+|---|---|---|
+| Select menu · dropdown menu · toolbars | `bg-accent` / `bg-muted` — a **solid** `#F0EEE9` | **16.9** |
+| Sidebar rows | `sidebar-accent`, which aliases **`--wash-selected`** | 13.9 |
+| Command · add-resource | `--wash-hover` ✓ | 9.3 |
+| Table rows | `bg-muted/50` | 8.5 |
+| Environment rows | `bg-muted/30` | 5.1 |
+| Volume rows | `bg-muted/20` | 3.4 |
+
+**The select menu was twice the table.** Two faults under it:
+
+| | |
+|---|---|
+| **`--muted` and `--accent` are picked solids** | The same fault as the segmented track — a solid can only be right on one ground. This section's own rule says washes are ink tints |
+| **The sidebar used the SELECTED rung for hover** | So on the rail, hover and selected read as the same thing — which is the exact failure the three-rung ladder was built to fix |
+
+**Every neutral hover is `--wash-hover`.** 34 declarations across 14 files moved
+onto it. **`--muted` itself was not touched** — it is a real ground for the switch
+track, the avatar fallback and the table footer. The fix was to stop *using* a
+ground as a wash.
+
+| Deliberately left off the rung | Why |
+|---|---|
+| `Button` → `--control-hover` | §3 — a **control's** hover moves its own fill; a row's hover is a wash on the surface. Two different mechanics |
+| `PickerRow` → `bg-popover` | The row becomes a card on hover; a different treatment, not a louder wash |
+| `Badge` / `MultiSelect` chips → `foreground/5`, `/10` | **These sit on a chip, not on the sheet.** A 4% wash on an already-tinted ground may vanish — solve it against the worst ground before moving it |
+
 ### A state colour is one hue on a three-rung ladder
 
 **This replaced "one hue at three alphas" in August 2026.** The old rule took a
@@ -449,6 +629,43 @@ no name: it reads as a decision someone made. The four are defined; `2xs`, `xs`,
 | `shadow-lg` | Popovers, dropdowns, select panels |
 | `shadow-2xl` | Modals and dialogs — the only thing allowed to float this far |
 
+### Every rung is a contact layer plus an ambient one
+
+**Settled 23 August 2026.** A real shadow has two parts: the **tight, dark edge**
+where an object meets the surface it rests on, and the **wider, soft falloff**
+from the light. **One blur can only draw one of them**, which is why every rung
+stacks.
+
+| Layer | Geometry | Ink | Job |
+|---|---|---|---|
+| **Contact** | Small offset, small blur | **The darker of the two** | Seats the object on the surface |
+| **Ambient** | Large offset, large blur | Softer | The light's falloff |
+
+**`sm` and `2xl` were a single blur until this date, and `sm` was the worse of
+the two.** Measured on the real grounds, it moved luminance by **2.0 and reached
+one pixel** — a shadow in the stylesheet and nothing on the screen. `2xl` carried
+dialogs, alert-dialogs and **every drawer** on one pool with nothing seating it.
+
+| | Edge Δlum, before → after | Reach |
+|---|---|---|
+| `sm` light | 2.0 → **6.0** | 1px → **5px** |
+| `sm` dark | 2.9 → **5.1** | 2px → **9px** |
+| `2xl` light | 15.9 → **31.0** | — |
+| `2xl` dark | 6.9 → **11.1** | — |
+
+**The contact value came from `--shadow-toast`, not from a new number.** The toast
+grew a contact layer in August on its own; generalising that value beats inventing
+one per rung. `md` and `lg` are untouched — they already stack, though **their
+tight layer is currently the lighter one**, which is the inverse of the model
+above and a separate call.
+
+> **A contact layer is not a light-ground-only technique — but the finding that
+> said so was real.** `--shadow-toast` in dark ships without one because a
+> measurement showed it moved the toast's edge by **zero**. Re-taken at the other
+> rungs, the same layer moves `sm` by 2.2 and `2xl` by 4.2. **The finding was
+> about a toast on `lg`, not about the theme**; its scope is now narrowed in the
+> stylesheet rather than deleted.
+
 ### The sheet floats; what sits on it does not
 
 **"Content is flat" governs what is ON the sheet, not the sheet itself.** The
@@ -459,6 +676,36 @@ own edge can drop to `border-subtle` rather than the full hairline (§12).
 So the rule reads: **the content plane floats over the frame; nothing floats
 over the content plane** unless it is an overlay. Rows, cards, chips and nav
 items get nothing.
+
+### A panel with only one free edge casts sideways — `--shadow-region`
+
+**Settled 21 Aug 2026, on the stack editor's inspector.** The four rungs are all
+*downward* pools with negative spread: `lg` is `0 20px 50px -22px`. That is
+right for a popover, which has page on every side of it. It is useless on the
+inspector, which is a **region** of the sheet — full height, flush top and
+bottom, with exactly one edge exposed and that edge vertical.
+
+> **Horizontal reach of `lg` is `blur ÷ 2 − spread` — 3px.** Which is to say
+> none. The panel shipped `shadow-lg` because that is what the board draws on
+> the frame, and against a dot-grid canvas it read as having no shadow at all.
+
+| | |
+|---|---|
+| Value | `lg` with the offset moved from `y` to `-x`. Same ink, same blur, same spread |
+| Reach | **23px** to the left, onto the canvas it takes its space from |
+| Rungs | Still **four**. This is the same exemption `--shadow-toast` takes: a named value for one caller, not a fifth step |
+
+**And the panel needs a `position` of its own to cast at all.** The region is a
+static block; the ReactFlow wrapper beside it is `position: relative`. Positioned
+elements paint in a later stage than non-positioned ones **whatever their
+`z-index`**, so the canvas covered every pixel of shadow that fell on it —
+measured, 0 of 40 columns differed from the bare canvas, in both themes. `relative
+z-10` on the region puts it back in front of its own sibling.
+
+> **A shadow you cannot measure is not a shadow.** Both faults here — the axis
+> and the paint order — looked identical from the code (`shadow-lg` was right
+> there in the class list) and identical in a screenshot at a glance. Sampling
+> the pixels across the seam is what separated them.
 
 ### The one raised piece of content: a selected segment
 
@@ -485,6 +732,21 @@ generalise to rows, cards, chips or nav items.
 Press is separate and **inset**: `--btn-press-soft` · `--btn-press-mid` ·
 `--btn-press-strong`, chosen by how light the face is, never by how important
 the button is (§9). Figma carries all of these as effect styles named to match.
+
+### The ring is 1.5px
+
+**Jaseem's call, 23 August 2026.** `--ring-width` was 2px. **One token drives all
+three ring forms** — `--focus-ring`, `--focus-ring-edge`, `--focus-ring-inset` —
+so the change is a single value and every focus mark in the product moves with it.
+
+**One call site hardcoded a width and did not follow.** `AlertBanner`'s action is
+a documented exception to the ring convention because it sits inside a tinted
+banner and takes the banner's tone. **The exception is the COLOUR, not the
+width** — it shipped `outline-2` and is now `outline-[1.5px]`, so the tone stays
+local and the weight stays global.
+
+`resource-node`'s `ring-[3px]` drop target is **not** a focus ring and keeps its
+own geometry — see §5's open note on that ring still being orange.
 
 ### Focus is a shadow, and it is not elevation
 
@@ -570,14 +832,36 @@ Use the token, never `text-[13px]` or `text-sm`.
 
 | Token | Size / line | Job |
 |---|---|---|
-| `text-label` | 11 / 16 | Group labels, avatar initials |
+| `text-label` | 11 / 16 | **Being retired — see below.** Group labels, avatar initials |
+| **`text-column`** | **11.5 / 16** | **The floor.** The label above a column of data, and every other place 11 is used today |
 | `text-meta` | 12 / 16 | Row data — branch, counts, status, timestamps |
 | **`text-body`** | **13 / 20** | **The base.** Nav, buttons, breadcrumbs, prose, inputs |
 | `text-name` | 14 / 20 | The thing you scan a list for — a row's own name |
-| `text-title` | 16 / 24 | Section titles, and a card's own name |
+| `text-title` | 16 / 24 | A **page's** section titles, and a card's own name. A form group inside a drawer is `name/500` — §11 |
 | `text-head` | 20 / 28 | Dialog and empty-state headlines |
 
 Every line-height is a multiple of 4.
+
+> **11.5 is the floor, and 11 is being retired.** Jaseem, 23 Aug 2026:
+> *"11.5 will be the smallest text size from now on, we will be abandoning 11,
+> we will do it step by step."* `text-label` stays on the scale until its call
+> sites have moved — **this is explicitly not a sweep.** Anything written from
+> here reaches for `text-column`; existing 11s are converted as each surface is
+> worked, the same way §6's weight rule was landed ahead of its code.
+>
+> **`text-column` is 11.5, and the half pixel is deliberate.** Added 23 Aug 2026,
+> Jaseem's call. 11 read too small for a header scanned across a full-width
+> table; 12 is `meta`, which is what the DATA in the column is set in — **a
+> header must not match its own rows.** It is the only rung between them. The
+> line box stays 16, so the header band's height does not move and nothing below
+> it shifts: measured before and after, 25px band, 0 gap to the first row.
+>
+> **A new size token is TWO edits, not one.** The scale is job-named, so
+> `tailwind-merge` cannot infer that `text-column` is a font size — it classifies
+> any unfamiliar `text-*` as a COLOUR and drops it against the next one. The rung
+> must be added to `TEXT_SCALE` in `lib/utils.ts` as well as to `index.css`, or
+> the utility emits correctly and is silently stripped at the call site. That is
+> exactly how this one failed first time.
 
 ### Two weights only: 400 and 500
 
@@ -632,6 +916,47 @@ IDs, keys, hashes, branch names, env-var names, code, JSON, log lines.
 **Never for a human label.** A role called `Developer`, a status word like
 `Ready`, a plan name — those are words, and mono makes them look like values the
 user is not allowed to change.
+
+### `font-mono` follows the CONTENT, never the column
+
+**Swept 23 August 2026**, after Jaseem spotted mono "in random places" in the
+table. The rule in §6 was right; what failed was that **mono was being set by
+where a string sits rather than by what it is.**
+
+| Fault | Where |
+|---|---|
+| **A whole line set in mono because part of it was machine** | `DataListName`'s `mono` default put `default · main@a3f9d2e` entirely in JetBrains — the project is a WORD |
+| **A column set in mono because it usually holds a value** | Previews' URL cell is a hostname when there is one and a sentence when there is not: `building…` and `no URL` were reading as machine output |
+
+**Two typefaces on one line is normal and correct.** `StackCard` already did it —
+project in Geist, ref in mono — and the table row did not. Two views of the same
+object have to agree, or switching between them costs a re-read.
+
+**A mixed line cannot use a line-level `mono` flag.** `DataListName` takes a node
+plus a `secondaryTitle` for the tooltip, so the split lives in the caller that
+knows which half is which.
+
+**Verified by scanning the running app, not the source.** Every string rendering
+in JetBrains across Stacks, Secrets, Clusters, Previews and Image Registries is
+now a branch, a ref, a hostname, a cluster id or a registry username — with a
+`title` on the truncating ones.
+
+> **`EntityCard`, `StatusWord` and `CardMetaGrid` are dead** — only
+> `relativeAge` / `absoluteAge` are imported from that file. `StatusWord` sets a
+> status word in mono, which is the exact case this section forbids. Left alone:
+> the question is whether those components should exist, not what typeface they
+> use.
+
+### Every paragraph balances its lines
+
+`p { text-wrap: balance }`, globally, in `index.css`. It evens the line lengths
+across the block instead of filling each line and dumping the remainder on the
+last one, so a hint under a field stops ending in one orphaned word.
+
+**`pretty` was tried first and measured as a no-op** — it only asks the engine
+to avoid orphans, and on a two-line paragraph Chromium declines to reflow. Set
+on `p` and nothing wider: the property costs a second layout pass and browsers
+cap it around six lines because it does not scale.
 
 ### Copy
 
@@ -806,10 +1131,21 @@ and if their corners disagree the row reads as three unrelated things.
 
 | Control height | Radius | Token |
 |---|---|---|
+| **~22px** | **4px** | **`rounded-xs`** — a token INSIDE a control, see below |
 | **20px** | 6px | `rounded-sm` — **chips only**, see below |
 | 28px | 6px | `rounded-sm` |
 | **32px** | **8px** | **`rounded-md`** — the default step |
 | 40px | 12px | `rounded-lg` |
+
+> **`xs` added 23 Aug 2026.** The ladder had no rung under 28, so a chip sitting
+> inside a field — 22 tall, one step below a control — had nowhere to land and
+> shipped as a hardcoded `4px` in two files. It is `--radius-xs` in code and `xs`
+> in Figma's Radius collection.
+>
+> **It is deliberately not `full`.** A pill is right for a status word standing
+> on its own; a row of pills inside a rounded rectangle reads as lozenges
+> floating in a tray rather than as the field's own contents. Jaseem's call, made
+> on the board and propagated to code.
 
 **20px is a rung for chips, and only chips.** A chip is not interactive — the
 row or the card around it is the target — so it is not bound by a hit-target
@@ -1236,6 +1572,41 @@ it. **The friction has to be proportional to the damage, or it stops being read.
 | Shape | `flat`. Destroying is work, not a commitment |
 | Never in the sheet header | The bar is on screen the entire time you scroll |
 
+### Where the trigger lives — the blast radius decides
+
+Settled August 2026. **Does the cost land on anything other than the object
+itself?**
+
+| | Where the trigger goes |
+|---|---|
+| **It has dependents, or it destroys something unrebuildable** | The **danger zone** — the block at the foot of the surface |
+| **Nothing references it and it can be made again** | Wherever it is convenient — a header glyph, a row action |
+
+The test is not "how scary is the word". `Delete` on a preview environment and
+`Delete` on a managed database are the same verb and not the same act: one tears
+down a stack that `Sync` rebuilds from the branch and that nothing points at,
+the other destroys storage nobody can restore and is refused outright while a
+stack still references it.
+
+| Act | Lands on | Danger zone |
+|---|---|---|
+| Delete stack, cluster, addon | Everything running on or referencing it | **Yes** |
+| Delete secret, object store, image registry | Every stack that reads it starts failing | **Yes** |
+| Remove a git integration | Every stack and preview built from that provider | **Yes** |
+| Remove a repository from previews | Future pull requests stop getting environments | **Yes** |
+| Delete a preview environment | Its own PR, and `Sync` makes it again | No — the drawer header |
+| Delete a draft service or volume | Nothing, until the draft is deployed | No — the row |
+| Discard a draft, revoke a pending invite | Unsaved work, an unaccepted invite | No |
+
+**The danger zone is not the confirm.** The block is where the trigger stands
+and what it costs; the ladder above still decides what the confirm asks for —
+and §10's red **fill** still governs the confirm's commit button, which is the
+click that actually destroys something. Inside the tinted block the trigger is
+`destructive-ghost`: the ground already says it.
+
+**A read-only surface has no danger zone at all.** A block headed *Danger zone*
+holding nothing you may press is a warning about nothing.
+
 Say what will break, in plain words — *"All requests using this key will start
 failing"* — not *"This action cannot be undone."*
 
@@ -1305,6 +1676,54 @@ lifts.
 the glyph for its state, both derived from domain + state so they cannot
 disagree. The bordered chip is for where the word is fixed by the caller.
 
+### One fact per column
+
+**Settled 23 August 2026, on the stacks table.** `Name` carried three facts —
+the name, the project and the ref, the last two joined into one sentence
+underneath. It looked fine, and it was not.
+
+**A joined line cannot put a fact in the same place twice.** Measured with
+realistic project names, the `branch@sha` started at **four x positions spanning
+100px**, because the project before it is a different length on every row. §11
+asks for *the same fact in the same place on every line, so the odd one out
+jumps* — a column that starts with a sentence cannot deliver it.
+
+> **The fixture hid it.** Every stack in `dev:mock` shipped in a project called
+> `default`, so all the refs happened to line up. **A dataset with one value in a
+> column is not a test of that column** — the preview now runs three projects,
+> and the empty scenario still runs one.
+
+| | Before | After |
+|---|---|---|
+| Name | 420, three facts | **300, one** |
+| Project | — | **140** |
+| Source | — | **260**, mono |
+| Status | 560 for a 95px word | **200** |
+| Ref start, varied projects | **4 positions, 100px apart** | **one** |
+
+**Status paid for it.** Once its reason line came off, its cell held 465px of
+nothing. The sheet is still 1162 and there is no horizontal scroll.
+
+**A card is not a table and does not follow this.** `StackCard` still stacks the
+name over `project · ref`, because a card is read one at a time while a table is
+read down a column. Same facts, different question — the split belongs to the
+surface that scans.
+
+**Data is `foreground`; only chrome is muted.** Every cell in a list row used to
+be `fg-muted` — the same tier as the column header above it, so the row read as a
+caption of itself. The header stays muted because a header *is* chrome; what it
+labels is the thing you came to read. A cell drops to `fg-2` only where it is
+genuinely supporting (previews' repository name, which qualifies the environment
+beside it).
+
+**Status sits second, right of the name.** It is the column the page is opened to
+read — *is anything wrong* — so it goes where the eye lands after the name, not
+behind two facts that identify a row you have already found.
+
+**The test before adding a second fact to a cell:** would you ever sort or
+compare by it? If yes it is a column. A qualifier that only disambiguates
+identity may stay on the second line.
+
 ### There is no rule between rows
 
 **A separator has to earn its place by GROUPING**, and in a 64px row it groups
@@ -1328,6 +1747,66 @@ data does not have.
 **Bring the rule back if a compact row mode lands.** At ~8px between rows instead
 of 28 the grouping argument reverses, and then the line is doing real work. The
 condition is the density, not the taste.
+
+### A form's sections take the same answer — settled August 2026
+
+`FormSection` was **a rule and a label**: one full-bleed hairline between every
+group, seven of them in the resource inspector's one scroll. It was measured in
+the running app at 685×814 and the reason it read as a stack of boxes is that
+the line was the **only** channel carrying the boundary.
+
+| Channel | What it was carrying |
+|---|---|
+| **Space** | Nothing. **Every gap in the body was 16** — heading to its first field, field to field, last field to the rule, rule to the next heading |
+| **Type** | Nothing. The heading was `body/500` in ink, which is **byte-for-byte the field label under it** |
+| **Line** | All of it |
+
+A heading equidistant from the thing above and the thing below belongs to
+neither, so the eye had nothing to group by and the hairline was left doing a
+job it is bad at seven times over.
+
+**Give the space a ratio and the line has nothing left to do.**
+
+| Gap | Was | Is |
+|---|---|---|
+| Heading → its first field | 16 | **8** |
+| Field → field | 16 | 16 |
+| Section → section | 16 · rule · 16 | **32**, no rule |
+
+4 : 2 : 1, and **the total is unchanged** — the 32 was already there, split down
+the middle by the line. The drawer did not get one pixel longer; the resource
+inspector got 97px *shorter*, because the same pass took out three other things
+that were never boundaries.
+
+**The heading is `name/500` (14), not `title` (16).** §6 lists `text-title` for
+"section titles" and that still holds for a **page's** sections and a card's own
+name — but a form group inside a 480 drawer is not a page section, and 16 there
+would outrank the drawer's own object name. One rung above the `body/500` field
+labels it introduces is the whole requirement, and §6 asks for the smallest step
+that does the job.
+
+**Which line survives, and why.** Exactly one, and it is not a section boundary:
+the `collapsible` variant keeps its rule, because a band you can **press** needs
+an edge to read as a band. Being the only line left in the body is what makes it
+legible as an affordance rather than as another seam.
+
+| Kept | |
+|---|---|
+| **The header and footer hairlines** | §13 — content scrolls *under* them. A fixed edge is not a group boundary |
+| **The collapsible's rule** | It marks a fold, not a subject change |
+| Everything else | Went |
+
+**A section's tools go ON its heading row** (`actions`), right-aligned. The
+Environment group had `clear all`, `paste .env` and `import file` as three
+hand-rolled bordered chips on a line of their own *under* the heading — so an
+eleven-field group opened with a strip of borders attached to nothing, 24 from
+the heading they act on. The heading row was half empty the whole time. The
+control that **adds** a member is the exception: `Add port`, `Add variable` and
+`Add mount` stay at the foot of the list they extend, pointing at where the new
+row appears.
+
+> Measured after, in the running app: **3 borders inside the scrolling body**,
+> down from 15. Two of the three are multi-select chips, which are objects.
 
 ### Row actions — on the row up to two, behind a kebab past that
 
@@ -1373,6 +1852,84 @@ against three, with the two shapes landing on identical rows.
 
 It ran 16 above and 6 below — the one piece of chrome on the page was the only
 thing not square with itself. Settled on the board (node `121:885`).
+
+### A record list is labelled by its columns, unless the row names itself
+
+**Settled 21 Aug 2026, on the resource inspector's Ports.** The rule above is
+written for a list PAGE; a repeating record list inside a form takes the same
+answer, and the test is one question:
+
+> **Does the row's label name the row, or only count it?**
+
+| List | Label | |
+|---|---|---|
+| Environment | `NODE_ENV` | The variable's own name. It **is** the row — a header would say it twice |
+| Ports | ~~`Port 1`~~ | An **ordinal**. It does not move when 8080 becomes 3000 |
+
+Ports shipped three rows labelled `Port 1` / `Port 2` / `Port 3`. That is a 20px
+label row per record — **56px to hold two numbers** — spent on the only word in
+the section carrying no information, and put where the eye lands first. The three
+controls next to it were meanwhile **unlabelled**: nothing said the `TCP` box was
+a protocol or what `Public ǀ Internal` governed. The ordinal was standing in the
+column header's place while doing none of its job.
+
+Drop it and the names move to a `RecordColumns` header — said once for the whole
+list instead of never. The ordinal survives as `aria-label`, **announced, not
+drawn**: it is still how a screen reader tells one row from the next.
+
+| Inside a form | |
+|---|---|
+| Type | **`meta`** 12/16 weight 400, `fg-muted` — not the list page's 11. It matches the section's own `state` word, and the board sets it on Environment's `From ǀ Name ǀ Value` |
+| Gap to the first row | **8**, the list's own. The header is a member of the list, not a thing above it |
+| **Rule under it** | **None.** §11 keeps one on a list page because the data below is bare text on the same left edge, so without a line the header reads as a first row. Here the data is a row of **bordered 32px controls** — material has already drawn the boundary, and the drawer body is down to three borders precisely by not adding lines that confirm what is already unambiguous |
+| Announced | **No.** `aria-hidden`. Three loose words read before every row is worse than silence; the controls carry their own names |
+
+**The header's cells are sized exactly as the row's members are** — same fixed
+widths, same `flex-1` on the one that flexes, and **spacers for the reset slot
+and the remove button**. A header that drifts off its column is worse than no
+header, because it asserts an alignment the reader then has to go and check.
+
+> **Which is why the reset slot is reserved, not conditional.** `DirtyField`
+> rendered its inline arrow only while a row was dirty, so the row grew 24px on
+> the keystroke that made it worth looking at — moving `Protocol` and
+> `Visibility` out from under the words naming them. It now holds 20px whenever
+> a reset is possible at all, at the record's own gap of 4 rather than 8.
+
+Measured after, at 480: `Port` 138 · `Protocol` 92 · `Visibility` 141 · reset 20
+· remove 32, gaps of 4 — header and row identical to the pixel, and 16 · 8 · 8
+down the section.
+
+> ### Amendment, 23 Aug 2026 — a width stated in two places drifts, so state it once
+>
+> The paragraph above is right about the goal and wrong about the method.
+> "Same fixed widths, same `flex-1`, same spacers" is **two layouts kept in step
+> by hand**, and measured on a resource with no baseline at the inspector's 480
+> they were not in step: `Port` on its column, `Protocol` **14px** off,
+> `Visibility` **28px** off — an error that compounds left to right, which is the
+> signature of a header and a row dividing two different widths.
+>
+> Two separate causes, one mistake:
+>
+> | | |
+> |---|---|
+> | **The 28** | `DirtyField` returned a bare fragment when `baseline === undefined` and **dropped its `className` with the frame**. That class is the caller's statement of the box's SIZE (`min-w-0 flex-1`), not of its paint, so the control group stopped taking the row's slack and collapsed onto its content while the header went on dividing the full width. A resource with no baseline is **every resource you have just added**, and the whole create-stack page — so the columns were wrong exactly where someone meets them first |
+> | **The 1** | `Visibility`'s header carried a hand-computed `w-[121px]` while the control hugged at **120.04**. The arithmetic in the comment used the board's rounded metrics; the words actually set 37.56 and 46.48. It was 1px out from the day it was written |
+>
+> **The rule.** A member whose width both the header and the row must know is
+> **one exported constant, spent on both boxes** — never a number computed once
+> and copied. Where the two cannot share a constant because they sit at different
+> depths, the layout is wrong, not the number.
+>
+> **And the guarantee is a test, not a comment.**
+> `ColumnsSitOnTheirControls` in `resource-drawer.stories.tsx` asserts every
+> header word starts where its control does, on the **no-baseline** row — the
+> case that was broken. It was verified by reintroducing the bug and watching it
+> fail. A rule about alignment that nothing measures is a rule that has already
+> drifted.
+>
+> Measured after, at 480: `Port` 135 · `Protocol` 135 · `Visibility` 121, header
+> and control identical on all three. **The 138 · 92 · 141 above is stale** — it
+> predates the even-halves change and is kept only because it dates the reading.
 
 ### A time column is an AGE, and there is one of them
 
@@ -1773,7 +2330,7 @@ screen and will either finish or abandon, and the thing it needs is an exit.
 | Page type | Header left | The test |
 |---|---|---|
 | **Journey, one step** — `New secret` | **Back arrow, then the title alone. No trail** | You are *leaving a task* |
-| **Journey, several steps** — `New addon › Postgres` | **Back arrow, then the PATH** — see below | You are *inside a task and need to know where* |
+| **Journey, several steps** — `New addon / Postgres` | **Back arrow, then the PATH** — see below | You are *inside a task and need to know where* |
 | **Nested page** — `Stacks / acme-web / Environment` | **Trail, no back arrow** | You are *climbing a hierarchy* |
 
 ### A journey with steps shows the path
@@ -1783,13 +2340,13 @@ screen, and it had no answer for a second step: `Postgres` alone does not say
 which task you are in, and the sidebar cannot say it either — the journey is not
 a nav destination.
 
-> **`New addon › Postgres`.** The task, then the step you are on.
+> **`New addon / Postgres`.** The task, then the step you are on.
 
 | | |
 |---|---|
 | **In a DRAWER, the path IS the way back** | Every crumb behind the current one is a target. See below — this reverses the original rule, and it applies to drawers only |
 | **Steps behind you are `fg-muted`, the step you are on is ink** | **Colour alone separates them.** Every step is `title/500`. The board ran weight as a second signal until semibold came off the scale (§6), and one signal turned out to be the better version anyway: a 400 step beside a 500 one read as two type styles rather than as one path |
-| **Separator is `›`**, not `/` | A slash is the trail's mark and means *contained by*. This is a sequence, not a hierarchy |
+| **Separator is `/`** — the same mark the sheet's trail uses | **Reversed 20 Aug 2026, judged live.** The rule was `›`, on the reasoning that a slash means *contained by* and a journey is a sequence rather than a hierarchy. True as a sentence, invisible as a design: on the stack editor, `Stacks / docs-site` in the sheet header and the drawer's path 12px below it read as **two components** rather than one idea at two rungs — which is the whole reason the two were unified. Nobody sees both marks at once, so nobody can recover the distinction from the glyph; they only register that the product punctuates itself two ways |
 | **One step gets no path** | `New secret` has nothing to report. A path of one is a title with punctuation |
 
 ### The drawer's crumbs go back, and the arrow came off
@@ -1802,11 +2359,11 @@ Three steps is what broke it.
 
 | | |
 |---|---|
-| **The path already draws the route** | `New stack › A repository › Configure`, and every stop on it is somewhere you have been. An arrow sits next to a complete map and can only walk it one step at a time — two clicks to reach what one click on `New stack` reaches directly |
+| **The path already draws the route** | `New stack / A repository / Configure`, and every stop on it is somewhere you have been. An arrow sits next to a complete map and can only walk it one step at a time — two clicks to reach what one click on `New stack` reaches directly |
 | **It names its destination; the arrow named a direction** | "Back" tells you which way. `Enable repository` tells you *which list*. The previews wizard was already paying for this with a six-word `backLabel` — "Back to the repository list" — which is the crumb, spelled out |
 | **It bought back the 20 column** | The arrow's 32px box pushed the phrase right, so a drawer's heading started at a different x than its own body. With the arrow gone both sit on 20 |
 | **Live crumbs stay `fg-muted` at rest** | They ink to `foreground` and underline on approach. The tier IS the "behind you" signal, and lifting it would put two crumbs at the current step's ink. §7 gives the accent to selection, not navigation — a blue crumb would be the only blue text in the drawer |
-| **The hit area is the word, not a padded box** | A crumb sits inline in a phrase. A box would break the phrase into buttons and put the `›` outside them. The row is 32 tall, so the word clears the target floor vertically |
+| **The hit area is the word, not a padded box** | A crumb sits inline in a phrase. A box would break the phrase into buttons and put the `/` outside them. The row is 32 tall, so the word clears the target floor vertically |
 | **The last crumb is never a target** | It is where you already are, and it is the `DrawerTitle` Radix requires |
 | **Step one has no back control at all** | It has nowhere to point. The ✕ is the only exit, which is enough for a step that has committed nothing — and it is still what lets step one drop its footer (§13) |
 
@@ -2077,13 +2634,13 @@ Delete, confirm, verify. If the answer is an *object*, it is a drawer.
 | **The description belongs to step one only** | It is orientation and you only need orienting once. Step two carries the path (§12a) and nothing else; the header loses its second line and the body gains it |
 | **The choice is the first phase, never a dialog in front of the form** | A picker dialog gating a single form is a speed bump. It becomes phase 1, and it is the same component every time: search, category groups, `PickerRow` |
 | **The catalogue is a registry, not a screen** | Adding a service is a registry entry. A hand-written option list is a second copy that drifts — Postgres shipped as both `Postgres` and `PostgreSQL` because two lists existed |
-| **Every step is named, including the first** | `New addon › Pick a service`, then `New addon › Postgres`. Step one used to show the task alone, which under-applies §12a: a first step is still a step, and the task name does not say what to do on it |
+| **Every step is named, including the first** | `New addon / Pick a service`, then `New addon / Postgres`. Step one used to show the task alone, which under-applies §12a: a first step is still a step, and the task name does not say what to do on it |
 | **A catalogue that fits one screen gets no search** | The field can only ever hide rows already visible, and it costs a zero-result empty state that exists purely to recover from using it. **Search arrives with the scroll that justifies it**, not before |
 | **The rail is 240, and only for what the body cannot show** | See below. It is not a second column of controls, and it is not a status readout |
 | **Picking advances. Step one has no primary** | A row answers step one's only question, so a `Continue` beside it repeats the click you just made. The tick still earns its place: it is what you see when the path's first crumb brings you here |
 | **And step one has no footer at all** | See below |
 | **The row carries a stem; the crumb carries a verb** | Step one's rows read `From a repository`, not `A repository` — the bare nouns were half of a pair with a `Start from` eyebrow that left with the tab strip, so they were fragments with nothing to complete them. Once you are inside a point the kind is settled, so the crumb says what you are doing with it: `Select repository`, `Add compose file`, `Start blank`. **The five verbs differ**, so each point carries its own rather than one being derived from the other |
-| **Every step name is SHORT, because a path is a position and not a sentence** | `New stack › Select repository › Configure service`. Two earlier passes went the other way — first `› Pick a starting point` (which labelled the list), then `› Select a service to start from` and `› Start from a ready-made app` (which named the act). Both were fixing the wrong thing: **the crumb before the `›` already carries the task**, so "New stack" and "Start from" are one idea said twice, six words apart. The segment after the `›` only has to answer *where am I*, and the steps then read as siblings rather than as an instruction followed by a restatement of it |
+| **Every step name is SHORT, because a path is a position and not a sentence** | `New stack / Select repository / Configure service`. Two earlier passes went the other way — first `/ Pick a starting point` (which labelled the list), then `/ Select a service to start from` and `/ Start from a ready-made app` (which named the act). Both were fixing the wrong thing: **the crumb before the `/` already carries the task**, so "New stack" and "Start from" are one idea said twice, six words apart. The segment after the `/` only has to answer *where am I*, and the steps then read as siblings rather than as an instruction followed by a restatement of it |
 | **A step exists if it asks a question** | Not if it fits. The repository journey has three because the code and the service it becomes are two different answers — see below |
 
 #### Step one has no footer, because there is nothing on it to cancel
@@ -2279,7 +2836,7 @@ object store's provider is a mode *among* the fields.
 |---|---|
 | **A mode rewrites the fields under it** | It swaps which questions you answer. This one **removes every one of them**, which is not a mode, it is a different destination |
 | **And they leave different objects behind** | `github_app` and `git_credentials` are two records, not two shapes of one. A mode is one record's variant |
-| **Only the branch that needs it grows one** | `Connect provider › GitHub › Access token` is three; the other four commit from step two. The repository journey's precedent, applied |
+| **Only the branch that needs it grows one** | `Connect provider / GitHub / Access token` is three; the other four commit from step two. The repository journey's precedent, applied |
 
 #### And the phase test is answered per FLOW, not per form — siblings match
 
@@ -2571,12 +3128,12 @@ when it is.
 | Failure and error loudness | Per journey, by severity |
 | Toasts | **Settled — see §13.** Duration and stacking behaviour are still open |
 | Multi-step / wizard chrome | **Settled — see §13.** A wizard is not a container: pick the container by whether the user leaves and comes back. The step rail itself is still open, and lands when the drawer is built |
-| The canvas, logs, metrics, the deployment timeline | Define as we design each |
+| ~~Logs, metrics, the deployment timeline~~ | **Settled — see §16.** Built 24 Aug 2026 and judged in the running app. The **canvas** is still open |
 | Split detail layout | Add if a journey demands it |
 | Content column at very wide widths | Figma specifies 1440. Whether the sheet's content caps or spans at 2560 is unanswered |
 | Hover, focus and pressed states for the shell | Figma carries rest states only — these get derived in code from §4 and §9 |
 | The list/cards toggle | Whether a second view earns its keep |
-| The stack editor conversion | To be scheduled |
+| The stack editor conversion | **Three of four tabs done** (§16). Architecture and the resource drawers are not scheduled |
 | The auth screens | To be decided — they currently follow the website's rules |
 | ~~Form field height~~ | **Settled — see §8.** 32 is the default and that includes form fields. 40 stays on the ladder for the rare control that owns its surface. The rule moved, not the exemplar |
 | **The two-phase drawer's step rail** | The path (§12a) says which step you are on. Whether a journey with three or more steps also needs a visible rail is unanswered — both journeys have two and neither does |
@@ -2589,8 +3146,95 @@ when it is.
 | **A journey's header band changes height between steps** | Measured 16 Aug 2026 on `Add image registry`: **95** on step one, **73** on step two, because §13 gives step two no description. `Connect git provider` does the same, so it is a pattern and not one screen's bug — but §13 fixes the **width** for a whole journey on the grounds that a change reads as a different surface opening, and says nothing about the height. Open |
 | **Figma's Button is fixed-width** | All 50 variants are `FIXED` at 80, so switching **either** icon boolean on overflows the label — pre-existing, not introduced by the trailing slot. Hugging would reflow every Button instance on the board, so it is a decision, not a fix. Open |
 | **The sheet header band is two numbers** | §12a says **64 single / 108 double at a 16 inset**. The board's own list-page template (`411:7765`) ships **100 at a 12 inset**, and every frame cloned from it — the whole previews section — carries 12/100. One of the two is stale, and the arithmetic in §12a's centreline note is the tiebreak. Open |
-| **The drawer title sits on two rungs** | The `Drawer` component and every older built drawer use `head/500` (20). Both previews drawers were taken to **`title/500`** (16) by Jaseem, on the same reasoning §6 used for the page title: a title is chrome, not a headline. Whether that becomes the component's rung is undecided. Open |
+| **The drawer title sits on two rungs — and the component is on neither** | **Measured 20 Aug 2026: `DrawerHeader` ships `name/500` (14), not the 20 this entry claimed.** That now ties the drawer's own object name with a `FormSection` heading inside it (§11), which is one rung too low for the thing the whole panel is about. §13's own table says `title/500` (16), so the code is off-spec either way — but the fix touches every drawer's header height, so it is Jaseem's call, not a sweep. The `Drawer` component and every older built drawer were believed to use `head/500` (20). Both previews drawers were taken to **`title/500`** (16) by Jaseem, on the same reasoning §6 used for the page title: a title is chrome, not a headline. Whether that becomes the component's rung is undecided. Open |
 | ~~Previews on the board~~ | **Built.** Six frames and two drawers, section `655:7536`, reviewed and approved. Code plan in `docs/design/previews-implementation-plan.md`. Not yet written |
+
+---
+
+## 16. The deploy timeline — the row, the rail, and what opens
+
+**Settled 24 August 2026.** Drawn on the board, then judged in the running app
+against real data; every number below was measured in the browser, not derived.
+
+### A row is two lines, grouped by AXIS
+
+| Line | Carries |
+|---|---|
+| **One** | The disclosure, the identity (`#4`), the trigger (`Manual deploy`), the time |
+| **Two** | The state (`Failed`) and the detail that explains it, indented under the title |
+
+The state used to sit on line one as a chip, between `#4` and its cause — three
+facts from three axes in a row, with the sentence that explained the middle one
+stranded on the line below. It also made line one **ragged**: a released node has
+no chip, so its cause began 60px left of a failed one's and the titles never
+formed a column. Grouping by axis fixes both. **Jaseem's call, from the two drawn
+side by side — the rag was only visible once they were.**
+
+### A release's state is ONE channel
+
+The rail dot and a coloured word. No chip, no fill, no border — §7, said once.
+`Live` is `success`, `Failed` is `danger`, `Released` and `Draft` are `fg-2`.
+
+### Hollow means UNSETTLED — not "not live"
+
+| Mark | State |
+|---|---|
+| Solid | It landed. Whether or not it is the release serving traffic |
+| Hollow ring | It never finished — a failure, or a draft that has not deployed |
+| Spinner | In flight. The one thing that moves (§7), `motion-safe:` |
+
+The rail previously filled **only** the live release and left every other node a
+hollow ring, so a rail of identical rings hid the one thing worth finding.
+
+### The rail aligns to CAP HEIGHT, and its gutter is 12
+
+Three separate errors, all from aligning to the wrong box:
+
+| | Wrong because | Measured |
+|---|---|---|
+| Dot vs title | Centred on the line box, and text centres on its **cap height** | 2.9px high |
+| Line box assumed 20px | A row's first line is **32px** — its height comes from the overflow menu | 6px high |
+| Draft row | Had no menu, so its line was 20px where a release row's was 32 | No single offset could serve both — the draft row now carries `min-h-8` |
+
+Dot, chevron and title now sit within **0.11px** of one shared axis. The gutter is
+**12 wide** so the rail lands on the sheet header's own leading button — 274px in
+both cases — and the 1px connector is nudged half a pixel so it renders **on** a
+pixel rather than across two, which read as misaligned while being geometrically
+exact.
+
+### The disclosure leads the row, and the row indents under it
+
+Chevron first, rotating from `-90°` closed to `0°` open. Line two and the whole
+expanded body indent `pl-6` — the chevron (14) plus the row gap (10). A rail of
+releases that open into detail **is a tree**; it now looks like one.
+
+The overflow menu appears on hover — `opacity`, never `hidden`, so it keeps its
+place in the tab order and `focus-within` brings it back for the keyboard.
+
+### The detail is a column, not a bleed
+
+| | |
+|---|---|
+| Expanded body | Capped at **900** — the console's longest activity line beside its 256px resource pane |
+| A diff card | `w-fit`, floored at 280. It holds a `key from → to`; spanning the column left the value stranded from its key |
+| The failure banner | `w-fit` **at the call site**, never on `AlertBanner` — a banner that fills its column is right where it is the page's headline, and wrong as one line among several |
+
+### The ops tabs are the white sheet
+
+Their body was painted `--background`, so the content plane matched the page
+ground behind the shell and only the header band read as a sheet. §3: the content
+plane and its top bar are one surface. The canvas keeps `--background` — its dot
+grid is the frame, deliberately.
+
+### Two things the board could not have told us
+
+Both found only by running it:
+
+- **`toLocaleTimeString()` is 12-hour in some locales.** `5:28:12 PM` is ten
+  glyphs; the board's `17:31:12` is eight, and the column wrapped.
+- **`react-lazylog` paints its own chrome.** A near-black search toolbar, a `#444`
+  line hover and a hardcoded `#666` for line numbers — three literals answering to
+  no token, invisible while the panel was dark, wrong the moment it went white.
 
 ---
 
@@ -2601,6 +3245,8 @@ when it is.
 | **Tailwind silently drops `shadow-[…]` behind a variant** | `focus-visible:shadow-[var(--x)]` is read as a shadow **colour**, not a shadow, so the geometry vanishes and it renders transparent. The `shadow-[shadow:var(--x)]` type hint fixes the ambiguity but is then not extracted at all in some builds — the class lands on the element, `:focus-visible` matches, the variable resolves, and **no rule is ever generated**. It worked in the dev server and failed in the Storybook build. The focus rings are therefore plain unlayered CSS classes, not utilities |
 | **Unlayered CSS beats `@layer utilities`** | Which is what stops `active:shadow-*` overwriting the focus ring and eating it mid-press. Anything that must survive a utility goes outside the layers |
 | **A `border-b` participates in layout** | It pushed the sheet header from 108 to 109 and moved every row below it. Figma's stroke is align=INSIDE; the CSS equivalent is `box-shadow: inset 0 -1px 0` (`.sheet-edge-b`), which costs the layout nothing — the same reason the sheet's own edge is an `outline` (§12a) |
+| **tailwind-merge resolves `px-*` over `pl-*`** | Later class wins, so `cn("pl-6", NODE_CARD.inset)` silently deletes the indent — the class never reaches the DOM and the comment describing it goes on claiming it does. The docked volume row spent two sessions "indented" at 12. Put the axis class first, or do not mix the two on one element |
+| **A component that drops `className` drops a LAYOUT contract** | `DirtyField`'s no-baseline branch returned `<>{children}</>`, which reads as harmless — it is skipping a visual frame. But callers pass `className` to state a box's size, so the frame took `min-w-0 flex-1` with it and a whole column collapsed. An early return that discards props is a silent bug in every caller that passed one |
 | **tailwind-merge and named sizes** | It classifies any unfamiliar `text-*` as a **colour**, so `cn("text-body","text-fg-2")` silently drops the size and the element falls back to 16px. `cn` registers the scale as a `font-size` group in `frontend/src/lib/utils.ts`. **Any new named utility that shadows a Tailwind prefix must be registered there too** |
 | **Tailwind misses new files** | A file created while the dev server is running is skipped by the scan — arbitrary classes produce no CSS at all. `touch src/index.css` to force a rescan |
 | **`:active` fires while `:hover` is true** | A press that only sets a shadow will still inherit the hover fill and get *lighter*. Set the pressed fill explicitly |

@@ -10,7 +10,15 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AlertBanner, BlockedAction, FieldGrid, FieldShell, reasonList } from "@/components/branded";
+import {
+  AlertBanner,
+  BlockedAction,
+  DangerZone,
+  DangerZoneRow,
+  FieldGrid,
+  FieldShell,
+  reasonList,
+} from "@/components/branded";
 import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -223,7 +231,7 @@ export function RepositorySettingsDrawer({
               string you reference and copy. */}
           <FieldShell
             label="Repository"
-            hint="Cannot be changed. Remove the repository and add it again to point at a different one."
+            help="Cannot be changed. Remove the repository and add it again to point at a different one."
           >
             <div className="flex h-8 items-center rounded-md bg-control px-3 font-mono text-meta text-fg-2">
               <span className="truncate" title={repository}>
@@ -241,7 +249,7 @@ export function RepositorySettingsDrawer({
               htmlFor="rs-branch"
               required
               span={1}
-              hint="The branch pull requests target."
+              help="The branch pull requests target."
               error={fieldErrors.baseBranch}
             >
               <Input
@@ -258,7 +266,7 @@ export function RepositorySettingsDrawer({
               label="Max active previews"
               htmlFor="rs-max"
               span={1}
-              hint="New environments stop being created once this many are live."
+              help="New environments stop being created once this many are live."
               error={fieldErrors.maxActive}
             >
               {/* Full width, like every other field. A short value does not earn
@@ -283,7 +291,7 @@ export function RepositorySettingsDrawer({
             label="Stackfile path"
             htmlFor="rs-stackfile"
             required
-            hint="Defines the full stack. Fetched from the repository on every deploy: a wrong path shows up as a Failed environment."
+            help="Defines the full stack. Fetched from the repository on every deploy: a wrong path shows up as a Failed environment."
             error={fieldErrors.stackfilePath}
           >
             <Input
@@ -308,7 +316,7 @@ export function RepositorySettingsDrawer({
               110 → 88, and `Plain text` → `Plain`. */}
           <FieldShell
             label="Environment variables"
-            hint="Applied to every preview. Reference a saved secret with the Secret source rather than pasting the value here."
+            help="Applied to every preview. Reference a saved secret with the Secret source rather than pasting the value here."
             error={fieldErrors.env}
           >
             <EnvVarsEditor
@@ -320,39 +328,37 @@ export function RepositorySettingsDrawer({
             />
           </FieldShell>
 
-          {/* Remove sits at the foot of the body, behind a hairline and a
-              confirm — not in the footer, which is where THIS form commits. */}
-          <div className="mt-2 flex flex-col gap-2 border-t border-border pt-5">
-            <h3 className="text-body font-medium text-foreground">Remove from previews</h3>
-            <p className="text-meta text-muted-foreground leading-relaxed">
-              Pull requests on this repository stop getting environments. Your code is not touched:
-              this only removes Stackdome&apos;s rule.
-            </p>
-            {/* **Solid `destructive`.** §10 put the red fill on the confirm's
-                commit button and left the trigger in `destructive-ghost`, on
-                the reasoning that the trigger is not the commit. Jaseem's call,
-                August 2026: a red word inside a section already headed *Remove
-                from previews* is the same thing said quietly twice, and the
-                fill is what makes the act legible from across the form. The
-                confirm behind it is what makes it safe, not the button's
-                material. */}
-            <BlockedAction reason={removeReason}>
-              <Button
-                variant="destructive"
-                shape="flat"
-                // No `-ml-3`. A ghost has no visible box, so it was pulled back
-                // to put its LABEL on the body's edge with the sentence above
-                // it. A filled button has a box, and the box is what lands on
-                // the edge — the same rule the footer's primary follows.
-                className="self-start"
-                disabled={removing}
-                onClick={() => void requestRemove()}
-              >
-                {removing && <Loader2 className="animate-spin" />}
-                Remove repository
-              </Button>
-            </BlockedAction>
-          </div>
+          {/**
+           * **The danger zone — the shared block, not a shape of its own.**
+           *
+           * It was a hairline, a heading, a paragraph and a red button: four
+           * marks to say "this part is different", none of them visible until
+           * you had scrolled to them. The tint says it in one, and it says it
+           * from anywhere on the form.
+           *
+           * The row keeps its own sentence while every other gloss here moved
+           * to a `?`. A hint annotates a field you are filling in; a blast
+           * radius has to be legible at the moment you notice the button.
+           */}
+          <DangerZone>
+            <DangerZoneRow
+              title="Remove from previews"
+              description="Pull requests stop getting environments."
+              action={
+                <BlockedAction reason={removeReason}>
+                  <Button
+                    variant="destructive-ghost"
+                    shape="flat"
+                    disabled={removing}
+                    onClick={() => void requestRemove()}
+                  >
+                    {removing && <Loader2 className="animate-spin" />}
+                    Remove repository
+                  </Button>
+                </BlockedAction>
+              }
+            />
+          </DangerZone>
         </DrawerBody>
 
         <DrawerFooter>

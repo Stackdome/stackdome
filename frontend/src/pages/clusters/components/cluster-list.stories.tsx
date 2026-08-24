@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect } from 'storybook/test'
+import { expect, fn } from 'storybook/test'
 import { makeCluster } from '../../../../.storybook/fixtures'
 import { ClusterList, ClusterListSkeleton } from './cluster-list'
 
 const meta = {
   title: 'Features/Clusters/ClusterList',
   component: ClusterList,
+  args: { onOpen: fn() },
 } satisfies Meta<typeof ClusterList>
 
 export default meta
@@ -37,9 +38,11 @@ export const Default: Story = {
       await expect(row.className).not.toContain('translate')
       await expect(row.className).not.toContain('scale')
     }
-    // The chevron is decorative chrome, not a control in its own right — the
-    // row is the one control.
-    await expect(rows[0].querySelector('svg')?.getAttribute('aria-hidden')).not.toBeNull()
+    // The row is the ONE control: no chevron, no kebab, nothing but the name.
+    // A trailing track with an action in it was removed with the action.
+    await expect(rows[0].querySelector('svg')).toBeNull()
+    await expect(rows[0].querySelector('button')).toBeNull()
+    await expect(getComputedStyle(rows[0]).gridTemplateColumns.split(' ')).toHaveLength(1)
   },
 }
 
@@ -55,12 +58,14 @@ export const NoColumnHeader: Story = {
   },
 }
 
-/** The whole row is the destination, and it announces what it is. */
-export const RowIsALink: Story = {
+/** The whole row is the one hit area, and it announces what it opens. */
+export const RowOpensTheDrawer: Story = {
   args: { clusters: [makeCluster({ name: 'prod-us-east' })] },
-  play: async ({ canvas }) => {
+  play: async ({ canvas, args, userEvent }) => {
     const row = canvas.getByRole('link', { name: 'prod-us-east cluster' })
     await expect(row).toHaveAttribute('tabindex', '0')
+    await userEvent.click(row)
+    await expect(args.onOpen).toHaveBeenCalled()
   },
 }
 

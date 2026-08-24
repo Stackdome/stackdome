@@ -136,8 +136,10 @@ describe("PreviewsPage", () => {
 
   it("warns and blocks New preview at the cap", async () => {
     renderPage("cfg-1");
-    // Two of three, so it is not at the cap yet and nothing is blocked.
-    expect(await screen.findByText("2 of 3 active")).toBeInTheDocument();
+    // Two of three, so it is not at the cap yet and nothing is blocked. The
+    // count is not on the band any more — the absence of the banner IS the
+    // "under the cap" reading.
+    expect(await screen.findByRole("heading", { name: "webapp" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
 
     cleanup();
@@ -152,7 +154,7 @@ describe("PreviewsPage", () => {
       refresh: vi.fn(),
     });
     renderPage("cfg-1");
-    expect(await screen.findByRole("alert")).toHaveTextContent(/at its limit of 3 environments/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/at the limit of 3 environments/i);
     expect(screen.getByRole("button", { name: /new preview/i })).toBeDisabled();
   });
 

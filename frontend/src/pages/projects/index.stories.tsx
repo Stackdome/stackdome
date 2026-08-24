@@ -36,14 +36,44 @@ export const Populated: Story = {
       await expect(canvas.getByText('growth')).toBeInTheDocument()
     })
 
-    // Row actions open a portal menu; Delete reads through the shared
-    // destructive variant (danger-tinted focus wash), never a hand-rolled
-    // text-only color override (rubric #4 — hue reports state).
-    const rows = canvas.getAllByRole('button', { name: /project actions/i })
-    await userEvent.click(rows[1])
-    const menu = within(canvasElement.ownerDocument.body)
-    const deleteItem = await menu.findByText('Delete')
-    await expect(deleteItem.closest('[data-variant="destructive"]')).toBeTruthy()
+    // **No row menu, and no track for one.** The kebab held `Manage members`,
+    // `Rename` and `Delete`; the row opens the project's drawer and all three
+    // are in the open. Three header cells, not four.
+    await expect(canvas.queryByRole('button', { name: /project actions/i })).toBeNull()
+    await expect(canvasElement.querySelectorAll('thead th')).toHaveLength(3)
+
+    await userEvent.click(canvas.getByRole('link', { name: 'platform project' }))
+    const drawer = within(canvasElement.ownerDocument.body)
+    await expect(await drawer.findByLabelText(/^name/i)).toHaveValue('platform')
+    // Delete is in the danger zone at the foot, never a menu item.
+    const del = drawer.getByRole('button', { name: /delete project/i })
+    await expect(drawer.getByRole('heading', { name: /danger zone/i }).parentElement)
+      .toContainElement(del)
+  },
+}
+
+/**
+ * **The default project refuses both acts and says why** (§11). It cannot be
+ * renamed and it cannot be deleted, so the controls are blocked rather than
+ * hidden — a drawer that appears to offer nothing and explains nothing is
+ * worse than one that refuses out loud.
+ */
+export const DefaultProjectRefusesAndSaysWhy: Story = {
+  parameters: {
+    msw: [
+      http.get(PROJECTS_PATH, () => HttpResponse.json({ items: threeProjects, total: threeProjects.length })),
+      ...baselineHandlers,
+    ],
+  },
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    await userEvent.click(await canvas.findByRole('link', { name: 'default project' }))
+    const drawer = within(canvasElement.ownerDocument.body)
+
+    await expect(await drawer.findByLabelText(/^name/i)).toBeDisabled()
+    const del = drawer.getByRole('button', { name: /delete project/i })
+    await expect(del).toBeDisabled()
+    await userEvent.hover(del.parentElement!)
+    await expect(await drawer.findAllByText(/default project/i)).not.toHaveLength(0)
   },
 }
 

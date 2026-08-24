@@ -130,7 +130,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </div>
               )}
               <SidebarGroupContent>
-                {/* 34px pitch — a 32px row and a 2px gap. */}
+                {/* 34px pitch — a 32px row and a 2px gap. Tried at 6px on
+                    23 Aug 2026 and reverted: at a 32px row it read as loose,
+                    and the rail stopped scanning as one column of destinations.
+                    Jaseem's call, made on the rendered rail. */}
                 <SidebarMenu className="gap-0.5">
                   {items.map((item) => (
                     <NavItem key={item.path} item={item} />

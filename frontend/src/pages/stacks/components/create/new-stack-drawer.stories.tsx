@@ -117,7 +117,7 @@ export const StartingPoints: Story = {
     const dialog = within(await screen.findByRole('dialog'))
     await expect(dialog.getAllByRole('option')).toHaveLength(5)
     // §12a: the task, then the step. The FIRST step is named too — and it is
-    // named SHORT: the crumb before the `›` already carries the task, so the
+    // named SHORT: the crumb before the `/` already carries the task, so the
     // segment after it only has to say where you are.
     await expect(dialog.getByText('Select a service')).toBeInTheDocument()
     // **No primary.** Step one commits nothing — a row answers its question, so

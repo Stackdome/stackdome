@@ -1,8 +1,8 @@
-import { ChevronDown, ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { ExternalLink } from "lucide-react";
 
-import { FieldGrid, FieldShell } from "@/components/branded";
+import { Disclosure, FieldGrid, FieldShell } from "@/components/branded";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -49,53 +49,9 @@ interface Props {
  *  only structure in it. The visual treatment is unchanged. */
 function SectionRule({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-border -mx-5 border-t px-5 pt-4">
+    <div className="border-border-subtle -mx-5 border-t px-5 pt-4">
       <h3 className="text-body text-foreground font-medium">{children}</h3>
     </div>
-  );
-}
-
-/**
- * The header of a collapsed section. **One shape for both, and the whole row is
- * the target.**
- *
- * `Advanced` used to carry a `Documentation` link beside its trigger, which made
- * the trigger `flex-1` and stopped it where the link began — so `Backups`
- * hovered edge to edge and `Advanced` hovered up to a seam partway across, on
- * two rows sitting one above the other. Two disclosures that look identical at
- * rest must not answer the pointer differently. The link moved to the drawer's
- * footer, where it is reachable the whole time rather than only while you are
- * over one section.
- *
- * The wash is `--wash-hover`, not `bg-muted/30`. §3 keeps those apart on
- * purpose: a surface with its own fill hovers to `--muted`, a surface that is
- * transparent at rest borrows a wash. Thinning a ground by hand also skips the
- * ladder's dark correction, so it landed a different distance in each theme.
- */
-/**
- * **What a disclosure hides lines up with its own name, not with its edge.**
- *
- * The trigger spends 20 of inset, a 16 chevron and an 8 gap before the label —
- * so the word `Backups` starts at 44, and content padded to the section's 20 sat
- * 24 to the LEFT of the thing that named it. Every field inside then read as
- * belonging to the drawer rather than to the section it had just been opened
- * out of. `SECTION_CONTENT_INSET` is that 44, derived from the trigger above it
- * so the two cannot drift.
- */
-const SECTION_CONTENT_INSET = "pl-11 pr-5";
-
-function SectionDisclosure({ label, state }: { label: string; state: string }) {
-  return (
-    <CollapsibleTrigger asChild>
-      <button
-        type="button"
-        className="group focus-ring-edge text-body text-foreground flex w-full items-center gap-2 px-5 py-4 text-left font-medium transition-colors hover:bg-[var(--wash-hover)]"
-      >
-        <ChevronDown className="text-fg-muted size-4 transition-transform group-data-[state=open]:rotate-180" />
-        {label}
-        <span className="text-meta text-fg-muted font-normal">{state}</span>
-      </button>
-    </CollapsibleTrigger>
   );
 }
 
@@ -162,6 +118,9 @@ export function PostgresFormFields({
   onChange,
 }: Props) {
   const showCustomCompute = values.plan === "custom";
+  /** Controlled so a parse error can force the group open — see the disclosure
+   *  at the foot of this form. */
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   return (
     <>
@@ -229,7 +188,10 @@ export function PostgresFormFields({
           that is not there. */}
       <FieldGrid>
         <FieldShell label="Plan" htmlFor="addon-plan" span={1}>
-          <Select value={values.plan} onValueChange={(v) => onChange("plan", v as PlanId)}>
+          <Select
+            value={values.plan}
+            onValueChange={(v) => onChange("plan", v as PlanId)}
+          >
             <SelectTrigger id="addon-plan">
               <SelectValue />
             </SelectTrigger>
@@ -369,66 +331,81 @@ export function PostgresFormFields({
             },
           ] as const
         ).map((row) => (
-          <FieldShell key={row.id} inline span={2} label={row.label} htmlFor={row.id} hint={row.hint}>
-            <Switch id={row.id} checked={row.checked} onCheckedChange={row.set} />
+          <FieldShell
+            key={row.id}
+            inline
+            span={2}
+            label={row.label}
+            htmlFor={row.id}
+            help={row.hint}
+          >
+            <Switch
+              id={row.id}
+              checked={row.checked}
+              onCheckedChange={row.set}
+            />
           </FieldShell>
         ))}
       </FieldGrid>
 
-      {/* **The two disclosures are one stack, so nothing sits between them.**
-          They were siblings of the field groups above, which meant the body's
-          own 16 gap fell between `Backups` and `Advanced` — and a gap between
-          two rules reads as a third, empty section. Wrapped, they close up:
-          each keeps its own top rule, and the 16 is spent once, above the pair,
-          separating the stack from the fields it follows. */}
-      <div className="-mx-5">
-        <Collapsible defaultOpen={values.backup.enabled} className="border-border border-t">
-          <SectionDisclosure label="Backups" state={values.backup.enabled ? "on" : "off"} />
-          <CollapsibleContent>
-            <div className={cn(SECTION_CONTENT_INSET, "pt-1 pb-5")}>
-              <BackupConfigFields
-                values={values.backup}
-                errors={{
-                  objectStoreId: errors["backup.objectStoreId"],
-                  schedule: errors["backup.schedule"],
-                }}
-                objectStores={objectStores}
-                storesLoading={storesLoading}
-                onChange={(next) => onChange("backup", next)}
-              />
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+      {/* **A disclosure inside a form is a control, not a section.**
+          This was a hand-rolled `SectionDisclosure` — a full-bleed band with
+          its own rule and hover wash — and then briefly a `FormSection
+          collapsible`, which is that same band from the primitive. Both give a
+          few more fields of ONE subject the chrome of a whole section, and draw
+          a rule across the drawer to do it.
 
-        <Collapsible defaultOpen={false} className="border-border -mb-1 border-t">
-          <SectionDisclosure
-            label="Advanced"
-            // Advanced reported nothing while Backups reported on/off, so a
-            // section hiding a JSON blob gave no signal whether anything was in
-            // it. Same state word, same place.
-            state={values.advancedJson.trim() ? "edited" : "default"}
+          It is the `Disclosure` the stack editor's `Source` group and `New
+          preview` use: a ghost button at its own width, `fg-2`, with a chevron
+          that TURNS. Jaseem, August 2026 — "implement the same thing on addon
+          and everywhere else we use chevrons to reveal more options". */}
+      <Disclosure
+        label={`Backups — ${values.backup.enabled ? "on" : "off"}`}
+        defaultOpen={values.backup.enabled}
+      >
+        <BackupConfigFields
+          values={values.backup}
+          errors={{
+            objectStoreId: errors["backup.objectStoreId"],
+            schedule: errors["backup.schedule"],
+          }}
+          objectStores={objectStores}
+          storesLoading={storesLoading}
+          onChange={(next) => onChange("backup", next)}
+        />
+      </Disclosure>
+
+      {/* **Opened by its own error.** The JSON is unmounted while closed, so a
+          parse failure inside a shut group is a message nobody can reach. */}
+      <Disclosure
+        label="Advanced — cluster configuration JSON"
+        open={advancedOpen || Boolean(errors.advancedJson)}
+        onOpenChange={setAdvancedOpen}
+      >
+        {/* The error binds to the box it is about at 8 — 16 is the distance
+            between two FIELDS, and these are one. */}
+        <div className="flex flex-col gap-2">
+          <Textarea
+            id="advanced-json"
+            rows={10}
+            value={values.advancedJson}
+            onChange={(e) => onChange("advancedJson", e.target.value)}
+            placeholder={
+              '{\n  "configuration": {\n    "parameters": { "max_connections": "200" }\n  }\n}'
+            }
+            className={cn(
+              "text-meta [field-sizing:fixed] font-mono",
+              errors.advancedJson ? "border-danger" : "",
+            )}
+            spellCheck={false}
           />
-          <CollapsibleContent>
-            <div className={cn(SECTION_CONTENT_INSET, "space-y-2 pt-3 pb-5")}>
-              <Textarea
-                id="advanced-json"
-                rows={10}
-                value={values.advancedJson}
-                onChange={(e) => onChange("advancedJson", e.target.value)}
-                placeholder={'{\n  "configuration": {\n    "parameters": { "max_connections": "200" }\n  }\n}'}
-                className={cn(
-                  "text-meta [field-sizing:fixed] font-mono",
-                  errors.advancedJson ? "border-danger" : "",
-                )}
-                spellCheck={false}
-              />
-              {errors.advancedJson && (
-                <p className="text-meta text-danger whitespace-pre-wrap">{errors.advancedJson}</p>
-              )}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
+          {errors.advancedJson && (
+            <p className="text-meta text-danger whitespace-pre-wrap">
+              {errors.advancedJson}
+            </p>
+          )}
+        </div>
+      </Disclosure>
     </>
   );
 }

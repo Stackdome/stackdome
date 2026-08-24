@@ -85,11 +85,15 @@ export const Populated: Story = {
     await expect(getComputedStyle(name).fontSize).toBe('14px')
     await expect(getComputedStyle(name).fontWeight).toBe('500')
     await expect(getComputedStyle(canvas.getByText('eu-west-1')).fontSize).toBe('12px')
-    // Row actions are hidden until the pointer arrives, but still mounted, so
-    // they keep their tab stop and the row does not reflow on hover.
-    const actions = canvasElement.querySelector('[data-slot="data-list-actions"]')!
-    await expect(getComputedStyle(actions).opacity).toBe('0')
-    await expect(canvas.getByRole('button', { name: 'Delete backups-eu' })).toBeInTheDocument()
+    // **No actions on the row.** `Edit` is what the row now does, and `Delete`
+    // stops every addon backing up here from having a destination — an act
+    // whose cost lands on other objects belongs in the danger zone on the
+    // object, not under a pointer on a row you were scanning (§10).
+    await expect(canvasElement.querySelector('[data-slot="data-list-actions"]')).toBeNull()
+    await expect(canvas.queryByRole('button', { name: /^Delete / })).toBeNull()
+    await expect(canvas.queryByRole('button', { name: /^Edit / })).toBeNull()
+    // The row IS the way in, and it says what it opens.
+    await expect(rows[0]).toHaveAccessibleName(/object store$/)
   },
 }
 

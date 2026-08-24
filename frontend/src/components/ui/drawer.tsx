@@ -125,13 +125,13 @@ type DrawerSize = keyof typeof drawerSizes
  * than sitting still while the viewport shrinks around it, and a number that
  * lived only in a Tailwind class would have to be guessed there.
  */
-const drawerRegionWidthPx = { form: 400, work: 640 } as const satisfies Record<DrawerSize, number>
+const drawerRegionWidthPx = { form: 480, work: 640 } as const satisfies Record<DrawerSize, number>
 
 // Unconditional, unlike the modal's `sm:` rungs. A modal drawer goes full-bleed
 // on a phone because it is the whole screen there; a region cannot — it is a
 // slice of a sheet, and a slice that eats its own container is not a slice.
 const regionSizes = {
-  form: "w-[400px]",
+  form: "w-[480px]",
   work: "w-[640px]",
 } as const satisfies Record<DrawerSize, string>
 
@@ -176,13 +176,22 @@ function DrawerContent({
           // Square. It meets three screen edges, and the inner edge is held by
           // the border and the scrim — a radius there made it read as a sheet
           // laid ON the page rather than part of it.
-          "bg-popover fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border shadow-2xl",
+          "bg-popover fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border-subtle shadow-2xl",
           // The content takes the focus on open (see `onOpenAutoFocus`), and a
           // container is not a control — so it must not draw a ring. The
           // dialog role is what announces it; the outline would only say "this
           // 640px panel is focused", which nobody needed telling.
           "outline-none",
-          "grid grid-rows-[auto_minmax(0,1fr)_auto]",
+          // **The column is `minmax(0,1fr)`, not `1fr`.** A grid item's
+          // automatic minimum size is its min-content on BOTH axes, so a band
+          // holding an unbreakable string — a 56-character cluster name in the
+          // header, a URL in a row — sets the track wider than the drawer and
+          // every band stretches to match. Measured at 480: a long title took
+          // the track to 522 and pushed the body 42px past the panel's own
+          // edge, taking its 20px inset with it. Capping the track at 0 hands
+          // the shrinking back to the `truncate` and `min-w-0` the bands
+          // already carry.
+          "grid grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto]",
           // **The travel lives in `index.css`, under "Drawer choreography".**
           // It was `animate-in … slide-in-from-right … fade-in-0` here, which
           // faded an opaque panel while it moved and could not be interrupted:
@@ -306,7 +315,20 @@ function DrawerRegion({
           // outline around one of them. `--shadow-region` is `lg` turned on
           // its side so it falls onto the canvas instead of into a clipped
           // seam (see §5).
-          !detached && "border-l border-border shadow-[var(--shadow-region)]",
+          // **`border-subtle` (6%), not the 11% hairline.**
+          //
+          // Both drawers are RAISED surfaces — this one carries
+          // `--shadow-region`, the floating one `shadow-2xl` — and the ladder
+          // gives 6% to a surface whose shadow is doing the lifting, 11% to a
+          // hairline that separates on its own. The sheet and the detached
+          // drawer were already at 6%, so the inspector's inner edge was the
+          // one raised surface in the editor drawing a heavier line than the
+          // surfaces either side of it.
+          //
+          // It stays a `border-l` and not an outline: a ONE-SIDED rule is a
+          // divider between two things rather than an outline around one, so it
+          // belongs inside the 480 (§8).
+          !detached && "border-l border-border-subtle shadow-[var(--shadow-region)]",
           // ── detached: a SHEET beside the sheet ───────────────────────────
           // **The board's `canvas — 03 inspector` frame.** The panel stops
           // being a slice of the main sheet and becomes a peer of it: its own
@@ -318,7 +340,7 @@ function DrawerRegion({
           // Same material as `SidebarInset` and for the same reason — two
           // cards on one mount have to be cut from one stock. The hairline is
           // an `outline`, not a `border`: it paints OUTSIDE the box, so it
-          // costs the 400 nothing and the two headers stay in step.
+          // costs the 480 nothing and the two headers stay in step.
           detached && "h-full rounded-lg shadow-md outline-1 outline-border-subtle",
           regionSizes[size],
           className,
@@ -586,7 +608,7 @@ function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="drawer-footer"
       className={cn(
-        "flex flex-col gap-4 border-t border-border p-6",
+        "flex flex-col gap-4 border-t border-border-subtle p-6",
         className
       )}
       {...props}

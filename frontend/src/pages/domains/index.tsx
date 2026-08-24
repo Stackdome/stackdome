@@ -12,6 +12,7 @@ import type { Organization } from "@/api/organizations";
 import { getErrorMessage } from "@/api/client";
 import { type DomainName, createDomainFromForm } from "./schemas/api-schema";
 import DomainListItem, { DomainListSkeleton } from "./components/domain-list-item";
+import { DomainDetailsDrawer } from "./components/domain-details-drawer";
 import AddDomainDrawer from "./components/add-domain-drawer";
 
 export default function DomainsPage() {
@@ -21,6 +22,9 @@ export default function DomainsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showAddDrawer, setShowAddDrawer] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  /** Which row is open, not a boolean — the drawer is driven by the click, so
+   *  there is no second `open` flag to keep in step with it. */
+  const [detailsFor, setDetailsFor] = useState<Partial<DomainName> | null>(null);
 
   const { setCustomLabel, setPathLoading } = useBreadcrumb();
   const { toast } = useToast();
@@ -114,12 +118,12 @@ export default function DomainsPage() {
     });
   };
 
-  const handleRemoveDomain = async (index: number) => {
+  const handleRemoveDomain = async (target: Partial<DomainName>) => {
     if (!organization) return;
 
     // It used to fire on the first click: no gate, no undo, and every stack
     // served on that domain loses its address. §6a level 2.
-    const fqdn = organization.domains?.[index]?.fqdn ?? "this domain";
+    const fqdn = target.fqdn ?? "this domain";
     const ok = await confirm({
       title: "Remove domain?",
       description: `Every stack served on ${fqdn} loses its address. Existing links stop resolving as soon as DNS catches up.`,
@@ -132,14 +136,21 @@ export default function DomainsPage() {
     });
     if (!ok) return;
 
-    const updatedDomains = [...(organization.domains || [])];
-    updatedDomains.splice(index, 1);
+    // Matched on the fqdn rather than on a list index: the drawer holds the
+    // domain itself, and an index captured when the row rendered is stale the
+    // moment the list refetches under it.
+    const updatedDomains = (organization.domains || []).filter(
+      (d) => d.fqdn !== target.fqdn,
+    );
     const failure = await persistDomains(updatedDomains);
     if (failure) {
       // No form is left on screen to correct, so a toast is the right home here.
       toast({ title: "Domain could not be removed", description: failure, variant: "destructive" });
       return;
     }
+
+    // The object this drawer is about is gone, so the drawer goes with it.
+    setDetailsFor(null);
 
     toast({
       title: "Domain deleted",
@@ -195,14 +206,21 @@ export default function DomainsPage() {
         <div>
           {domains.map((domain, index) => (
             <DomainListItem
-              key={index}
+              key={domain.fqdn ?? index}
               domain={domain}
-              index={index}
-              onRemove={handleRemoveDomain}
+              onOpen={setDetailsFor}
             />
           ))}
         </div>
       )}
+
+      {/* The list stays on screen behind it — which is the whole reason one
+          object's detail is a drawer and not a page (§13). */}
+      <DomainDetailsDrawer
+        domain={detailsFor}
+        onOpenChange={(open) => !open && setDetailsFor(null)}
+        onRemove={(domain) => void handleRemoveDomain(domain)}
+      />
 
       <AddDomainDrawer
         submitError={addError}

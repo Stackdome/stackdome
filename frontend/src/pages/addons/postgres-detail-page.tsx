@@ -4,7 +4,14 @@ import { Loader2, PlayCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import cronstrue from "cronstrue";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Panel, EmptyState, FieldShell, BlockedAction } from "@/components/branded";
+import {
+  Panel,
+  EmptyState,
+  FieldShell,
+  BlockedAction,
+  DangerZone,
+  DangerZoneRow,
+} from "@/components/branded";
 import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
 import { getCurrentOrganizationId } from "@/lib/common";
@@ -217,7 +224,6 @@ export default function PostgresDetailPage() {
         <PostgresDetailHeader
           addon={addon}
           canWrite={canWrite(addon.project_id ?? "")}
-          onDelete={() => void handleDelete()}
           onEdit={() => setEditOpen(true)}
         />
 
@@ -261,7 +267,7 @@ export default function PostgresDetailPage() {
               </ReadField>
             </div>
 
-            <div className="border-t border-border pt-5">
+            <div className="border-t border-border-subtle pt-5">
               <h3 className="text-body font-semibold text-foreground mb-3">
                 Backups
               </h3>
@@ -295,7 +301,7 @@ export default function PostgresDetailPage() {
                 </div>
 
                 {hasDestination && (
-                  <div className="flex items-center justify-end border-t border-border pt-4">
+                  <div className="flex items-center justify-end border-t border-border-subtle pt-4">
                     <Button onClick={handleTrigger} disabled={triggering}>
                       {triggering ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -322,7 +328,7 @@ export default function PostgresDetailPage() {
                   <>
                     <BackupsList backups={backups} />
                     {backupsPageCount > 1 && (
-                      <div className="flex items-center justify-between border-t border-border pt-3 text-body text-muted-foreground">
+                      <div className="flex items-center justify-between border-t border-border-subtle pt-3 text-body text-muted-foreground">
                         <span className="tabular-nums">
                           {backupsPage * backupsPageSize + 1}–
                           {Math.min(
@@ -385,6 +391,29 @@ export default function PostgresDetailPage() {
             </div>
           </div>
         </Panel>
+
+        {/* **The last block on the page, after everything you would read before
+            deciding.** Deleting a managed database destroys storage that cannot
+            be rebuilt, and the API refuses outright while a stack still points
+            at it — that is a blast radius, so it takes the block that says so
+            rather than a red button on the header band (§10). */}
+        {canWrite(addon.project_id ?? "") && (
+          <DangerZone>
+            <DangerZoneRow
+              title="Delete this database"
+              description="The database and its storage are destroyed."
+              action={
+                <Button
+                  variant="destructive-ghost"
+                  shape="flat"
+                  onClick={() => void handleDelete()}
+                >
+                  Delete addon
+                </Button>
+              }
+            />
+          </DangerZone>
+        )}
       </div>
     </TooltipProvider>
   );

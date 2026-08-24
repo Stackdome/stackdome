@@ -172,8 +172,10 @@ describe("needsAttention", () => {
 });
 
 describe("statusReason", () => {
-  // The reason line is what makes a broken row visibly TALLER than a healthy
-  // one, so it has to appear on exactly the stacks the header counts — no more.
+  // The reason line is what makes a broken CARD taller than a healthy one. It
+  // came off the table row on 23 Aug 2026, so the card and the stack's own page
+  // are the only places it renders — which makes this gate the thing keeping a
+  // perfectly healthy stack from growing a line it has not earned.
   it("is null for a healthy stack even when the release carries a message", () => {
     const chatty = {
       ...baseStack,

@@ -1,19 +1,26 @@
-import { Plus, AlertTriangle, Search } from "lucide-react";
+import { Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Navigate,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getStacksByOrg, deleteStack } from "@/api/stacks";
+import { getStacksByOrg } from "@/api/stacks";
 import { getOrganization } from "@/api/organizations";
 import { buildHelloStackSeed } from "@/pages/stacks/lib/onboarding/hello-stack-seed";
-import { startCanvasStage, isTourDone, markTourDone } from "@/pages/stacks/lib/onboarding/tour";
+import {
+  startCanvasStage,
+  isTourDone,
+  markTourDone,
+} from "@/pages/stacks/lib/onboarding/tour";
 import { WelcomeDialog } from "@/pages/stacks/components/onboarding/welcome-dialog";
-import { useToast } from "@/components/ui/use-toast";
-import { useConfirm } from "@/components/branded/confirm";
+import { SearchField } from "@/components/branded/search-field";
 import { useResourceProjects } from "@/hooks/use-resource-projects";
 import { useStacks } from "@/pages/stacks/contexts/stack-context";
 import { getCurrentOrganizationId } from "@/lib/common";
 import { getErrorMessage } from "@/api/client";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuChevron,
@@ -22,10 +29,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PageHeader, EmptyState } from "@/components/branded";
-import { SearchGlyph, StackArchitectureGlyph } from "@/components/branded/empty-state";
+import {
+  SearchGlyph,
+  StackArchitectureGlyph,
+} from "@/components/branded/empty-state";
 import { ViewToggle, useViewMode } from "@/components/branded/view-toggle";
 import type { Stack } from "@/api/stack-types";
-import { DeployStackCard, StackCardSkeleton, STACK_CARD_GRID } from "./stack-card";
+import {
+  DeployStackCard,
+  StackCardSkeleton,
+  STACK_CARD_GRID,
+} from "./stack-card";
 import { DeployStackRow, StackRowHeader, StackRowSkeleton } from "./stack-row";
 import { needsAttention, stackRollupState } from "./status";
 import { usePreviewEnvs } from "@/hooks/use-preview-envs";
@@ -47,7 +61,15 @@ const ALL_STATUSES = "all";
 
 /** Display order for the status filter — the exact words StatusText renders,
  *  healthiest first. Unknown words from the data sort last, alphabetically. */
-const STATUS_ORDER = ["Healthy", "Deploying", "Degraded", "Unavailable", "Failed", "NotDeployed", "Deleting"];
+const STATUS_ORDER = [
+  "Healthy",
+  "Deploying",
+  "Degraded",
+  "Unavailable",
+  "Failed",
+  "NotDeployed",
+  "Deleting",
+];
 
 function statusRank(state: string): number {
   const i = STATUS_ORDER.indexOf(state);
@@ -71,10 +93,8 @@ export default function StacksPage() {
   // needed a human was fourth.
   const [sortKey, setSortKey] = useState<SortKey>("attention");
   const [view, setView] = useViewMode("stacks");
-  const { canWriteAnyProject, canWrite } = useCurrentUser();
+  const { canWriteAnyProject } = useCurrentUser();
   const { projectNameById } = useResourceProjects();
-  const { toast } = useToast();
-  const confirm = useConfirm();
   const [searchParams] = useSearchParams();
 
   const { envs, loading: envsLoading } = usePreviewEnvs();
@@ -169,13 +189,18 @@ export default function StacksPage() {
     const states = [...new Set([...STATUS_ORDER, ...counts.keys()])];
     return states
       .map((state) => ({ state, count: counts.get(state) ?? 0 }))
-      .sort((a, b) => statusRank(a.state) - statusRank(b.state) || a.state.localeCompare(b.state));
+      .sort(
+        (a, b) =>
+          statusRank(a.state) - statusRank(b.state) ||
+          a.state.localeCompare(b.state),
+      );
   }, [deployedStacks]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const out = deployedStacks.filter((s) => {
-      if (statusFilter !== ALL_STATUSES && stackRollupState(s) !== statusFilter) return false;
+      if (statusFilter !== ALL_STATUSES && stackRollupState(s) !== statusFilter)
+        return false;
       if (q && !s.name?.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -199,37 +224,6 @@ export default function StacksPage() {
     });
   }, [deployedStacks, statusFilter, query, sortKey]);
 
-  const requestDelete = async (stack: Stack) => {
-    // §6a level 3 — a stack has dependents and data, so the gate is a retype.
-    // The body says what BREAKS, in plain words, not that it cannot be undone.
-    const ok = await confirm({
-      title: `Delete ${stack.name}?`,
-      description:
-        "Every service in this stack stops and its containers, volumes and routes are torn down. Any traffic still pointed at it starts failing immediately.",
-      confirmLabel: "Delete stack",
-      variant: "destructive",
-      gate: { kind: "retype", name: stack.name },
-    });
-    if (!ok) return;
-    const orgId = getCurrentOrganizationId();
-    if (!orgId) {
-      toast({ title: "Delete failed", description: "No organization selected.", variant: "destructive" });
-      return;
-    }
-    const projectName = projectNameById(stack.project_id);
-    if (!projectName || !stack.id) {
-      toast({ title: "Delete failed", description: "The stack's project could not be resolved.", variant: "destructive" });
-      return;
-    }
-    try {
-      await deleteStack(orgId, projectName, stack.id);
-      setStacks((prev) => prev.filter((s) => s.id !== stack.id));
-      toast({ title: "Stack deleted", description: `"${stack.name}" was deleted.`, variant: "success" });
-    } catch (err) {
-      toast({ title: "Delete failed", description: getErrorMessage(err), variant: "destructive" });
-    }
-  };
-
   // Old previews-tab links redirect to the dedicated /previews page.
   if (searchParams.get("view") === "previews") {
     return <Navigate to="/previews" replace />;
@@ -238,7 +232,8 @@ export default function StacksPage() {
   // Wait for the preview-env list too: rendering before the exclusion set
   // arrives flashes preview-created stacks in the deployed grid.
   const loading = isLoading || envsLoading;
-  const sortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? "Sort";
+  const sortLabel =
+    SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? "Sort";
 
   // §12a — the section's tools live in the header's second row, not in the page
   // body. Rendered in every state including loading: they do not depend on the
@@ -246,38 +241,51 @@ export default function StacksPage() {
   // threw it back.
   const toolbar = error ? undefined : (
     <>
-      <div className="relative w-[300px]">
-        <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-fg-muted" />
-        <Input
-          placeholder="Filter stacks…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-8"
-          aria-label="Filter stacks"
-        />
-      </div>
+      <SearchField
+        className="w-[300px]"
+        value={query}
+        onChange={setQuery}
+        placeholder="Filter stacks…"
+        label="Filter stacks"
+      />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           {/* Filters are working controls: `flat`, never a pill (§9). */}
           <Button variant="outline" shape="flat">
             <span className="text-fg-2">Status:</span>{" "}
-            <span>{statusFilter === ALL_STATUSES ? "All" : statusLabel(statusFilter)}</span>
+            <span>
+              {statusFilter === ALL_STATUSES
+                ? "All"
+                : statusLabel(statusFilter)}
+            </span>
             <DropdownMenuChevron />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-[200px]" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <DropdownMenuContent
+          align="start"
+          className="min-w-[200px]"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
           <DropdownMenuItem
             onSelect={() => setStatusFilter(ALL_STATUSES)}
-            className={cn("justify-between text-body", statusFilter === ALL_STATUSES && "font-semibold text-foreground")}
+            className={cn(
+              "justify-between text-body",
+              statusFilter === ALL_STATUSES && "font-semibold text-foreground",
+            )}
           >
             <span>All</span>
-            <span className="tabular-nums text-fg-2">{deployedStacks.length}</span>
+            <span className="tabular-nums text-fg-2">
+              {deployedStacks.length}
+            </span>
           </DropdownMenuItem>
           {statusOptions.map((o) => (
             <DropdownMenuItem
               key={o.state}
               onSelect={() => setStatusFilter(o.state)}
-              className={cn("justify-between text-body", statusFilter === o.state && "font-semibold text-foreground")}
+              className={cn(
+                "justify-between text-body",
+                statusFilter === o.state && "font-semibold text-foreground",
+              )}
             >
               <span>{statusLabel(o.state)}</span>
               <span className="tabular-nums text-fg-2">{o.count}</span>
@@ -292,12 +300,19 @@ export default function StacksPage() {
             <DropdownMenuChevron />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-[200px]" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <DropdownMenuContent
+          align="start"
+          className="min-w-[200px]"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
           {SORT_OPTIONS.map((o) => (
             <DropdownMenuItem
               key={o.key}
               onSelect={() => setSortKey(o.key)}
-              className={cn("text-body", sortKey === o.key && "font-semibold text-foreground")}
+              className={cn(
+                "text-body",
+                sortKey === o.key && "font-semibold text-foreground",
+              )}
             >
               {o.label}
             </DropdownMenuItem>
@@ -330,7 +345,9 @@ export default function StacksPage() {
       {error ? (
         <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
           <AlertTriangle className="h-8 w-8 text-danger mb-4" />
-          <h2 className="text-head font-semibold mb-2">Stacks could not be loaded</h2>
+          <h2 className="text-head font-semibold mb-2">
+            Stacks could not be loaded
+          </h2>
           <p className="text-fg-2 mb-6">{error}</p>
           <Button onClick={() => window.location.reload()}>Try again</Button>
         </div>
@@ -363,7 +380,10 @@ export default function StacksPage() {
                "say it once" bans, in button form. The empty state repeats the
                offer where the user is looking; it does not compete for it. */
             canWriteAnyProject ? (
-              <Button variant="outline" onClick={() => navigate(NEW_STACK_PATH)}>
+              <Button
+                variant="outline"
+                onClick={() => navigate(NEW_STACK_PATH)}
+              >
                 <Plus />
                 New stack
               </Button>
@@ -407,7 +427,6 @@ export default function StacksPage() {
                   key={stack.id || stack.name}
                   stack={stack}
                   projectName={projectNameById(stack.project_id)}
-                  onDelete={canWrite(stack.project_id ?? "") ? (s) => void requestDelete(s) : undefined}
                 />
               ))}
             </div>
@@ -420,7 +439,6 @@ export default function StacksPage() {
                   key={stack.id || stack.name}
                   stack={stack}
                   projectName={projectNameById(stack.project_id)}
-                  onDelete={canWrite(stack.project_id ?? "") ? (s) => void requestDelete(s) : undefined}
                 />
               ))}
             </div>

@@ -14,6 +14,8 @@ export type PostgresAddon = Schemas['PostgresAddon']
 export type PostgresBackup = Schemas['PostgresBackup']
 export type Cluster = Schemas['Cluster']
 export type ImageBuild = Schemas['ImageBuild']
+export type GitIntegration = Schemas['GitIntegration']
+export type GitRepository = Schemas['GitRepository']
 
 export const ORG_ID = 'org-1'
 export const DEFAULT_PROJECT = 'default'
@@ -221,6 +223,35 @@ export function makeCluster(overrides: Partial<Cluster> = {}): Cluster {
     cluster_url: 'https://10.0.0.1:6443',
     cluster_ca_data: '',
     cluster_sa_token: '',
+    ...overrides,
+  }
+}
+
+/**
+ * A connected provider. `github_app` is the default because it is the arm with
+ * installations and an `install_url` — the credentials arm is the narrower of
+ * the two, so it is the one a story asks for by name.
+ */
+export function makeGitIntegration(overrides: Partial<GitIntegration> = {}): GitIntegration {
+  return {
+    id: 'gi1',
+    type: 'github_app',
+    host: 'github.com',
+    status: 'active',
+    credentials_configured: true,
+    install_url: 'https://github.com/apps/stackdome/installations/new',
+    ...overrides,
+  }
+}
+
+export function makeGitRepository(overrides: Partial<GitRepository> = {}): GitRepository {
+  return {
+    full_name: 'acme/orders-gateway',
+    owner: 'acme',
+    clone_url: 'https://github.com/acme/orders-gateway.git',
+    default_branch: 'main',
+    private: false,
+    pushed_at: '2026-08-19T10:00:00Z',
     ...overrides,
   }
 }

@@ -373,7 +373,20 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        // **`pt-px` so the selected row's top edge survives the scroll box.**
+        // `overflow-auto` is a clipping boundary, and the selected nav row is a
+        // card: `bg-card` + a 1px OUTLINE + `shadow-sm`, all of which paint
+        // OUTSIDE its box (§4). The first item sat flush against this container
+        // — measured, 0px above it against 12px either side — so its top
+        // hairline was cut and the card read as an open-topped shape.
+        //
+        // One pixel is the whole requirement, not a guess: the outline is the
+        // only thing that paints above the box. Both `shadow-sm` layers are
+        // offset down (`0 3px 8px -3px` reaches 2px BELOW the top edge, `0 1px
+        // 1px` half a pixel below), so they were never the clipped part.
+        // **If the selected treatment ever grows a shadow that rises above the
+        // box, this number grows with it.**
+        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto pt-px group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
       {...props}
@@ -429,7 +442,7 @@ function SidebarGroupAction({
       data-slot="sidebar-group-action"
       data-sidebar="group-action"
       className={cn(
-        "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground absolute top-3.5 right-3 flex aspect-square w-5 items-center justify-center rounded-md p-0 transition-transform focus-ring-edge [&>svg]:size-4 [&>svg]:shrink-0",
+        "text-sidebar-foreground hover:bg-[var(--wash-hover)] hover:text-sidebar-accent-foreground absolute top-3.5 right-3 flex aspect-square w-5 items-center justify-center rounded-md p-0 transition-transform focus-ring-edge [&>svg]:size-4 [&>svg]:shrink-0",
         // Increases the hit area of the button on mobile.
         "after:absolute after:-inset-2 md:after:hidden",
         "group-data-[collapsible=icon]:hidden",
@@ -538,7 +551,7 @@ const sidebarMenuButtonVariants = cva(
         // here at a different rung is what pinned every row to 6%.
         default: "hover:text-sidebar-accent-foreground",
         outline:
-          "bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-wash-hover hover:text-sidebar-accent-foreground",
+          "bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-[var(--wash-hover)] hover:text-sidebar-accent-foreground",
       },
       // 32px pitch — the same height as a default button, so the two columns
       // line up. Labels are body size, weight 500, and INK at every state: the
@@ -623,7 +636,7 @@ function SidebarMenuAction({
       data-slot="sidebar-menu-action"
       data-sidebar="menu-action"
       className={cn(
-        "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground peer-hover/menu-button:text-sidebar-accent-foreground absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md p-0 transition-transform focus-ring-edge [&>svg]:size-4 [&>svg]:shrink-0",
+        "text-sidebar-foreground hover:bg-[var(--wash-hover)] hover:text-sidebar-accent-foreground peer-hover/menu-button:text-sidebar-accent-foreground absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md p-0 transition-transform focus-ring-edge [&>svg]:size-4 [&>svg]:shrink-0",
         // Increases the hit area of the button on mobile.
         "after:absolute after:-inset-2 md:after:hidden",
         "peer-data-[size=sm]/menu-button:top-1",

@@ -97,7 +97,7 @@ describe("VolumeDrawer", () => {
   });
 
   it("shows the trail back to the service it was opened from", () => {
-    // One panel, two levels: `web › data`, and the first crumb is the way back.
+    // One panel, two levels: `web / data`, and the first crumb is the way back.
     const { session } = makeSession([{ name: "data", spec: { size: "1Gi" } }]);
     const onBack = vi.fn();
     render(

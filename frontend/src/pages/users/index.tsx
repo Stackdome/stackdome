@@ -3,12 +3,14 @@ import { Search, Users, UserX } from "lucide-react";
 import { useUsers } from "./hooks/use-users";
 import { useProjectOptions } from "./hooks/use-project-options";
 import { InviteDialog } from "./components/invite-dialog";
-import type { UserRowModel } from "./hooks/use-users";
+import type { PendingRow as PendingRowModel, UserRowModel } from "./hooks/use-users";
 import { UserRow } from "./components/user-row";
 import { PendingRow } from "./components/pending-row";
-import { UserRowMenu } from "./components/user-row-menu";
-import { PendingRowMenu } from "./components/pending-row-menu";
+import { MemberDrawer } from "./components/member-drawer";
+import { useInvites } from "./hooks/use-invites";
 import { PageHeader, EmptyState } from "@/components/branded";
+import { useConfirm } from "@/components/branded/confirm";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -86,6 +88,12 @@ export default function UsersPage() {
   const [roleTab, setRoleTab] = useState<RoleTab>("all");
   const [project, setProject] = useState("all");
   const [inviteOpen, setInviteOpen] = useState(false);
+  /** Which row is open, not a boolean — the drawer is driven by the click, so
+   *  there is no second `open` flag to keep in step with it. */
+  const [openFor, setOpenFor] = useState<UserRowModel | null>(null);
+  const { revoke } = useInvites();
+  const confirm = useConfirm();
+  const { toast } = useToast();
 
   const allProjects = projectOptions.map((t) => t.name).sort();
   const filtered = filterRows(rows, search, roleTab, project);
@@ -99,19 +107,53 @@ export default function UsersPage() {
   // Default project name for chip star
   const defaultProjectName = projectOptions.find((t) => t.default_project)?.name;
 
+  /**
+   * §10 level 2 — an unaccepted invite is rebuildable and nothing references
+   * it, so the gate is an acknowledgement rather than the name retyped, and the
+   * trigger stays on the drawer's header band rather than in a danger zone.
+   */
+  async function requestRevoke(row: PendingRowModel) {
+    const ok = await confirm({
+      title: "Revoke this invite?",
+      description: `The link sent to ${row.email} stops working. Inviting them again sends a new one.`,
+      confirmLabel: "Revoke",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    try {
+      await revoke(row.id);
+      // The object the drawer is about is gone, so the drawer goes with it.
+      setOpenFor(null);
+      toast({
+        title: "Invite revoked",
+        description: `The invite for ${row.email} has been revoked.`,
+        variant: "success",
+      });
+      refetch();
+    } catch (e: unknown) {
+      toast({
+        title: "Failed to revoke invite",
+        description: e instanceof Error ? e.message : "The invite could not be revoked.",
+        variant: "destructive",
+      });
+    }
+  }
+
   function clearFilters() {
     setSearch("");
     setRoleTab("all");
     setProject("all");
   }
 
+  /* Four columns, not five. The trailing track held the row kebab — removing
+     the action means removing its track, its (blank) header cell and its
+     skeleton cell. */
   const tableHeader = (
     <TableRow className="hover:bg-transparent">
       <TableHead>User</TableHead>
       <TableHead>Org role</TableHead>
       <TableHead>Projects</TableHead>
       <TableHead>Last active</TableHead>
-      <TableHead />
     </TableRow>
   );
 
@@ -154,7 +196,6 @@ export default function UsersPage() {
                     <TableCell className="py-3.5"><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell className="py-3.5"><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell className="py-3.5"><Skeleton className="h-3 w-16" /></TableCell>
-                    <TableCell className="py-3.5" />
                   </TableRow>
                 ))}
               </TableBody>
@@ -247,14 +288,14 @@ export default function UsersPage() {
                         key={row.id}
                         row={row}
                         defaultProjectName={defaultProjectName}
-                        actions={<PendingRowMenu row={row} onChanged={refetch} />}
+                        onOpen={setOpenFor}
                       />
                     ) : (
                       <UserRow
                         key={row.id}
                         row={row}
                         defaultProjectName={defaultProjectName}
-                        actions={<UserRowMenu row={row} onChanged={refetch} />}
+                        onOpen={setOpenFor}
                       />
                     ),
                   )}
@@ -264,6 +305,15 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      {/* The list stays on screen behind it — which is the whole reason one
+          object's detail is a drawer and not a page (§13). */}
+      <MemberDrawer
+        row={openFor}
+        onOpenChange={(open) => !open && setOpenFor(null)}
+        onChanged={refetch}
+        onRevoke={(row) => void requestRevoke(row)}
+      />
 
       <InviteDialog
         open={inviteOpen}

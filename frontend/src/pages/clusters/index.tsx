@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
-import { useClusters } from "./hooks/use-clusters";
+import { useClusters, useDeleteCluster } from "./hooks/use-clusters";
 import { ClusterList, ClusterListSkeleton } from "./components/cluster-list";
 import AddClusterDrawer from "./components/add-cluster-drawer";
+import { ClusterDetailsDrawer } from "./components/cluster-details-drawer";
 import type { ClusterData } from "./hooks/use-clusters";
+import type { Cluster } from "./types";
 import { Button } from "@/components/ui/button";
 import { PageHeader, EmptyState, BlockedAction } from "@/components/branded";
 import { NoConnectionGlyph, NoSecretsGlyph } from "@/components/branded/empty-state";
+import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
 import { createCluster } from "@/api/clusters";
 import { getCurrentOrganizationId } from "@/lib/common";
@@ -18,6 +21,11 @@ export default function ClustersPage() {
   const [showAddDrawer, setShowAddDrawer] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  /** Which row is open, not a boolean — the drawer is driven by the click, so
+   *  there is no second `open` flag to keep in step with it. */
+  const [detailsFor, setDetailsFor] = useState<Cluster | null>(null);
+  const { deleteCluster } = useDeleteCluster();
+  const confirm = useConfirm();
   const { toast } = useToast();
   const { setCustomLabel, setPathLoading } = useBreadcrumb();
 
@@ -52,6 +60,39 @@ export default function ClustersPage() {
       setCreateError(getErrorMessage(e));
     } finally {
       setCreateLoading(false);
+    }
+  }
+
+  /**
+   * §10 level 3 — a cluster has dependents, so the gate is the NAME retyped.
+   * The words say what breaks rather than that it cannot be undone.
+   */
+  async function requestDelete(cluster: Cluster) {
+    if (!cluster.id) return;
+    const ok = await confirm({
+      title: "Delete cluster?",
+      description: `Every stack deployed to “${cluster.name}” stops running, and the addons on it are destroyed with their storage.`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+      gate: { kind: "retype", name: cluster.name },
+    });
+    if (!ok) return;
+    try {
+      await deleteCluster(cluster.id);
+      // The object this drawer is about is gone, so the drawer goes with it.
+      setDetailsFor(null);
+      toast({
+        title: "Cluster deleted",
+        description: `"${cluster.name}" has been removed.`,
+        variant: "success",
+      });
+      refetch();
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: getErrorMessage(e),
+        variant: "destructive",
+      });
     }
   }
 
@@ -100,8 +141,16 @@ export default function ClustersPage() {
           action={addCluster("outline")}
         />
       ) : (
-        <ClusterList clusters={clusters} />
+        <ClusterList clusters={clusters} onOpen={setDetailsFor} />
       )}
+
+      {/* The list stays on screen behind it — which is the whole reason one
+          object's detail is a drawer and not a page (§13). */}
+      <ClusterDetailsDrawer
+        cluster={detailsFor}
+        onOpenChange={(open) => !open && setDetailsFor(null)}
+        onDelete={(cluster) => void requestDelete(cluster)}
+      />
 
       <AddClusterDrawer
         open={showAddDrawer}

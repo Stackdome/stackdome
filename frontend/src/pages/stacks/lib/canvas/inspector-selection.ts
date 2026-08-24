@@ -7,7 +7,7 @@
  * grew with depth, a truncate-to-index, and two Escape bindings.
  *
  * One panel needs none of it. A volume opens **in the same panel** and
- * remembers the service it came from, so the header can read `web › uploads`
+ * remembers the service it came from, so the header can read `web / uploads`
  * and the first crumb is the way back. That is the whole of the old stack's
  * usefulness, in one optional field.
  */

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { useBreadcrumb } from "@/hooks/use-breadcrumb";
 import { RenameableTitle } from "@/components/renameable-title";
+import { PageTitle } from "@/components/page-title";
 
 interface BreadcrumbItemType {
   name: string;
@@ -147,7 +148,10 @@ export function SheetHeader({ leading }: { leading?: React.ReactNode }) {
             step is `title/500` because it is the drawer's title; a sheet crumb
             is `body` under a `name/500` title (§12a). The rung differs; the
             treatment should not. */}
-        <Breadcrumb>
+        {/* `min-w-0`: without it a flex child refuses to go below its content
+            width, so the trail pushed the actions off the row instead of
+            truncating. This is the one element on the band that gives way. */}
+        <Breadcrumb className="min-w-0">
           {/* **The whole trail is `name/500` — 14/20 at weight 500.** The
               breadcrumb used to run at body size with the current page one rung
               above it, which made the seam between "where you are" and "how you
@@ -167,30 +171,34 @@ export function SheetHeader({ leading }: { leading?: React.ReactNode }) {
                   // say its name is the object's name and can be changed; a
                   // page that does not gets the plain title below. See
                   // `registerRename`.
-                  <BreadcrumbItem>
-                    <RenameableTitle name={item.name} onRename={renameHandlers[item.path]} />
+                  <BreadcrumbItem className="min-w-0">
+                    {/* **It IS the crumb, not something beside one.** It used
+                        to render outside `BreadcrumbPage`, which cost it
+                        `aria-current="page"` — the attribute that tells a
+                        screen reader which crumb is the destination — and left
+                        it free to carry its own type, which it did, at the
+                        wrong rung. Both branches are the same element now. */}
+                    <BreadcrumbPage asChild>
+                      <RenameableTitle name={item.name} onRename={renameHandlers[item.path]} />
+                    </BreadcrumbPage>
                   </BreadcrumbItem>
                 ) : index === trailItems.length - 1 ? (
-                  <BreadcrumbItem>
-                    {/* The page title. The trail before it is 13px wayfinding.
-                        **14/20 at weight 500** — `name/500`.
-
-                        This rung has moved several times: 16/24 at 600 (a
-                        headline, too loud), 14/20 at 500, back up to 16/24 at
-                        500 on the app-shell board, briefly 13/20. It settles at
-                        NAME size — one rung above the 13px body it introduces,
-                        which is enough to lead without announcing. The weight
-                        is what separates it from the trail beside it. */}
-                    <BreadcrumbPage className="text-name font-medium text-foreground">
-                      {item.name}
+                  <BreadcrumbItem className="min-w-0">
+                    {/* The page title. The trail before it is wayfinding.
+                        **The rung lives in `PageTitle`** — this branch and the
+                        renameable one above it are the same slot, and they
+                        disagreed about its size for as long as they each
+                        carried their own classes. */}
+                    <BreadcrumbPage asChild>
+                      <PageTitle>{item.name}</PageTitle>
                     </BreadcrumbPage>
                   </BreadcrumbItem>
                 ) : !item.clickable ? (
-                  <BreadcrumbItem>
+                  <BreadcrumbItem className="flex-none">
                     <span className="text-fg-muted font-medium whitespace-nowrap">{item.name}</span>
                   </BreadcrumbItem>
                 ) : (
-                  <BreadcrumbItem>
+                  <BreadcrumbItem className="flex-none">
                     <BreadcrumbLink
                       asChild
                       className="text-fg-muted font-medium whitespace-nowrap transition-colors hover:text-foreground hover:underline underline-offset-4"
@@ -216,7 +224,7 @@ export function SheetHeader({ leading }: { leading?: React.ReactNode }) {
             learn what is degraded. Beside the name it is one phrase.
 
             12px from the trail: 6 from the row's own gap, 6 from here. */}
-        <div id="sheet-identity" className="ml-1.5 flex items-center gap-2 empty:hidden" />
+        <div id="sheet-identity" className="ml-1.5 flex flex-none items-center gap-2 empty:hidden" />
 
         {/* The page's actions. Only things scoped to the page you are looking
             at may land here; global helpers stay in the grey frame. 8px
@@ -229,7 +237,7 @@ export function SheetHeader({ leading }: { leading?: React.ReactNode }) {
             a container rule outranks the button's own class, a call site could
             not opt out; the stack editor had to force `!text-body` back onto
             its row just to get the documented size. Nothing here sets type. */}
-        <div id="topnav-actions" className="ml-auto flex items-center gap-2" />
+        <div id="topnav-actions" className="ml-auto flex flex-none items-center gap-2" />
       </div>
 
       {/* ── 2. Toolbar row — the tools for that section. Conditional. ── */}

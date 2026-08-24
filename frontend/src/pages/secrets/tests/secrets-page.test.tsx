@@ -45,9 +45,16 @@ const secret = {
 };
 
 describe("SecretsPage", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Radix locks `pointer-events` on `body` while a drawer or dialog is open
+    // and restores it on unmount. `cleanup()` tears the tree down without that
+    // unmount running to completion, so the lock survives into the next test
+    // and every pointer event after it lands on nothing.
+    document.body.style.pointerEvents = "";
+  });
 
-  it("deletes a secret via the row action and confirm dialog", async () => {
+  it("deletes a secret from the drawer's danger zone, behind the confirm", async () => {
     vi.mocked(getSecrets)
       .mockResolvedValueOnce({ items: [secret] })
       .mockResolvedValueOnce({ items: [] });
@@ -57,8 +64,16 @@ describe("SecretsPage", () => {
     await waitFor(() => expect(screen.getByText("api-key")).toBeInTheDocument());
 
     const user = userEvent.setup();
-    // Two actions, so Delete is ON the row — no menu to open first (§11).
-    await user.click(screen.getByRole("button", { name: /^Delete / }), { pointerEventsCheck: 0 });
+    // The row IS the way in. A secret is entirely settings, so there is no
+    // read-first step in front of the form — and no Edit or Delete on the row.
+    expect(screen.queryByRole("button", { name: /^Delete / })).toBeNull();
+    await user.click(screen.getByRole("link", { name: /api-key secret/i }), { pointerEventsCheck: 0 });
+
+    // Deleting takes every stack that reads it, so it is in the danger zone at
+    // the foot of the form rather than under a pointer on the list.
+    const trigger = await screen.findByRole("button", { name: /delete secret/i });
+    expect(trigger.closest("section")?.className).toContain("bg-danger-bg");
+    await user.click(trigger, { pointerEventsCheck: 0 });
 
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent(/delete secret\?/i);
@@ -80,7 +95,8 @@ describe("SecretsPage", () => {
     await waitFor(() => expect(screen.getByText("api-key")).toBeInTheDocument());
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /^Delete / }), { pointerEventsCheck: 0 });
+    await user.click(screen.getByRole("link", { name: /api-key secret/i }), { pointerEventsCheck: 0 });
+    await user.click(await screen.findByRole("button", { name: /delete secret/i }), { pointerEventsCheck: 0 });
 
     await screen.findByRole("alertdialog");
     await user.click(screen.getByRole("button", { name: /cancel/i }), { pointerEventsCheck: 0 });

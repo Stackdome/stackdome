@@ -3,13 +3,15 @@ import { expect, userEvent, within } from 'storybook/test'
 import { FormSection } from './form-section'
 import { FieldGrid, FieldShell } from './field-shell'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Copy, Upload, X } from 'lucide-react'
 
 const meta = {
   title: 'Branded/FormSection',
   component: FormSection,
   tags: ['ai-generated'],
-  // The full-bleed rule is a negative margin against the surface's own 20 of
-  // padding, so a section shown without that padding draws its rule short.
+  // A section spends no padding of its own on the sides — it sits directly on
+  // the body that holds it — so the frame here stands in for a drawer's 20.
   decorators: [
     (Story) => (
       <div className="w-[480px] border border-border bg-background p-5">
@@ -65,9 +67,11 @@ export const CollapsibleOpen: Story = {
 }
 
 /**
- * Eight of them in one scroll is the shape the canvas inspector actually ships
- * — the case a single section never shows, where the rules have to read as
- * structure rather than as a stack of boxes.
+ * **The case a single section can never show.** Four in one scroll is the shape
+ * the canvas inspector ships, and it is the only way to judge whether the
+ * boundary reads: 32 between one group and the next, 8 from a heading to its
+ * own fields, 16 between two fields. If that ratio is wrong the form goes back
+ * to needing a rule to say where a subject changed.
  */
 export const Stacked: Story = {
   args: { label: 'General', children: twoFields },
@@ -93,5 +97,72 @@ export const LongLabel: Story = {
     label: 'Pre-deployment step',
     state: 'runs before the main container starts, every time',
     children: twoFields,
+  },
+}
+
+/**
+ * **Tools for the group, on the group's heading line.** They lose their borders
+ * here — a bordered chip on the heading row competes with the fields under it,
+ * and the row is chrome for the group, not another control in it.
+ */
+export const WithActions: Story = {
+  args: {
+    label: 'Environment',
+    state: '4 variables',
+    children: twoFields,
+    actions: (
+      <>
+        <Button type="button" variant="ghost" size="sm" className="text-fg-muted hover:bg-danger-bg hover:text-danger">
+          <X aria-hidden />
+          clear all
+        </Button>
+        <Button type="button" variant="ghost" size="sm" className="text-fg-muted">
+          <Copy aria-hidden />
+          paste .env
+        </Button>
+        <Button type="button" variant="ghost" size="sm" className="text-fg-muted">
+          <Upload aria-hidden />
+          import file
+        </Button>
+      </>
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // The heading and its tools share one row — the proof the actions slot is
+    // doing its job rather than stacking a second line under the label.
+    const heading = canvas.getByRole('heading', { name: /Environment/ })
+    const clear = canvas.getByRole('button', { name: /clear all/ })
+    await expect(heading.getBoundingClientRect().top).toBeLessThan(
+      clear.getBoundingClientRect().bottom,
+    )
+    await expect(clear.getBoundingClientRect().top).toBeLessThan(
+      heading.getBoundingClientRect().bottom,
+    )
+  },
+}
+
+/**
+ * **A long label, a long state word and three tools on one 480 row.** The
+ * heading truncates and the tools keep their width — the reverse would leave a
+ * group whose actions had silently lost a button.
+ */
+export const ActionsUnderPressure: Story = {
+  args: {
+    label: 'Pre-deployment step',
+    state: 'runs before the main container starts, every time',
+    children: twoFields,
+    actions: (
+      <>
+        <Button type="button" variant="ghost" size="sm" className="text-fg-muted">
+          <Copy aria-hidden />
+          paste .env
+        </Button>
+        <Button type="button" variant="ghost" size="sm" className="text-fg-muted">
+          <Upload aria-hidden />
+          import file
+        </Button>
+      </>
+    ),
   },
 }

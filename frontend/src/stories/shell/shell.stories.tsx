@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, waitFor } from 'storybook/test'
 import { useNavigate } from 'react-router-dom'
-import { LayoutGrid, List, ListFilter, Plus, Search } from 'lucide-react'
+import { LayoutGrid, List, ListFilter, Plus } from 'lucide-react'
 import { baselineHandlers } from '../../../.storybook/msw-handlers'
 import { withConfirm, withCurrentUser, withStack } from '../../../.storybook/decorators'
 import { AppLayout } from '@/components/app-layout'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { SearchField } from '@/components/branded/search-field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 
 /* The frame on its own — sidebar, seam and sheet header, with no page inside.
@@ -41,10 +41,13 @@ function Toolbar() {
   return createPortal(
     <>
       <div className="flex items-center gap-1.5">
-        <div className="relative w-[300px]">
-          <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-fg-muted" />
-          <Input placeholder="Filter stacks…" className="pl-8" />
-        </div>
+        <SearchField
+          className="w-[300px]"
+          value=""
+          onChange={() => {}}
+          placeholder="Filter stacks…"
+          label="Filter stacks"
+        />
         <Button variant="outline" shape="flat">
           <ListFilter />
           Status: All

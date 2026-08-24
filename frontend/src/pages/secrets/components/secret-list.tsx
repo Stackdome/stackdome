@@ -1,7 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
-  DataListActions,
   DataListCell,
   DataListHeader,
   DataListName,
@@ -18,10 +15,20 @@ import type { Secret } from "../types";
  * `Type` is the flexible one — it is the longest word in the row
  * ("Username/Password") and the only one that varies in length.
  */
-/** 64, not 32 — the actions are two buttons on the row, not one kebab (§11). */
-const SECRET_TRACKS = "grid-cols-[minmax(240px,420px)_minmax(0,1fr)_130px_64px]";
+/**
+ * **Three tracks.** The fourth was a 64px slot for a hover-revealed `Edit` and
+ * `Delete`.
+ *
+ * A secret has no live state to read — a name, a kind and a value — so there is
+ * nothing for a details drawer to show that the form does not. **The row opens
+ * the form**, which is what both of those buttons were for, and `Delete` moves
+ * into the drawer's danger zone: it takes every stack that reads the secret
+ * with it, and §10 puts an act with dependents on the object rather than under
+ * a pointer on a row you were scanning.
+ */
+const SECRET_TRACKS = "grid-cols-[minmax(240px,420px)_minmax(0,1fr)_130px]";
 
-const LABELS = ["Name", "Type", "Created", ""];
+const LABELS = ["Name", "Type", "Created"];
 
 export function formatSecretType(type: string): string {
   switch (type) {
@@ -76,7 +83,6 @@ export function SecretListSkeleton() {
           ],
           { w: 88, h: 3 },
           { w: 72, h: 3 },
-          null,
         ]}
       />
     </div>
@@ -85,22 +91,24 @@ export function SecretListSkeleton() {
 
 export function SecretList({
   secrets,
-  onEdit,
-  onDelete,
-  canWrite,
+  onOpen,
 }: {
   secrets: Secret[];
-  onEdit: (secret: Secret) => void;
-  onDelete: (secret: Secret) => void;
-  canWrite?: (projectId?: string) => boolean;
+  /** The row opens the form. A secret is entirely settings, so there is no
+   *  read-first step to put in front of it — see the tracks above. */
+  onOpen: (secret: Secret) => void;
 }) {
   return (
     <div>
       <SecretListHeader />
       {secrets.map((secret) => {
-        const rowCanWrite = canWrite ? canWrite(secret.project_id) : true;
         return (
-          <DataListRow key={secret.id} columns={SECRET_TRACKS}>
+          <DataListRow
+            key={secret.id}
+            columns={SECRET_TRACKS}
+            label={`${secret.name} secret`}
+            onActivate={() => onOpen(secret)}
+          >
             {/* The description is the name's second line. The key glyph that used
                 to sit in a 40px bordered tile is gone: every row on this page is
                 a secret, so it drew no distinction the word did not already make,
@@ -110,39 +118,6 @@ export function SecretList({
             <DataListCell numeric title={absoluteAge(secret.created_at) ?? undefined}>
               {createdLabel(secret)}
             </DataListCell>
-            {/* **Two actions, so they are ON the row** (§11). A kebab that only
-                ever opens two items spends a click and a menu to hide what fits
-                — and the Object stores list, with the same Edit and Delete, had
-                been showing them inline all along.
-
-                The `setTimeout` around Edit went with the menu. It existed to
-                let the dropdown release its body pointer-events lock before a
-                dialog mounted (radix-ui/primitives#1836); with no dropdown
-                there is nothing to wait for. */}
-            <DataListActions>
-              {rowCanWrite && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    shape="flat"
-                    aria-label={`Edit ${secret.name}`}
-                    onClick={() => onEdit(secret)}
-                  >
-                    <Pencil />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    shape="flat"
-                    aria-label={`Delete ${secret.name}`}
-                    onClick={() => onDelete(secret)}
-                  >
-                    <Trash2 />
-                  </Button>
-                </>
-              )}
-            </DataListActions>
           </DataListRow>
         );
       })}

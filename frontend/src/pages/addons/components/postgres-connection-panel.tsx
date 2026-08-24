@@ -319,13 +319,13 @@ export function PostgresConnectionPanel({
         Reachable from your stacks. The database is not exposed to the internet.
       </p>
 
-      <div className="flex flex-col gap-3 border-t border-border pt-5">
+      <div className="flex flex-col gap-3 border-t border-border-subtle pt-5">
         <h3 className="text-body font-semibold text-foreground">Databases</h3>
         {databases.map((db) => {
           const name = db.name ?? "";
           const state = states[name];
           return (
-            <div key={name} className="flex flex-col gap-3 border-b border-border pb-3 last:border-b-0 last:pb-0">
+            <div key={name} className="flex flex-col gap-3 border-b border-border-subtle pb-3 last:border-b-0 last:pb-0">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-col gap-0.5">
                   <span className="font-mono text-body text-foreground">{name}</span>

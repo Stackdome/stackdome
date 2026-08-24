@@ -1,4 +1,3 @@
-import { cn } from "@/lib/utils";
 import { repoLabel } from "@/pages/previews/lib/repo-label";
 import type { StackPreviewConfig } from "@/api/preview-configs";
 
@@ -16,22 +15,20 @@ import type { StackPreviewConfig } from "@/api/preview-configs";
  * the `name/500` the first build used — a container set at the same size as the
  * items inside it does not read as containing them.
  *
- * ### No meter
+ * ### No meter, and no count either
  *
- * `3 of 5 active` is exact. A 44×4 bar beside it says the same thing
- * approximately, and §7 bans the second picture: *a number said in words gets no
- * second picture*. The bar was drawn on the board, judged live, and removed.
+ * The meter went first: `3 of 5 active` is exact, and a 44×4 bar beside it says
+ * the same thing approximately — §7's *a number said in words gets no second
+ * picture*. Drawn on the board, judged live, removed.
+ *
+ * **The count followed it, August 2026.** A cap is a number that matters on
+ * exactly one day, and on that day the banner under this line already reports
+ * it *and* says what to do about it. Every other day it was a permanent slot on
+ * the right of the band spending itself on `1 of 5` — a fact about the config,
+ * not about this repository's day. The line names the selection; that is all it
+ * was ever the only thing doing.
  */
-export function RepositoryContextLine({
-  config,
-  activeCount,
-}: {
-  config: StackPreviewConfig;
-  /** Environments that count against the cap right now. */
-  activeCount: number;
-}) {
-  const max = config.max_active_previews ?? 0;
-  const atCap = max > 0 && activeCount >= max;
+export function RepositoryContextLine({ config }: { config: StackPreviewConfig }) {
   const repo = repoLabel(config.git_repository?.repo_url);
   const branch = config.git_repository?.base_branch;
 
@@ -46,18 +43,6 @@ export function RepositoryContextLine({
         <p className="min-w-0 truncate font-mono text-meta text-fg-muted" title={repo}>
           {repo}
           {branch && ` · ${branch}`}
-        </p>
-      )}
-      {max > 0 && (
-        // Tabular: both halves change under the reader, and a count that jitters
-        // as it polls is one you have to re-find rather than re-read.
-        <p
-          className={cn(
-            "ml-auto flex-none text-meta tabular-nums",
-            atCap ? "text-warn" : "text-fg-muted",
-          )}
-        >
-          {activeCount} of {max} active
         </p>
       )}
     </div>

@@ -108,7 +108,7 @@ export function EnvRow({
          the ink changes. */
       /* **Full width, and the paint is what bleeds.** It carried
          `pl-[13px] pr-2.5`, so every control sat inset from the section's own
-         content edge while Ports and Mounts reach it — a 400px panel cannot
+         content edge while Ports and Mounts reach it — a 480px panel cannot
          spare 24px to frame a row. The negative margin pushes the BOX out past
          the edge and the padding puts the controls back on it, so the tint and
          the bar have room to sit outside the grid without moving it.

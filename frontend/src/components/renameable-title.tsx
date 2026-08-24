@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { pageTitleClass } from "@/components/page-title";
 
 /**
  * **The page title, renamed where it is said.**
@@ -16,7 +17,7 @@ import { cn } from "@/lib/utils";
  * | **At rest it is the title, unchanged** | No box, no button. A control that is always visible would make every page look like a form |
  * | **Hover is a wash and a pencil** | The wash is the same `--wash-hover` a row uses, so "you can act on this" is said in the vocabulary already on screen. The pencil appears only on hover or focus |
  * | **It is a real `<button>`** | The keyboard reaches it and Enter opens it. A `div` with an `onClick` would put the page's own name out of reach |
- * | **Editing swaps in a field the same size** | Same 14px medium, same box — the title does not jump between the two states |
+ * | **Editing swaps in a field the same size** | Both the button and the field take `pageTitleClass`, so the title cannot jump between the two states |
  *
  * ### Committing, and refusing
  *
@@ -124,13 +125,22 @@ export function RenameableTitle({
         aria-label={`Rename ${name}`}
         title={`Rename ${name}`}
         className={cn(
-          "group focus-ring-edge -mx-1.5 flex h-7 items-center gap-1.5 rounded-sm px-1.5",
-          "text-title font-medium text-foreground transition-colors",
+          // `min-w-0 max-w-[32ch]` and a truncating span inside — the same
+          // ceiling `PageTitle` takes, because this is the same slot in its
+          // other state and a name that fits one must fit the other.
+          "group focus-ring-edge -mx-1.5 flex h-7 min-w-0 max-w-[32ch] items-center gap-1.5 rounded-sm px-1.5",
+          // **The rung comes from `PageTitle`, not from here.** This shipped
+          // `text-title` (16) while the fixed title one branch away shipped
+          // `name/500` (14) — so on `/stacks/s5` the trail read `Stacks` at 14
+          // and `auth-gateway` at 16, one separator apart. Same slot, two
+          // sizes, because two files were drawing one thing.
+          pageTitleClass,
+          "transition-colors",
           "hover:bg-[var(--wash-hover)]",
           className,
         )}
       >
-        {name}
+        <span className="truncate">{name}</span>
         <Pencil
           aria-hidden
           className="size-3 flex-none text-fg-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
@@ -167,7 +177,9 @@ export function RenameableTitle({
         }}
         className={cn(
           "focus-ring-edge -mx-1.5 h-7 w-[22ch] rounded-sm border bg-card px-1.5",
-          "text-title font-medium text-foreground",
+          // The same rung as the button it replaces — "editing swaps in a field
+          // the same size" only holds if both read it from one place.
+          pageTitleClass,
           error ? "border-danger" : "border-border",
         )}
       />

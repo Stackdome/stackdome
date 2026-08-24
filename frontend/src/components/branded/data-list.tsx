@@ -18,10 +18,10 @@ import { cn } from "@/lib/utils";
  * |---|---|
  * | Row | 64px, `px-2`, no rule, hover wash, inset focus ring |
  * | Column gap | **20px** |
- * | Header | `text-label` 11/16 `fg-muted`, inset 8 above / 8 sides / 8 below, one 1px rule, **0 gap to the first row** |
- * | Name | `text-name` 14/20 weight 500 |
+ * | Header | `text-column` 11.5/16 **`fg-muted`** — chrome, inset 8 above / 8 sides / 8 below, one 1px rule, **0 gap to the first row** |
+ * | Name | `text-name` 14/20 weight 500, `foreground` |
  * | Second line | `text-meta` 12/16 `fg-muted` |
- * | Every other cell | `text-meta` 12/16 `fg-muted` |
+ * | Every other cell | `text-meta` 12/16 **`foreground`** — it is data, not caption |
  *
  * The header's 8px above is `-mt-2` against the sheet's 16px content inset: a
  * column header is chrome and sits tighter to the band than content does.
@@ -47,7 +47,7 @@ export function DataListHeader({
       data-slot="data-list-header"
       className={cn(
         listGrid(columns),
-        "-mt-2 border-b border-border px-2 pb-2 text-label text-fg-muted",
+        "-mt-2 border-b border-border-subtle px-2 pb-2 text-column text-fg-muted",
       )}
     >
       {labels.map((l, i) => (
@@ -110,19 +110,28 @@ export function DataListRow({
 /**
  * The name, and — only when there is one — the machine string under it.
  *
- * The second line is `font-mono` by default because what goes there is almost
- * always machine text: a host, a branch, a path. Pass `mono={false}` where it is
- * prose.
+ * **`mono` covers the WHOLE secondary line, so a mixed line cannot use it.**
+ * §6: mono means a machine produced this and a machine will read it back. Five
+ * of the seven callers pass a pure machine value — a host, a cluster id, a
+ * branch — so `true` stays the default. But a line like `default · main@a3f9d2e`
+ * is a project NAME and a ref, and setting the whole thing in mono makes the
+ * project look like something you could paste into a terminal.
+ *
+ * For that case pass a node and turn `mono` off; `secondaryTitle` carries the
+ * plain string for the tooltip, which a node cannot.
  */
 export function DataListName({
   name,
   secondary,
+  secondaryTitle,
   mono = true,
 }: {
   name: string;
-  secondary?: string | null;
+  secondary?: React.ReactNode;
+  secondaryTitle?: string;
   mono?: boolean;
 }) {
+  const title = secondaryTitle ?? (typeof secondary === "string" ? secondary : undefined);
   return (
     <div className="flex min-w-0 flex-col">
       <span className="truncate text-name font-medium text-foreground" title={name}>
@@ -131,7 +140,7 @@ export function DataListName({
       {secondary && (
         <span
           className={cn("truncate text-meta text-fg-muted", mono && "font-mono")}
-          title={secondary}
+          title={title}
         >
           {secondary}
         </span>
@@ -140,7 +149,19 @@ export function DataListName({
   );
 }
 
-/** Any other cell: 12/16, muted, truncating. `mono` for machine values. */
+/**
+ * Any other cell: 12/16, **primary ink**, truncating. `mono` for machine values.
+ *
+ * **Data is `foreground`, chrome is `fg-muted`** (Jaseem, 23 Aug 2026). Every
+ * cell used to be muted, which put the table's actual content on the same tier
+ * as its column headers — the row read as a caption of itself. The header stays
+ * muted because a header is chrome; what it labels is the thing you came to
+ * read.
+ *
+ * A call site may still drop a cell to `fg-2` where it is genuinely supporting
+ * rather than primary — previews does it for the repository name, which
+ * qualifies the environment beside it.
+ */
 export function DataListCell({
   children,
   mono,
@@ -157,7 +178,7 @@ export function DataListCell({
   return (
     <div
       className={cn(
-        "truncate text-meta text-fg-muted",
+        "truncate text-meta text-foreground",
         mono && "font-mono",
         numeric && "tabular-nums",
         className,

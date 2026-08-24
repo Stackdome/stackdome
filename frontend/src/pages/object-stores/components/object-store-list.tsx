@@ -1,13 +1,10 @@
-import { Pencil, Trash2 } from "lucide-react";
 import {
-  DataListActions,
   DataListCell,
   DataListHeader,
   DataListName,
   DataListRow,
   DataListSkeleton,
 } from "@/components/branded/data-list";
-import { Button } from "@/components/ui/button";
 import type { ObjectStore } from "../types";
 
 /**
@@ -18,10 +15,19 @@ import type { ObjectStore } from "../types";
  * page has no status and the path is the value that actually runs long — extra
  * width buys a bucket URL that finishes instead of one that truncates.
  */
-const STORE_TRACKS =
-  "grid-cols-[minmax(240px,420px)_110px_minmax(0,1fr)_120px_64px]";
+/**
+ * **Four tracks.** The fifth was a 64px slot for a hover-revealed `Edit` and
+ * `Delete`.
+ *
+ * A store is a destination and a set of credentials — every field on it is a
+ * setting, so **the row opens the form**, which is what `Edit` was for.
+ * `Delete` moves into that form's danger zone: an addon's backups stop landing
+ * and its restores stop resolving, which is a cost that lands on other objects
+ * (§10) and does not belong under a pointer on a row you were scanning.
+ */
+const STORE_TRACKS = "grid-cols-[minmax(240px,420px)_110px_minmax(0,1fr)_120px]";
 
-const LABELS = ["Name", "Provider", "Destination path", "Retention", ""];
+const LABELS = ["Name", "Provider", "Destination path", "Retention"];
 
 function providerLabel(store: ObjectStore): string {
   const cfg = store.spec.configuration;
@@ -63,7 +69,6 @@ export function ObjectStoreListSkeleton() {
           { w: 64, h: 3 },
           { w: 208, h: 3 },
           { w: 48, h: 3 },
-          null,
         ]}
       />
     </div>
@@ -72,52 +77,30 @@ export function ObjectStoreListSkeleton() {
 
 export function ObjectStoreList({
   objectStores,
-  onEdit,
-  onDelete,
-  canWrite,
+  onOpen,
 }: {
   objectStores: ObjectStore[];
-  onEdit: (store: ObjectStore) => void;
-  onDelete: (store: ObjectStore) => void;
-  canWrite?: (projectId?: string) => boolean;
+  /** The row opens the form. A store is entirely settings, so there is no
+   *  read-first step to put in front of it — see the tracks above. */
+  onOpen: (store: ObjectStore) => void;
 }) {
   return (
     <div>
       <ObjectStoreListHeader />
       {objectStores.map((store) => {
-        const rowCanWrite = canWrite ? canWrite(store.project_id) : true;
         return (
-          <DataListRow key={store.id} columns={STORE_TRACKS}>
+          <DataListRow
+            key={store.id}
+            columns={STORE_TRACKS}
+            label={`${store.name} object store`}
+            onActivate={() => onOpen(store)}
+          >
             <DataListName name={store.name ?? ""} secondary={endpointLabel(store)} />
             <DataListCell>{providerLabel(store)}</DataListCell>
             <DataListCell mono title={store.spec.destination_path}>
               {store.spec.destination_path}
             </DataListCell>
             <DataListCell numeric>{store.spec.retention_policy}</DataListCell>
-            <DataListActions>
-              {rowCanWrite && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    shape="flat"
-                    aria-label={`Edit ${store.name}`}
-                    onClick={() => onEdit(store)}
-                  >
-                    <Pencil />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    shape="flat"
-                    aria-label={`Delete ${store.name}`}
-                    onClick={() => onDelete(store)}
-                  >
-                    <Trash2 />
-                  </Button>
-                </>
-              )}
-            </DataListActions>
           </DataListRow>
         );
       })}

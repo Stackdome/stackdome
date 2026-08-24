@@ -21,7 +21,7 @@ import {
   IntegrationListSkeleton,
 } from "./components/integration-row";
 import { VerifyIntegrationDialog } from "./components/verify-integration-dialog";
-import { UpdateCredentialsDialog } from "./components/update-credentials-dialog";
+import { GitIntegrationDrawer } from "./components/git-integration-drawer";
 
 export default function GitIntegrationsPage() {
   const { toast } = useToast();
@@ -29,7 +29,9 @@ export default function GitIntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState<GitIntegration | null>(null);
-  const [editing, setEditing] = useState<GitIntegration | null>(null);
+  /** Which row is open, not a boolean — the drawer is driven by the click, so
+   *  there is no second `open` flag to keep in step with it. */
+  const [openFor, setOpenFor] = useState<GitIntegration | null>(null);
   const confirm = useConfirm();
   const [wizardOpen, setWizardOpen] = useState(false);
   const { setCustomLabel, setPathLoading } = useBreadcrumb();
@@ -63,10 +65,14 @@ export default function GitIntegrationsPage() {
 
   const remove = async (integration: GitIntegration) => {
     const ok = await confirm({
-      title: "Remove this integration?",
-      description: "Repositories using this integration lose access for clones.",
+      title: "Remove this provider?",
+      description: "Every stack and preview built from this provider stops cloning, and any preview repository enabled on it stops getting environments.",
       confirmLabel: "Remove",
       variant: "destructive",
+      gate: {
+        kind: "acknowledge",
+        label: "I understand that builds using this provider will start failing.",
+      },
     });
     if (!ok) return;
     const orgId = getCurrentOrganizationId();
@@ -80,7 +86,9 @@ export default function GitIntegrationsPage() {
     }
     try {
       await deleteGitIntegration(orgId, integration.id);
-      toast({ title: "Integration removed", variant: "success" });
+      // The object the drawer is about is gone, so the drawer goes with it.
+      setOpenFor(null);
+      toast({ title: "Provider removed", variant: "success" });
       await refresh();
     } catch (e) {
       toast({ title: "Remove failed", description: getErrorMessage(e), variant: "destructive" });
@@ -121,9 +129,8 @@ export default function GitIntegrationsPage() {
             <IntegrationRow
               key={integration.id}
               integration={integration}
+              onOpen={setOpenFor}
               onVerify={setVerifying}
-              onRemove={(i) => void remove(i)}
-              onUpdateCredentials={setEditing}
             />
           ))}
         </div>
@@ -141,10 +148,19 @@ export default function GitIntegrationsPage() {
         onOpenChange={(o) => !o && setVerifying(null)}
       />
 
-      <UpdateCredentialsDialog
-        integration={editing}
-        onOpenChange={(o) => !o && setEditing(null)}
+      {/* The list stays on screen behind it — which is the whole reason one
+          object's detail is a drawer and not a page (§13). */}
+      <GitIntegrationDrawer
+        integration={openFor}
+        onOpenChange={(o) => !o && setOpenFor(null)}
         onUpdated={() => void refresh()}
+        onVerify={(i) => {
+          // Two stacked modals is two scrims and two focus traps for one
+          // object, so the drawer closes as the check opens.
+          setOpenFor(null);
+          setVerifying(i);
+        }}
+        onRemove={(i) => void remove(i)}
       />
 
     </div>

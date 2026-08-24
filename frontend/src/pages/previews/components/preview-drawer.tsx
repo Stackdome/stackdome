@@ -1,14 +1,17 @@
-import { Loader2 } from "lucide-react";
+import { Copy as CopyGlyph, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import {
   Drawer,
-  DrawerActions,
   DrawerBody,
   DrawerContent,
-  DrawerFooter,
   DrawerHeader,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { BlockedAction } from "@/components/branded";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { BlockedAction, DetailList, DetailRow } from "@/components/branded";
 import { StatusText } from "@/components/branded/status-text";
 import { relativeAge, absoluteAge } from "@/components/branded/entity-card";
 import { copyText } from "@/lib/clipboard";
@@ -20,6 +23,19 @@ import { previewUrl } from "./preview-row";
 const SOURCE_LABEL: Record<NonNullable<PreviewStack["source"]>, string> = {
   webhook: "Pull-request webhook",
   manual: "By hand",
+};
+
+/** The calendar date a row reports — an age is for what moves, a date for what
+ *  happened once. `Created` never changes, so it is never "12d ago". */
+const onDate = (timestamp?: string | null): string | null => {
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 };
 
 /**
@@ -35,10 +51,28 @@ const SOURCE_LABEL: Record<NonNullable<PreviewStack["source"]>, string> = {
  * back from it — you open the preview URL in another tab, look, and return to
  * sync or delete. That is §13's drawer test almost word for word.
  *
- * The URL sits in a **well with its own actions inside it**. A grey well is for
- * input and reference (§3), and this is the reference the whole page exists to
- * hand you; putting `Copy` and `Open` inside the box means the control is on the
- * thing it acts on rather than somewhere below it.
+ * ### The actions are in the header, and there is no footer
+ *
+ * Settled August 2026, on the board, against the stack detail page — which puts
+ * its one primary and its destructive act on the header band and keeps no
+ * footer at all. A drawer that only READS an object has nothing to commit, so
+ * its footer was 81px of column spent holding two buttons and a hairline.
+ *
+ * They are icon buttons rather than words because there are two of them beside
+ * a ✕ that is already one: `Sync`, `Delete`, `Close` reads as three controls of
+ * one kind, which is what they are. Neither hides in a menu — **every action on
+ * this object is visible** (Jaseem, August 2026).
+ *
+ * ### The body is one idiom, top to bottom
+ *
+ * Every fact is a label and its value on the 32 rung. It used to be four
+ * different shapes — a status line, a stacked label over a grey well, a column
+ * of side-by-side rows, and a link — so the eye restarted four times in 280px.
+ * The URL was the worst of them: a stacked label directly above rows that put
+ * their labels beside the value.
+ *
+ * The groups are 20 apart and carry no headings: **what it is doing**, **what
+ * it was built from**, **how it got here**.
  */
 export function PreviewDrawer({
   env,
@@ -63,9 +97,10 @@ export function PreviewDrawer({
   const phase = env.status?.phase;
   const url = previewUrl(env);
   const fullUrl = env.status?.outputs?.urls?.find((u) => u.url)?.url;
-  const when = env.updated_at || env.created_at;
   const teardownReason =
-    phase === PREVIEW_PHASE.deleting ? "This environment is being deleted" : null;
+    phase === PREVIEW_PHASE.deleting
+      ? "This environment is being deleted"
+      : null;
 
   const copy = async () => {
     if (!fullUrl) return;
@@ -82,106 +117,180 @@ export function PreviewDrawer({
         <DrawerHeader
           title={`PR #${env.pr_number}`}
           description={<span className="font-mono">{env.branch}</span>}
+          trailing={
+            canWrite ? (
+              <>
+                <HeaderAction
+                  label="Sync"
+                  reason={teardownReason}
+                  onClick={() => onSync(env)}
+                >
+                  {phase === PREVIEW_PHASE.deploying ? (
+                    <Loader2 className="animate-spin" aria-hidden />
+                  ) : (
+                    <RefreshCw aria-hidden />
+                  )}
+                </HeaderAction>
+                {/* **Named for its scope, not its glyph.** A trash can is
+                    unambiguous about the verb and silent about the object — and
+                    the panel it sits on has a ✕ two controls away. Same call as
+                    the node inspector's `Remove resource`.
+
+                    `fg-muted` at rest, danger's ink AND ground on approach.
+                    §10 scales friction to blast radius, and a saturated colour
+                    spent at rest is not friction — it is the loudest mark in
+                    the band on the rarest act in it. */}
+                <HeaderAction
+                  label="Delete preview"
+                  reason={teardownReason}
+                  onClick={() => onDelete(env)}
+                  className="text-fg-muted hover:bg-danger-bg hover:text-danger"
+                >
+                  <Trash2 aria-hidden />
+                </HeaderAction>
+              </>
+            ) : undefined
+          }
         />
 
         <DrawerBody>
-          {/* One line, one fact each: what it is doing, and when it last did
-              anything. The word and its colour are derived from the phase. */}
-          <div className="flex items-baseline gap-1.5">
-            <StatusText domain="preview" state={phase} icon />
-            <span className="text-meta text-fg-muted" title={absoluteAge(when) ?? undefined}>
-              · updated <span className="tabular-nums">{relativeAge(when)}</span>
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <p className="text-body font-medium text-foreground">Preview URL</p>
-            {url ? (
-              <div className="flex h-8 items-center gap-1 rounded-md bg-control pl-3 pr-1">
-                <span className="min-w-0 flex-1 truncate font-mono text-meta text-fg-2" title={fullUrl}>
-                  {fullUrl}
-                </span>
-                <Button variant="ghost" size="sm" shape="flat" onClick={() => void copy()}>
-                  Copy
-                </Button>
-                {/* A trailing ↗ modifies the DESTINATION — this leaves for
-                    another tab, and a control that does that has to say so. */}
-                <Button variant="ghost" size="sm" shape="flat" asChild>
-                  <a href={fullUrl} target="_blank" rel="noreferrer">
-                    Open ↗
+          {/* Three groups, 20 apart, no headings. A heading over two rows names
+              what the rows already say; the space is what groups them (§11). */}
+          <DetailList>
+            <DetailRow label="Status">
+              <StatusText domain="preview" state={phase} icon />
+            </DetailRow>
+            <DetailRow label="Preview URL">
+              {url ? (
+                <>
+                  {/* **The URL is the link.** A button called `Open` beside
+                        the URL it opens is the same act twice, and it cost the
+                        value 68px in a 304px cell — enough to truncate the one
+                        string the drawer exists to hand you. The trailing ↗
+                        modifies the DESTINATION: this leaves for another tab
+                        (§9). */}
+                  <a
+                    href={fullUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={fullUrl}
+                    className="focus-ring-edge min-w-0 truncate rounded-sm hover:underline"
+                  >
+                    {url} ↗
                   </a>
-                </Button>
-              </div>
-            ) : (
-              /* `fg-muted`, never `fg-ghost` — this is live status text and
-                 ghost is the disabled tier (§7). */
-              <p className="flex h-8 items-center rounded-md bg-control px-3 font-mono text-meta text-fg-muted">
-                {phase === PREVIEW_PHASE.deleting ? "tearing down…" : "building…"}
-              </p>
-            )}
-          </div>
+                  {/* `outline` — the board's `secondary`. Copy is the one
+                        control in the body, and a ghost among a column of plain
+                        text reads as absent until you hover it. */}
+                  <Button
+                    variant="outline"
+                    shape="flat"
+                    className="ml-auto flex-none"
+                    onClick={() => void copy()}
+                  >
+                    <CopyGlyph />
+                    Copy
+                  </Button>
+                </>
+              ) : (
+                /* `fg-muted`, never `fg-ghost` — this is live status text and
+                     ghost is the disabled tier (§7).
 
-          <dl className="flex flex-col gap-2">
-            <DetailRow label="Branch" value={env.branch} mono />
-            <DetailRow label="Commit" value={env.commit?.slice(0, 7)} mono />
-            <DetailRow label="Created by" value={env.source ? SOURCE_LABEL[env.source] : undefined} />
-            <DetailRow label="Stack" value={env.name} mono />
-          </dl>
+                     Sans, not mono (§6): `building…` is a sentence ABOUT the
+                     environment, not a value the environment produced. */
+                <span className="text-fg-muted">
+                  {phase === PREVIEW_PHASE.deleting
+                    ? "tearing down…"
+                    : "building…"}
+                </span>
+              )}
+            </DetailRow>
 
-          {env.stack_id && (
-            <Button
-              variant="link"
-              shape="flat"
-              className="-mx-3 self-start"
-              onClick={() => onOpenStack(env)}
+            <DetailRow label="Branch">{env.branch}</DetailRow>
+            <DetailRow label="Commit">{env.commit?.slice(0, 7)}</DetailRow>
+            {/* **The stack row IS the way to the stack.** It used to be a
+                  ghost button under the list — `Open the stack: logs, metrics
+                  and resources ↗` — which named the destination twice, once as
+                  a value and once as a sentence. */}
+            <DetailRow label="Stack">
+              {env.stack_id ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenStack(env)}
+                  className="focus-ring-edge min-w-0 truncate rounded-sm text-left hover:underline"
+                >
+                  {/* **Never a naked arrow.** An unnamed stack rendered as
+                        ` ↗` alone — a link with nothing to click and nothing to
+                        read. The name is what the row is FOR, so when there
+                        isn't one the link says the act instead of pointing at
+                        an empty space. */}
+                  {env.name || "Open stack"} ↗
+                </button>
+              ) : (
+                env.name
+              )}
+            </DetailRow>
+
+            <DetailRow label="Created by">
+              {env.source ? SOURCE_LABEL[env.source] : undefined}
+            </DetailRow>
+            <DetailRow
+              label="Created"
+              title={absoluteAge(env.created_at) ?? undefined}
             >
-              Open the stack: logs, metrics and resources ↗
-            </Button>
-          )}
+              {onDate(env.created_at)}
+            </DetailRow>
+            <DetailRow
+              label="Updated"
+              title={absoluteAge(env.updated_at) ?? undefined}
+            >
+              {relativeAge(env.updated_at)}
+            </DetailRow>
+          </DetailList>
         </DrawerBody>
-
-        {canWrite && (
-          <DrawerFooter>
-            <DrawerActions>
-              {/* `destructive-ghost`: §10's red fill belongs to the confirm's
-                  commit button, and this is the trigger that opens it. */}
-              <BlockedAction reason={teardownReason}>
-                <Button variant="destructive-ghost" shape="flat" onClick={() => onDelete(env)}>
-                  Delete
-                </Button>
-              </BlockedAction>
-              <BlockedAction reason={teardownReason}>
-                <Button onClick={() => onSync(env)}>
-                  {phase === PREVIEW_PHASE.deploying && <Loader2 className="animate-spin" />}
-                  Sync
-                </Button>
-              </BlockedAction>
-            </DrawerActions>
-          </DrawerFooter>
-        )}
       </DrawerContent>
     </Drawer>
   );
 }
 
-/** A label and its value on one line — the read-only sibling of a field, on the
- *  same left edge, so a column of them reads as one block rather than four. */
-function DetailRow({
+/**
+ * One of the header band's object actions — a glyph, its verb in a tooltip, and
+ * the reason in the same tooltip's place when it cannot be taken.
+ *
+ * **An icon button's only label is its glyph**, so the word has to come from
+ * somewhere; and §11's rule that nothing is disabled without saying why means
+ * the blocked case needs the same slot. `BlockedAction` brings its own tooltip,
+ * so the two are alternatives rather than nested.
+ */
+function HeaderAction({
   label,
-  value,
-  mono,
+  reason,
+  onClick,
+  className,
+  children,
 }: {
   label: string;
-  value?: string | null;
-  mono?: boolean;
+  reason: React.ReactNode | null;
+  onClick: () => void;
+  className?: string;
+  children: React.ReactNode;
 }) {
-  if (!value) return null;
+  const button = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className={className}
+      onClick={onClick}
+    >
+      {children}
+      <span className="sr-only">{label}</span>
+    </Button>
+  );
+  if (reason) return <BlockedAction reason={reason}>{button}</BlockedAction>;
   return (
-    <div className="flex gap-4">
-      <dt className="w-[120px] flex-none text-body text-fg-muted">{label}</dt>
-      <dd className={`min-w-0 truncate text-body text-foreground ${mono ? "font-mono" : ""}`}>
-        {value}
-      </dd>
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }

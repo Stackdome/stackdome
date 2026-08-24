@@ -78,7 +78,7 @@ function CopyButton({ url, copiedUrl, onCopy }: { url: string; copiedUrl: string
       type="button"
       onClick={() => onCopy(url)}
       aria-label={copiedUrl === url ? "Copied" : `Copy ${url}`}
-      className="flex size-5 shrink-0 items-center justify-center rounded text-fg-muted transition-colors hover:bg-muted hover:text-foreground"
+      className="flex size-5 shrink-0 items-center justify-center rounded text-fg-muted transition-colors hover:bg-[var(--wash-hover)] hover:text-foreground"
     >
       {copiedUrl === url ? <Check className="size-3 text-success" /> : <Copy className="size-3" />}
     </button>
@@ -154,7 +154,7 @@ function EndpointOverflow({
         <button
           type="button"
           aria-label={`${rest.length} more endpoint${rest.length > 1 ? "s" : ""} for ${service}`}
-          className="flex h-5 items-center rounded border-l border-border/60 px-1.5 font-mono text-label text-fg-muted transition-colors hover:bg-muted hover:text-foreground"
+          className="flex h-5 items-center rounded border-l border-border-subtle/60 px-1.5 font-mono text-label text-fg-muted transition-colors hover:bg-[var(--wash-hover)] hover:text-foreground"
         >
           +{rest.length}
         </button>
@@ -165,7 +165,7 @@ function EndpointOverflow({
           <span>endpoint</span>
         </div>
         {rest.map((u) => (
-          <div key={u.url} className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-muted/40">
+          <div key={u.url} className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--wash-hover)]">
             <span className="w-14 flex-none font-mono text-label text-fg-muted">
               {u.target_port ?? ""}
             </span>
@@ -198,7 +198,7 @@ function EndpointChip({ endpoint: { service, url, port, variant, urls }, reveal,
   const chip = (
     <span
       className={cn(
-        "group inline-flex items-center rounded-lg border border-border/60 bg-muted/25 font-mono transition-colors hover:border-border hover:bg-muted/40",
+        "group inline-flex items-center rounded-lg border border-border/60 bg-muted/25 font-mono transition-colors hover:border-border hover:bg-[var(--wash-hover)]",
         reveal === "tooltip" ? "gap-1 py-0.5 pl-2 pr-1 text-label" : "gap-1.5 py-1 pl-2.5 pr-1.5 text-meta",
       )}
     >
@@ -217,7 +217,7 @@ function EndpointChip({ endpoint: { service, url, port, variant, urls }, reveal,
         target="_blank"
         rel="noreferrer"
         aria-label={`Go to ${url}`}
-        className="flex h-5 min-w-5 items-center justify-center rounded text-fg-muted transition-colors hover:bg-muted hover:text-foreground"
+        className="flex h-5 min-w-5 items-center justify-center rounded text-fg-muted transition-colors hover:bg-[var(--wash-hover)] hover:text-foreground"
       >
         <ExternalLink className="size-3 shrink-0" />
       </a>

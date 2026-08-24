@@ -2,9 +2,9 @@ import { useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { DrawerBody, DrawerHeader, DrawerRegion } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EmptyState } from "@/components/branded";
+import { DangerZone, DangerZoneRow, EmptyState } from "@/components/branded";
 import { LogViewer } from "@/pages/stacks/components/editor/tabs/logs/log-viewer";
-import { X, ScrollText, Trash2 } from "lucide-react";
+import { X, ScrollText } from "lucide-react";
 import { useSecrets } from "@/pages/stacks/hooks/use-secrets";
 import { usePostgresAddons } from "@/hooks/use-postgres-addons";
 import type { PostgresAddon } from "@/api/addons";
@@ -20,13 +20,17 @@ import { deriveResourceOutputNames } from "@/pages/stacks/lib/derive-resource-ou
 import { renameResourceReferences } from "@/pages/stacks/lib/rename-references";
 import { NodeGlyph } from "./nodes/node-glyph";
 import { DOT_CLASS, DOT_SIZE } from "./nodes/node-card";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-/** The drawer's two tabs. Named, not typed inline — a tab id is a value the
- *  component compares against in three places. */
+/** The drawer's tabs. Named, not typed inline — a tab id is a value the
+ *  component compares against in three places.
+ *
+ *  **EXPERIMENT — the three form tabs are back.** The merged single scroll read
+ *  as too long. See the note above `TabsList` for what this trades away. */
 export const RESOURCE_TAB = {
-  settings: "settings",
+  configuration: "configuration",
+  deployment: "deployment",
+  environment: "environment",
   logs: "logs",
 } as const;
 
@@ -194,8 +198,10 @@ export function ResourceDrawer({
 
   return (
     /**
-     * **Two tabs, and they are the two things you do to a running service:
-     * change it, or watch it.**
+     * **Four tabs: the form cut in three, and the stream.**
+     *
+     * The single merged scroll is preserved in git — `git checkout` this file
+     * to get it back. What it lost was the feeling of a form that ends.
      *
      * Both used to be reachable only from a footer of ghost buttons — `View
      * logs` on the left, `Remove resource` on the right — and the two had
@@ -216,7 +222,7 @@ export function ResourceDrawer({
      * the three-row grid still owns the layout and the body is still the only
      * row that scrolls.
      */
-    <Tabs asChild defaultValue={RESOURCE_TAB.settings}>
+    <Tabs asChild defaultValue={RESOURCE_TAB.configuration}>
       <DrawerRegion detached open={open} aria-label={`Resource ${name}`} data-testid="resource-drawer">
         <DrawerHeader
           leading={<NodeGlyph glyph={pres.glyph} />}
@@ -229,7 +235,7 @@ export function ResourceDrawer({
                   under it — so the band's fast read was drawn in its quietest
                   tier, at a size `node-card.ts` had already rejected: "at that
                   size a solid dot reads as a printing artefact rather than as a
-                  status lamp". The card got that fix; the drawer 400px away did
+                  status lamp". The card got that fix; the drawer 480px away did
                   not, and the two dots for one fact drifted exactly as that
                   file's own comment predicted they would.
 
@@ -259,55 +265,21 @@ export function ResourceDrawer({
                   </button>
                 </span>
               ) : null}
-              {/* **Delete sits beside close because both end the drawer** — but
-                  they are not peers, and the band said they were.
+              {/* **Delete is not on this band any more.**
 
-                  It shipped in danger ink at rest, which made **the loudest
-                  mark in a 480px column the rarest action in it**: the only
-                  saturated colour on the surface, permanently lit, on a thing
-                  almost nobody does. §10 scales friction to blast radius, and
-                  a colour spent at rest is not friction — it is noise, and it
-                  drags the eye off the name and the status beside it.
+                  It sat here beside the close, in `fg-muted` at rest and danger
+                  ink on approach — a compromise made when the alternative was a
+                  red word taking half a footer. Both readings were wrong about
+                  the same thing: removing a service takes every port, mount and
+                  environment reference pointed at it, and §10 puts an act whose
+                  cost lands on OTHER objects in the **danger zone**, not on a
+                  band that is on screen the entire time you scroll.
 
-                  It is `fg-muted` now and takes danger's ink AND ground on
-                  approach, which is when the intent is real. The glyph never
-                  changed; only the moment it shouts.
-
-                  **The hairline is the same mark the sheet header uses** to
-                  divide chrome that belongs to the SHELL from chrome that
-                  belongs to the journey. Same job here: delete acts on the
-                  OBJECT, close acts on the PANEL. At a flat 12 the two read as
-                  one pair of equals, which is how a destroy comes to sit at the
-                  same rung as a dismiss.
-
-                  The word is a tooltip because the glyph is the only label an
-                  icon button has, and a trash can is unambiguous but its SCOPE
-                  is not — "Remove resource", not "remove the drawer". */}
-              {!readOnly && (
-                <>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-fg-muted hover:bg-danger-bg hover:text-danger"
-                        onClick={() => onRemove(resourceIndex)}
-                      >
-                        <Trash2 aria-hidden />
-                        <span className="sr-only">Remove resource</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Remove resource</TooltipContent>
-                  </Tooltip>
-                  {/* **No divider.** It was there to say that delete acts on the
-                      OBJECT while close acts on the PANEL — a real distinction,
-                      drawn with a line, in a band that now carries a 42px tile,
-                      a 16px title, a status dot and a tab strip. One more mark
-                      to make a point the icons already make: a trash can and an
-                      ✕ are not mistakable for each other. */}
-                </>
-              )}
+                  It is at the foot of `Configuration` now — after `General`,
+                  `Source`, `Ports` and `Mounts`, which is everything you would
+                  read before deciding — with its blast radius written beside it.
+                  The `?` treatment does not apply: a blast radius is legible at
+                  the moment you notice the button or it is not legible at all. */}
             </span>
           }
           /**
@@ -332,20 +304,42 @@ export function ResourceDrawer({
           {/* The band's second row. The 12 between it and the identity above
               is `DrawerHeader`'s own column gap — it used to be an `mt-3` here
               ON TOP of that gap, which put the strip 24 off the title. */}
+          {/**
+            * **EXPERIMENT: `Configuration ǀ Deployment ǀ Environment ǀ Logs`.**
+            *
+            * The merged single scroll read as too long, so the three form tabs
+            * are back. What it trades: the sections no longer rank themselves —
+            * Configuration holds four sections and Deployment holds one, and
+            * the strip gives both the same rung. You click to find out which.
+            *
+            * Each form tab carries its OWN change dot now rather than one dot
+            * for the whole form, so a dirty field behind an unselected tab is
+            * still findable. The band's `N changes` chip counts the same three.
+            */}
           <TabsList className="w-full justify-start">
-            <TabsTrigger value={RESOURCE_TAB.settings}>
-              Settings
-              {/* **The same dot the editor's own tab row carries**, one level
-                  in: the top tabs say "something behind Architecture changed",
-                  this says "and it is behind Settings". Without it the Logs tab
-                  hides the fact entirely — you switch to a stream, come back,
-                  and nothing on the strip says the form under it is dirty.
-
-                  A dot, not the count: the band's own chip two rows above is
-                  already counting, and two numbers for one fact is the mistake
-                  the top row made and undid. On the trigger's `gap-1.5`, after
-                  the word, so the strip does not shift when a field is edited. */}
-              {isDirty && (
+            <TabsTrigger value={RESOURCE_TAB.configuration}>
+              Configuration
+              {dirtyTabs.configuration && (
+                <span
+                  role="img"
+                  aria-label="has unsaved changes"
+                  className="size-1.5 flex-none rounded-full bg-change"
+                />
+              )}
+            </TabsTrigger>
+            <TabsTrigger value={RESOURCE_TAB.deployment}>
+              Deployment
+              {dirtyTabs.deployment && (
+                <span
+                  role="img"
+                  aria-label="has unsaved changes"
+                  className="size-1.5 flex-none rounded-full bg-change"
+                />
+              )}
+            </TabsTrigger>
+            <TabsTrigger value={RESOURCE_TAB.environment}>
+              Environment
+              {dirtyTabs.environment && (
                 <span
                   role="img"
                   aria-label="has unsaved changes"
@@ -359,33 +353,69 @@ export function ResourceDrawer({
           </TabsList>
         </DrawerHeader>
 
-        {/**
-          * **Eight sections in one scroll, not three tabs.**
-          *
-          * `Configuration ǀ Deployment ǀ Environment` put a four-field group at
-          * the same rung as a fourteen-field one, and made you click to find out
-          * which. Label-above halves the height of a row, which is what paid for
-          * the tabs in the first place — so the whole object fits one column and
-          * the sections do the ranking that the tab bar was pretending to do.
-          *
-          * **That still holds, and `Settings ǀ Logs` does not reopen it.** Those
-          * three were one subject cut into arbitrary thirds; these two are a
-          * form and a live stream, which cannot share a scroll at any length.
-          *
-          * One disabled fieldset covers every native input and Radix
-          * button-based control at once — read-only without threading a flag
-          * through each field. `min-w-0` because a fieldset defaults to
-          * `min-content` width, which at 480 lets one long value push the
-          * sections past the seam.
-          */}
-        <TabsContent value={RESOURCE_TAB.settings} asChild>
-          {/* `p-0`: every child here is a `FormSection`, and a section pays
-              its own 20 on all four sides so its rule can reach the seam. The
-              body's own padding would be spent twice. */}
+        {/* `p-0`: every child here is a `FormSection`, and a section pays its
+            own 20 on all four sides so its rule can reach the seam. The body's
+            own padding would be spent twice.
+
+            One disabled fieldset per tab covers every native input and Radix
+            button-based control at once — read-only without threading a flag
+            through each field. `min-w-0` because a fieldset defaults to
+            `min-content` width, which at 480 lets one long value push the
+            sections past the seam. */}
+        <TabsContent value={RESOURCE_TAB.configuration} asChild>
           <DrawerBody className="gap-0 p-0">
             <fieldset disabled={readOnly} className="min-w-0">
               <StackResourceConfigurationTab {...configurationProps} />
+            </fieldset>
+            {/* **Outside the fieldset.** A disabled fieldset disables every
+                control inside it, and in live view there is nothing here to
+                disable — §10: *a read-only surface has no danger zone at all*,
+                because a block headed "Danger zone" holding nothing you may
+                press is a warning about nothing.
+
+                The sections pay their own 20 (`p-0` on the body), so this pays
+                its own. **16 on top, not 0** — measured at 0 the tint butted
+                straight onto the last section's full-bleed hairline, which made
+                the block read as one more section of the form rather than as the
+                thing after it. The rule says the form ended; the 16 is what lets
+                that reading land. */}
+            {!readOnly && (
+              <div className="p-5 pt-4">
+                <DangerZone>
+                  <DangerZoneRow
+                    title="Remove this resource"
+                    description="Every port, mount and environment reference pointing at it goes too."
+                    action={
+                      /* No glyph. Every other danger zone in the product is a
+                         word alone — the tint and the red ink have already said
+                         what kind of act this is, and a trash can inside a
+                         danger zone is the third time. */
+                      <Button
+                        variant="destructive-ghost"
+                        shape="flat"
+                        onClick={() => onRemove(resourceIndex)}
+                      >
+                        Remove resource
+                      </Button>
+                    }
+                  />
+                </DangerZone>
+              </div>
+            )}
+          </DrawerBody>
+        </TabsContent>
+
+        <TabsContent value={RESOURCE_TAB.deployment} asChild>
+          <DrawerBody className="gap-0 p-0">
+            <fieldset disabled={readOnly} className="min-w-0">
               <StackResourceDeploymentTab {...deploymentProps} />
+            </fieldset>
+          </DrawerBody>
+        </TabsContent>
+
+        <TabsContent value={RESOURCE_TAB.environment} asChild>
+          <DrawerBody className="gap-0 p-0">
+            <fieldset disabled={readOnly} className="min-w-0">
               <StackResourceEnvironmentTab {...environmentProps} />
             </fieldset>
           </DrawerBody>

@@ -36,10 +36,10 @@ import { credentialsFormSchema, type CredentialsFormValues } from "./credentials
  * argument for a drawer written into the rules and no drawer to show for it.
  *
  * ```
- *   step 1  Connect provider › Pick a provider   the catalogue, off the registry
- *   step 2  Connect provider › GitHub            App install or token — GitHub only
- *   step 2  Connect provider › GitLab            the form, for the other four
- *   step 3  Connect provider › GitHub › Access token
+ *   step 1  Connect provider / Pick a provider   the catalogue, off the registry
+ *   step 2  Connect provider / GitHub            App install or token — GitHub only
+ *   step 2  Connect provider / GitLab            the form, for the other four
+ *   step 3  Connect provider / GitHub / Access token
  * ```
  *
  * ### Five phases became three, and nothing was deleted
@@ -385,7 +385,7 @@ export function ConnectProviderDrawer({
                 label="Username"
                 htmlFor="integration-username"
                 required={provider.basicAuth}
-                hint={
+                help={
                   provider.basicAuth
                     ? "App passwords authenticate as a user, so this one needs your username."
                     : "Only for hosts that authenticate with a username and password."

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect } from 'storybook/test'
+import { expect, fn } from 'storybook/test'
 import { makeAddon } from '../../../../.storybook/fixtures'
 import { AddonList, AddonListSkeleton } from './addon-list'
 
@@ -28,6 +28,7 @@ const mixed = [
 const meta = {
   title: 'Features/Addons/AddonList',
   component: AddonList,
+  args: { onOpen: fn() },
 } satisfies Meta<typeof AddonList>
 
 export default meta
@@ -41,16 +42,20 @@ export const ReadOnly: Story = {
   args: { addons: mixed, canWrite: () => false },
 }
 
-/** §11 — six tracks, not eight columns. `Type` said `postgres` on every row and
- *  `Backups` said a word rather than a fact; both left with the type icon. */
-export const SixTracks: Story = {
+/** §11 — five tracks, not eight columns. `Type` said `postgres` on every row
+ *  and `Backups` said a word rather than a fact; both left with the type icon.
+ *  The trailing chevron went with the navigation it stood for. */
+export const FiveTracks: Story = {
   args: { addons: mixed },
   play: async ({ canvas, canvasElement }) => {
     const header = canvasElement.querySelector('[data-slot="data-list-header"]')!
-    await expect(header.children).toHaveLength(6)
+    await expect(header.children).toHaveLength(5)
     await expect(canvas.queryByText('Type')).toBeNull()
     await expect(canvas.queryByText('Backups')).toBeNull()
     await expect(canvas.queryByText(/backups o(n|ff)/i)).toBeNull()
+    // No trailing chevron. The row opens a drawer, and an arrow pointing off
+    // the screen is the wrong mark for a panel sliding in from the right.
+    await expect(canvasElement.querySelector('.lucide-chevron-right')).toBeNull()
   },
 }
 

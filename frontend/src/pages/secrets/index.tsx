@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useSecrets } from "@/hooks/use-secrets";
 import { SecretList, SecretListSkeleton, formatSecretType } from "./components/secret-list";
 import { SecretFormDrawer } from "./components/secret-form-drawer";
 import type { Secret } from "./types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuChevron,
@@ -13,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SearchField } from "@/components/branded/search-field";
 import { PageHeader, EmptyState } from "@/components/branded";
 import { NoConnectionGlyph, NoSecretsGlyph, SearchGlyph } from "@/components/branded/empty-state";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,7 @@ export default function SecretsPage() {
   const [typeFilter, setTypeFilter] = useState<string>(ALL_TYPES);
   const [sortKey, setSortKey] = useState<SortKey>("created");
   const [editingSecret, setEditingSecret] = useState<Secret | null>(null);
+  const [deletingSecret, setDeletingSecret] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -86,8 +87,13 @@ export default function SecretsPage() {
       toast({ title: "Failed to delete secret", description: "Could not resolve the project for this secret.", variant: "destructive" });
       return;
     }
+    setDeletingSecret(true);
     try {
       await deleteSecret(orgId, projectName, secret.id);
+      // The drawer is the surface the act was taken FROM, so it is the surface
+      // that has to close — leaving it open over a list that no longer holds
+      // the row is a form editing something that is gone.
+      handleCloseDialog();
       refetch();
       toast({
         title: "Secret deleted",
@@ -101,6 +107,8 @@ export default function SecretsPage() {
         description: "Failed to delete secret. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setDeletingSecret(false);
     }
   }
 
@@ -198,16 +206,13 @@ export default function SecretsPage() {
    */
   const toolbar = error ? undefined : (
     <>
-      <div className="relative w-[300px]">
-        <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-fg-muted" />
-        <Input
-          placeholder="Filter secrets…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-8"
-          aria-label="Filter secrets"
-        />
-      </div>
+      <SearchField
+        className="w-[300px]"
+        value={query}
+        onChange={setQuery}
+        placeholder="Filter secrets…"
+        label="Filter secrets"
+      />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           {/* Filters are working controls: `flat`, never a pill (§9). Default
@@ -332,12 +337,10 @@ export default function SecretsPage() {
           }
         />
       ) : (
-        <SecretList
-          secrets={filtered}
-          onEdit={handleEdit}
-          onDelete={requestDelete}
-          canWrite={(projectId?: string) => canWrite(projectId ?? "")}
-        />
+        /* The row opens the form. A secret has no live state a details drawer
+           could show that the form does not — it is a name, a kind and a value,
+           and all three are fields. */
+        <SecretList secrets={filtered} onOpen={handleEdit} />
       )}
 
       <SecretFormDrawer
@@ -347,6 +350,14 @@ export default function SecretsPage() {
         isLoading={formLoading}
         error={formError}
         editingSecret={editingSecret}
+        /* Only where the reader may write to that secret's project — a danger
+           zone whose one control refuses is a warning about nothing. */
+        onDelete={
+          editingSecret && canWrite(editingSecret.project_id ?? "")
+            ? (secret) => void requestDelete(secret)
+            : undefined
+        }
+        deleting={deletingSecret}
       />
     </div>
   );

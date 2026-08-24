@@ -33,6 +33,9 @@ const baseOrganization = {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // Radix restores `pointer-events` on unmount, and `cleanup()` tears the tree
+  // down first — so a drawer left open in one test locks the next one out.
+  document.body.style.pointerEvents = "";
 });
 
 describe("DomainsPage", () => {
@@ -50,6 +53,8 @@ describe("DomainsPage", () => {
     );
     expect(await screen.findByText("apps.acme.dev")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add domain/ })).toBeDisabled();
+    // The row carries no destroy control — that moved to the drawer's foot.
+    expect(screen.queryByRole("button", { name: /Remove apps.acme.dev/ })).toBeNull();
   });
 
   it("keeps Add Domain enabled when no domains exist", async () => {
@@ -88,7 +93,11 @@ describe("DomainsPage", () => {
     await screen.findByText("apps.acme.dev");
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /Remove apps.acme.dev/ }));
+    // The row opens the drawer; the removal lives at the foot of it.
+    await user.click(screen.getByRole("link", { name: /apps.acme.dev domain/ }));
+    const remove_trigger = await screen.findByRole("button", { name: /remove domain/i });
+    expect(remove_trigger.closest('[data-slot="drawer-header"]')).toBeNull();
+    await user.click(remove_trigger);
 
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent(/remove domain\?/i);
@@ -102,6 +111,8 @@ describe("DomainsPage", () => {
 
     await waitFor(() => expect(updateOrganizationMock).toHaveBeenCalled());
     expect(updateOrganizationMock.mock.calls[0][1].domains).toEqual([]);
+    // The object the drawer is about is gone, so the drawer goes with it.
+    await waitFor(() => expect(screen.queryByText("DNS record")).toBeNull());
   });
 
   it("does not remove when the confirm is cancelled", async () => {
@@ -121,7 +132,8 @@ describe("DomainsPage", () => {
     await screen.findByText("apps.acme.dev");
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /Remove apps.acme.dev/ }));
+    await user.click(screen.getByRole("link", { name: /apps.acme.dev domain/ }));
+    await user.click(await screen.findByRole("button", { name: /remove domain/i }));
     await screen.findByRole("alertdialog");
     await user.click(screen.getByRole("button", { name: /cancel/i }));
 

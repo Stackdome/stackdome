@@ -43,6 +43,13 @@ const ZOOM_RESET = 1;
  * hairline outside the box so the drawn size and the spec'd size stay one
  * number — 32 high with 2px of padding and a 28px cell inside it, not 34.
  *
+ * **`--border-subtle` (6%), not `--border` (11%).** The ladder splits by job,
+ * and the job here is the same one the node cards do: a surface that FLOATS and
+ * carries its own shadow does not need the line to hold it off the ground. At
+ * 11% the toolbar drew a heavier line than the cards it sits among, which put
+ * the chrome above the drawing — the opposite of the fault this island was last
+ * fixed for. One value across all three islands and the cards.
+ *
  * **32 outside, 2 of padding, 28 inside — concentric.** The old group was `h-8
  * p-0.5` around `size-8` cells, so the padding never happened: measured, cell
  * and track were both 32 tall at the same `y`, the cell's hover wash ran *under*
@@ -52,7 +59,7 @@ const ZOOM_RESET = 1;
  */
 const ISLAND =
   "flex h-8 flex-none items-center gap-0.5 rounded-md bg-card p-0.5 shadow-sm " +
-  "[outline-width:1px] [outline-style:solid] [outline-color:var(--border)]";
+  "[outline-width:1px] [outline-style:solid] [outline-color:var(--border-subtle)]";
 
 /**
  * **Everything that acts on the DRAWING, at the canvas's top-left — in three

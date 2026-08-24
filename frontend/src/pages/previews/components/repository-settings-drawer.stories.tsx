@@ -130,12 +130,57 @@ export const BlockedUntilTheRequiredFieldsAreFilled: Story = {
   },
 }
 
-/** A repository with no environment variables yet: the list is the add control
- *  alone, which reads as the next row rather than as chrome. */
+/**
+ * A repository with no environment variables yet gets **the same empty state
+ * Ports, Mounts and the stack editor's Environment section use**: say what the
+ * group is for, then offer the way in. The add control takes its own width
+ * here — full-bleed it read as a drop zone rather than a button, and with no
+ * rows above it there is no column for it to continue.
+ */
 export const NoEnvironmentVariables: Story = {
   args: { config: { ...config, env: [] } as StackPreviewConfig },
   play: async () => {
-    await expect(await drawer().findByRole('button', { name: /add variable/i })).toBeInTheDocument()
+    await expect(await drawer().findByText('No variables')).toBeInTheDocument()
+    await expect(drawer().getByText(/connection strings, api keys, feature flags/i))
+      .toBeInTheDocument()
+    const add = drawer().getByRole('button', { name: /add variable/i })
+    await expect(add.className).toContain('self-start')
+  },
+}
+
+/**
+ * **Every gloss is on a `?`, not on a permanent line.** Five paragraphs of
+ * helper text under five fields is five lines of the form spent restating what
+ * the labels say — and a gloss that never changes has no business taking a
+ * line at all. The copy is unchanged; only the moment it appears is.
+ */
+export const HintsLiveOnTheMark: Story = {
+  play: async () => {
+    await expect(drawer().queryByText(/the branch pull requests target/i)).toBeNull()
+    const marks = await drawer().findAllByLabelText(/what does this do/i)
+    // The five fields. The danger row keeps its own sentence — a blast radius
+    // has to be legible before the button is used, not one hover later.
+    await expect(marks).toHaveLength(5)
+    await userEvent.hover(marks[0])
+    await expect(await drawer().findAllByText(/cannot be changed/i)).not.toHaveLength(0)
+  },
+}
+
+/**
+ * **The danger zone — a tinted block holding the one act that ends this
+ * object.** Fill and no border: §7 settled that the fill carries the tone
+ * alone, and a tinted box inside a red edge is the same fact twice.
+ */
+export const TheDangerZone: Story = {
+  play: async () => {
+    const heading = await drawer().findByRole('heading', { name: /danger zone/i })
+    const zone = heading.parentElement!
+    await expect(zone.className).toContain('bg-danger-bg')
+    await expect(zone.className).not.toContain('border')
+    // The act, its blast radius and the trigger, all in the block.
+    await expect(zone).toHaveTextContent('Remove from previews')
+    await expect(zone).toHaveTextContent(/pull requests stop getting environments/i)
+    await expect(zone).toContainElement(drawer().getByRole('button', { name: /remove repository/i }))
   },
 }
 

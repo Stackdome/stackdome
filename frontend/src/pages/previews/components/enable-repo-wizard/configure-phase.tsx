@@ -126,7 +126,7 @@ export function ConfigurePhase({ repo, onCreated }: ConfigurePhaseProps) {
           label="Name"
           htmlFor="cfg-name"
           required
-          hint="Cannot be changed later."
+          help="Cannot be changed later."
           error={fieldErrors.name}
         >
           <Input
@@ -144,7 +144,7 @@ export function ConfigurePhase({ repo, onCreated }: ConfigurePhaseProps) {
           label="Base branch"
           htmlFor="cfg-branch"
           required
-          hint="The branch pull requests target."
+          help="The branch pull requests target."
           error={fieldErrors.baseBranch}
         >
           <BranchField
@@ -163,7 +163,7 @@ export function ConfigurePhase({ repo, onCreated }: ConfigurePhaseProps) {
         <FieldShell
           label="Stackfile path"
           htmlFor="cfg-stackfile"
-          hint="Defines the full stack (services, ports, env). Fetched from the repository on every deploy. A wrong path shows up as a Failed environment."
+          help="Defines the full stack (services, ports, env). Fetched from the repository on every deploy. A wrong path shows up as a Failed environment."
           error={fieldErrors.stackfilePath}
         >
           <Input
@@ -180,7 +180,7 @@ export function ConfigurePhase({ repo, onCreated }: ConfigurePhaseProps) {
         <FieldShell
           label="Max active previews"
           htmlFor="cfg-max"
-          hint="Older environments stop being created once this many are live."
+          help="Older environments stop being created once this many are live."
           error={fieldErrors.maxActive}
         >
           {/* **It fills, like every other field.** It shipped `w-28`, which put
@@ -206,7 +206,7 @@ export function ConfigurePhase({ repo, onCreated }: ConfigurePhaseProps) {
             apart. Two shapes for one field is how the two drift. */}
         <FieldShell
           label="Environment variables"
-          hint="Applied to every preview. Reference a saved secret with the Secret source rather than pasting the value here."
+          help="Applied to every preview. Reference a saved secret with the Secret source rather than pasting the value here."
           error={fieldErrors.env}
         >
           <EnvVarsEditor

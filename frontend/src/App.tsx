@@ -5,7 +5,6 @@ import GithubCallbackPage from "@/pages/auth/github-callback"
 import StacksPage from "@/pages/stacks/components/list"
 import CanvasEditorPage from "@/pages/stacks/components/editor"
 import ClustersPage from "@/pages/clusters"
-import ClusterDetailPage from "@/pages/clusters/components/detail"
 import SecretsPage from "@/pages/secrets"
 import DomainsPage from "@/pages/domains"
 import AddonsPage from "@/pages/addons"
@@ -67,7 +66,6 @@ const router = createBrowserRouter(
         {/* Org-scoped, admin-only pages — members are redirected to "/" */}
         <Route element={<RequireAdmin />}>
           <Route path="/clusters" element={<ClustersPage />} />
-          <Route path="/clusters/:id" element={<ClusterDetailPage />} />
           <Route path="/domains" element={<DomainsPage />} />
         </Route>
         {/* One screen, two addresses. `/previews/:configId` resolves to the

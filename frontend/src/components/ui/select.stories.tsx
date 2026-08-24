@@ -139,7 +139,12 @@ export const HoverMovesTheLineAndOpenHoldsIt: Story = {
     await expect(cs.paddingLeft).toBe('8px')
     await expect(cs.paddingRight).toBe('8px')
     await expect(cs.columnGap).toBe('6px')
-    await expect(cs.fontWeight).toBe('500')
+    // **400, not 500.** A value is the content; the label above it is what is
+    // ABOUT the content, and §6's weight binary gives 500 to the label alone.
+    // Shipping 500 here put a select's answer heavier than the input's answer
+    // 16px below it — measured across the inspector as three value styles for
+    // one job (13/400, 13/500, 12/400).
+    await expect(cs.fontWeight).toBe('400')
     await expect(trigger.querySelector('svg')!.getBoundingClientRect().width).toBe(14)
 
     const restGround = cs.backgroundColor

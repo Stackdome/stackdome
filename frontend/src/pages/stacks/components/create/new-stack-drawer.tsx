@@ -301,7 +301,7 @@ export function NewStackDrawer({
    *
    * **Both steps are short, because the path is a position and not a
    * sentence.** "Select a service to start from" and "Start from a repository"
-   * both said the same thing twice: the crumb before the `›` already carries
+   * both said the same thing twice: the crumb before the `/` already carries
    * the task, so the segment after it only has to say WHERE you are. Trimmed to
    * "Select a service" and to the starting point's own step name, the two steps
    * also finally read as siblings rather than as an instruction followed by a

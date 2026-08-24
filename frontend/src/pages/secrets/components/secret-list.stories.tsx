@@ -19,7 +19,7 @@ const meta = {
   title: 'Features/Secrets/SecretList',
   component: SecretList,
   tags: ['ai-generated'],
-  args: { onEdit: fn(), onDelete: fn() },
+  args: { onOpen: fn() },
   decorators: [
     (Story) => (
       <div className="max-w-[820px] rounded-md border">
@@ -40,30 +40,28 @@ export const Default: Story = {
       makeSecret({ id: 's3', name: 'deploy-key', type: 'SSHKey' }),
     ],
   },
-  play: async ({ canvas }) => {
-    // Two actions, so both are ON the row — the same Edit and Delete the
-    // Object stores list has always shown inline (§11). A kebab that only ever
-    // opens two items spends a click to hide what fits.
-    const edit = canvas.getAllByRole('button', { name: /^Edit / })[0]
-    const del = canvas.getAllByRole('button', { name: /^Delete / })[0]
+  play: async ({ canvas, args }) => {
+    // **No actions on the row.** `Edit` was what the row now does, and `Delete`
+    // takes every stack that reads the secret with it — §10 puts an act with
+    // dependents in the danger zone on the object, not under a pointer on a row
+    // someone was scanning.
+    await expect(canvas.queryByRole('button', { name: /^Edit / })).toBeNull()
+    await expect(canvas.queryByRole('button', { name: /^Delete / })).toBeNull()
     await expect(canvas.queryByRole('button', { name: /^Actions for / })).toBeNull()
 
-    // One control height (rubric #9): both read from the Button `icon-sm`,
-    // never a hand-set h-8/w-8 override.
-    for (const b of [edit, del]) {
-      await expect(b.className).toContain('size-7')
-      await expect(b.className).not.toMatch(/\bh-8\b/)
-      await expect(b.className).toContain('focus-ring')
-    }
-    // Side by side on one row, in the 64px track the pair needs.
-    await expect(edit.getBoundingClientRect().top).toBe(del.getBoundingClientRect().top)
+    // The row IS the way in, and it says what it opens.
+    const row = canvas.getAllByRole('link')[0]
+    await expect(row).toHaveAccessibleName('stripe-api-key secret')
+    row.click()
+    await expect(args.onOpen).toHaveBeenCalled()
+    // Three tracks: the 64px action slot went with the actions.
+    await expect(getComputedStyle(row).gridTemplateColumns.split(' ')).toHaveLength(3)
   },
 }
 
 export const ReadOnly: Story = {
   args: {
     secrets: [makeSecret()],
-    canWrite: () => false,
   },
 }
 

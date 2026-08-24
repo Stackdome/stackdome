@@ -11,7 +11,7 @@ import { ReleaseState } from "../release-states";
 import { releaseValidationBannerItems } from "../release-errors";
 import { useReleaseEvents } from "../use-release-events";
 import { SplitConsole, type ResourceRowVM, type LogContext } from "./split-console";
-import { ReleaseBodyTabs } from "./release-body-tabs";
+import { ReleaseBodySections } from "./release-body-sections";
 import { DeployFailedBanner } from "./deploy-failed-banner";
 
 export interface ReleasePostMortemProps {
@@ -86,9 +86,9 @@ export function ReleasePostMortem({ detail, release, stack, prevReleaseId, prevS
           onDismiss={() => setValidationDismissed(true)}
         />
       )}
-      <ReleaseBodyTabs diff={diffs} hasPrev={!!prevReleaseId} prevSeq={prevSeq} loading={!!prevReleaseId && !prev.data}>
+      <ReleaseBodySections diff={diffs} hasPrev={!!prevReleaseId} prevSeq={prevSeq} loading={!!prevReleaseId && !prev.data}>
         <SplitConsole rows={rows} events={events} streaming={false} logContext={logContext} />
-      </ReleaseBodyTabs>
+      </ReleaseBodySections>
     </div>
   );
 }

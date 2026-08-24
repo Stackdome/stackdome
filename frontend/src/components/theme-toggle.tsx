@@ -35,7 +35,7 @@ export function ThemeToggle({ variant = "secondary", presentation = "icon" }: Th
         // `relative` is load-bearing: the Moon is absolutely positioned, and
         // without a positioned ancestor here it resolves against whatever
         // happens to be positioned further up the tree.
-        className="relative flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-body font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent focus-ring-edge"
+        className="relative flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-body font-medium text-sidebar-foreground transition-colors hover:bg-[var(--wash-hover)] focus-ring-edge"
       >
         <Sun className="size-4 shrink-0 rotate-0 scale-100 text-fg-2 transition-all dark:-rotate-90 dark:scale-0" />
         <Moon className="absolute size-4 shrink-0 rotate-90 scale-0 text-fg-2 transition-all dark:rotate-0 dark:scale-100" />
@@ -53,7 +53,7 @@ export function ThemeToggle({ variant = "secondary", presentation = "icon" }: Th
     <Button
       variant={variant}
       size="icon"
-      className={cn("rounded-full", variant === "ghost" && "hover:bg-muted")}
+      className={cn("rounded-full", variant === "ghost" && "hover:bg-[var(--wash-hover)]")}
       onClick={() => setTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark')}
     >
       <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />

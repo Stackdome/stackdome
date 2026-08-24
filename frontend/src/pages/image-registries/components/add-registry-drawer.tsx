@@ -45,8 +45,8 @@ interface FieldErrors {
  * **A drawer, two phases** (§13 "Adding a thing").
  *
  * ```
- *   step 1  Add registry › Pick a registry   the catalogue, off the registry
- *   step 2  Add registry › GHCR              the credentials form
+ *   step 1  Add registry / Pick a registry   the catalogue, off the registry
+ *   step 2  Add registry / GHCR              the credentials form
  * ```
  *
  * It shipped as a `Dialog size="form"` running the same two phases out of five
@@ -74,7 +74,7 @@ interface FieldErrors {
  * halves of one task behave differently is a rule mis-applied**: the phase test
  * asks what a form needs, and it cannot see the flow standing beside it.
  *
- * So `Add registry › GHCR` mirrors `Connect provider › GitHub`, down to the
+ * So `Add registry / GHCR` mirrors `Connect provider / GitHub`, down to the
  * catalogue rows and the crumb that returns to them.
  *
  * ### What that inherits from the sibling, deliberately

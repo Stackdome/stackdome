@@ -60,10 +60,26 @@ describe("ResourceNode port lines", () => {
 });
 
 describe("ResourceNode status dot", () => {
-  it("ready dot breathes", () => {
+  // **Motion means something is happening.** Ready used to breathe on a loop,
+  // so on a screen of working services the only moving thing was the news that
+  // nothing was moving. A pulse belongs to `pending` alone now.
+  it("ready dot is a static green, with no animation", () => {
     const { container } = render(<ReactFlowProvider><ResourceNode {...nodeProps("ready")} /></ReactFlowProvider>);
-    expect(dotOf(container)!.className).toContain("animate-breathe");
     expect(dotOf(container)!.className).toContain("bg-success");
+    expect(dotOf(container)!.className).not.toContain("animate-");
+  });
+
+  it("pending is the only dot that moves", () => {
+    const { container } = render(<ReactFlowProvider><ResourceNode {...nodeProps("pending")} /></ReactFlowProvider>);
+    expect(dotOf(container)!.className).toContain("animate-pulse");
+  });
+
+  // Blue is the focus and selection colour (§5). Spending it on a state put a
+  // permanent false "you are here" on any card whose status could not be read.
+  it("unknown takes the neutral tier, not the info blue", () => {
+    const { container } = render(<ReactFlowProvider><ResourceNode {...nodeProps("info")} /></ReactFlowProvider>);
+    expect(dotOf(container)!.className).toContain("bg-fg-muted");
+    expect(dotOf(container)!.className).not.toContain("bg-info");
   });
   it("error dot is static red", () => {
     const { container } = render(<ReactFlowProvider><ResourceNode {...nodeProps("error")} /></ReactFlowProvider>);

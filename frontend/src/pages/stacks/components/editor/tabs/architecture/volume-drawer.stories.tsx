@@ -59,7 +59,7 @@ export const FromTheCanvas: Story = {
   },
 }
 
-/** Opened from a service's mount row: `web › uploads`, and `web` is the way back. */
+/** Opened from a service's mount row: `web / uploads`, and `web` is the way back. */
 export const OneLevelDeep: Story = {
   args: { from: { name: 'web', onBack: fn() } },
   play: async ({ args, canvasElement }) => {
@@ -94,4 +94,30 @@ export const Missing: Story = {
 /** No size set yet, and nothing mounts it — the empty end of the form. */
 export const Unset: Story = {
   args: { volumeName: 'scratch', session: session([{ name: 'scratch' }]) },
+}
+
+/**
+ * **Remove is in the danger zone, and the footer band went with it.**
+ *
+ * It was a lone red-inked ghost button in an 81px footer, which made a destroy
+ * the only thing this drawer appeared to be FOR — and said nothing about what it
+ * costs. Same act, same material as every other destroy in the product, at the
+ * foot of the body (§10). A drawer with nothing to commit has no footer.
+ */
+export const RemoveLivesInTheDangerZone: Story = {
+  args: { onRequestRemove: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement)
+    const remove = canvas.getByRole('button', { name: /remove volume/i })
+
+    await expect(canvasElement.querySelector('[data-slot="drawer-footer"]')).toBeNull()
+    await expect(remove.closest('[data-slot="drawer-header"]')).toBeNull()
+    const zone = canvas.getByRole('heading', { name: /danger zone/i }).parentElement!
+    await expect(zone).toContainElement(remove)
+    // The blast radius is on the page, not behind a `?`.
+    await expect(zone).toHaveTextContent(/loses the mount/i)
+
+    await userEvent.click(remove)
+    await expect(args.onRequestRemove).toHaveBeenCalledWith('uploads')
+  },
 }

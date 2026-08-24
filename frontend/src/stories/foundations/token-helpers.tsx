@@ -55,7 +55,7 @@ export function TypeSample({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex items-baseline gap-4 border-b border-border py-3">
+    <div className="flex items-baseline gap-4 border-b border-border-subtle py-3">
       <div className="w-56 shrink-0 font-mono text-[11px] text-muted-foreground">{label}</div>
       <div className={className}>{children}</div>
     </div>

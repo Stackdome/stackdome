@@ -15,7 +15,7 @@ import { getCurrentOrganizationId } from "@/lib/common";
 import { RegistriesErrorState, RegistriesEmptyState } from "./components/page-states";
 import { RegistryRow, RegistryListHeader, RegistryListSkeleton } from "./components/registry-row";
 import { AddRegistryDrawer } from "./components/add-registry-drawer";
-import { UpdateCredentialsDialog } from "./components/update-credentials-dialog";
+import { RegistryDrawer } from "./components/registry-drawer";
 import { VerifyRegistryDialog } from "./components/verify-registry-dialog";
 
 export default function ImageRegistriesPage() {
@@ -26,6 +26,7 @@ export default function ImageRegistriesPage() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<RegistryCredential | null>(null);
   const [verifying, setVerifying] = useState<RegistryCredential | null>(null);
+  const [removing, setRemoving] = useState(false);
   const confirm = useConfirm();
   const { setCustomLabel, setPathLoading } = useBreadcrumb();
 
@@ -75,6 +76,7 @@ export default function ImageRegistriesPage() {
       });
       return;
     }
+    setRemoving(true);
     try {
       const res = await deleteRegistryCredential(orgId, credential.id);
       const affected = res.affected_stacks ?? [];
@@ -87,9 +89,15 @@ export default function ImageRegistriesPage() {
       } else {
         toast({ title: "Registry removed", variant: "success" });
       }
+      // The drawer is the surface the act was taken FROM, so it is the surface
+      // that closes — a form still editing a registry that is gone is a form
+      // whose Save can only fail.
+      setEditing(null);
       await refresh();
     } catch (e) {
       toast({ title: "Remove failed", description: getErrorMessage(e), variant: "destructive" });
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -123,23 +131,23 @@ export default function ImageRegistriesPage() {
           )}
           <RegistryListHeader />
           {credentials.map((credential) => (
-            <RegistryRow
-              key={credential.id}
-              credential={credential}
-              onVerify={setVerifying}
-              onUpdateCredentials={setEditing}
-              onRemove={(c) => void remove(c)}
-            />
+            <RegistryRow key={credential.id} credential={credential} onOpen={setEditing} />
           ))}
         </div>
       )}
 
       <AddRegistryDrawer open={adding} onOpenChange={setAdding} onCreated={() => void refresh()} />
 
-      <UpdateCredentialsDialog
+      {/* The row's destination: the login to rotate, `Verify` on the band, and
+          `Remove` in the danger zone — the three things the kebab used to hide
+          behind one click, on one surface you can read before deciding. */}
+      <RegistryDrawer
         credential={editing}
         onOpenChange={(o) => !o && setEditing(null)}
         onUpdated={() => void refresh()}
+        onVerify={setVerifying}
+        onRemove={(c) => void remove(c)}
+        removing={removing}
       />
 
       <VerifyRegistryDialog

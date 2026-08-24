@@ -17,7 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertBanner, BlockedAction, FieldShell, reasonList } from "@/components/branded";
+import {
+  AlertBanner,
+  BlockedAction,
+  DangerZone,
+  DangerZoneRow,
+  FieldShell,
+  reasonList,
+} from "@/components/branded";
 import { useToast } from "@/components/ui/use-toast";
 import { getCurrentOrganizationId } from "@/lib/common";
 import { getErrorMessage } from "@/api/client";
@@ -38,6 +45,13 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: ObjectStore | null;
+  /**
+   * Ends the store. Only meaningful while editing one — a form that has not
+   * created anything yet has nothing to destroy, so the danger zone is not
+   * drawn at all on `New object store`.
+   */
+  onDelete?: (store: ObjectStore) => void;
+  deleting?: boolean;
   onSaved: () => void;
 };
 
@@ -131,7 +145,14 @@ function fromObjectStore(store: ObjectStore): ObjectStoreFormValues | null {
  * tab strip, and the only field on the form with no label, no required mark and
  * no error slot. `Tabs` is navigation everywhere else it appears.
  */
-export function ObjectStoreFormDrawer({ open, onOpenChange, editing, onSaved }: Props) {
+export function ObjectStoreFormDrawer({
+  open,
+  onOpenChange,
+  editing,
+  onSaved,
+  onDelete,
+  deleting = false,
+}: Props) {
   const { toast } = useToast();
   const { projectNameById, defaultProjectName } = useResourceProjects();
   const [values, setValues] = useState<ObjectStoreFormValues>(empty);
@@ -349,7 +370,8 @@ export function ObjectStoreFormDrawer({ open, onOpenChange, editing, onSaved }: 
             label="Retention"
             htmlFor="os-retention"
             required
-            hint="How long backups are kept. Use a value like 7d, 24h or 4w."
+            hint="Use a value like 7d, 24h or 4w."
+            help="How long backups are kept. Use a value like 7d, 24h or 4w."
             error={errors.retentionPolicy}
           >
             <Input
@@ -517,6 +539,34 @@ export function ObjectStoreFormDrawer({ open, onOpenChange, editing, onSaved }: 
                 errors["gcs.serviceAccountCredentials.key"]
               }
             />
+          )}
+
+          {/* **Deleting a store stops backups landing and stops restores
+              resolving** — the addons pointing at it keep their schedule and
+              quietly have nowhere to put the result. That cost lands on other
+              objects, which is §10's test for the danger zone.
+
+              Not drawn on `New object store`: there is nothing to destroy yet,
+              and a block headed *Danger zone* over an unsaved form is a warning
+              about nothing. */}
+          {editing && onDelete && (
+            <DangerZone className="mt-1">
+              <DangerZoneRow
+                title="Delete this object store"
+                description="Addons backing up here lose their destination. Existing files are left alone."
+                action={
+                  <Button
+                    variant="destructive-ghost"
+                    shape="flat"
+                    disabled={deleting}
+                    onClick={() => onDelete(editing)}
+                  >
+                    {deleting && <Loader2 className="animate-spin" />}
+                    Delete object store
+                  </Button>
+                }
+              />
+            </DangerZone>
           )}
         </DrawerBody>
 

@@ -1,5 +1,7 @@
 import { http, HttpResponse } from 'msw'
 
+import { sseResponse } from '../../.storybook/sse'
+
 import {
   makeAddon,
   makeCluster,
@@ -7,6 +9,7 @@ import {
   makeStack,
   makeUser,
   ORG_ID,
+  STACK_ID,
 } from '../../.storybook/fixtures'
 import { ReleaseState } from '@/pages/stacks/components/editor/tabs/deployments/release-states'
 import type { Stack } from '@/api/stack-types'
@@ -25,6 +28,27 @@ import type { ObjectStore } from '@/api/object-stores'
  */
 
 const list = (items: unknown[]) => HttpResponse.json({ items, total: items.length })
+
+/** A minute of plausible output for one service, in the `[source]: line` shape
+ *  `parseLogEntry` reads. Timestamps are fixed, not `Date.now()`, so two runs of
+ *  the preview screenshot identically. */
+function logFrames(source: string) {
+  const lines = [
+    '2026-08-20T09:14:02.118Z Starting container',
+    '2026-08-20T09:14:02.402Z Listening on :3000',
+    '2026-08-20T09:14:03.771Z GET /  200  14ms',
+    '2026-08-20T09:14:04.019Z GET /assets/app.css  200  3ms',
+    '2026-08-20T09:14:05.550Z GET /api/stacks  200  61ms',
+    '2026-08-20T09:14:07.204Z GET /healthz  200  1ms',
+    '2026-08-20T09:14:09.880Z WARN slow query: stacks.list took 812ms',
+    '2026-08-20T09:14:12.031Z GET /api/stacks/s3  200  22ms',
+    '2026-08-20T09:14:15.447Z GET /healthz  200  1ms',
+    '2026-08-20T09:14:18.902Z ERROR upstream timeout contacting orders-db',
+    '2026-08-20T09:14:19.115Z GET /api/orders  502  30011ms',
+    '2026-08-20T09:14:22.640Z GET /healthz  200  2ms',
+  ]
+  return lines.map((line, i) => ({ data: `[${source}]: ${line}`, delay: i === 0 ? 400 : 260 }))
+}
 
 /**
  * Delete by id, in place — so the row stays gone across the `refresh()` the
@@ -156,7 +180,185 @@ const LIVE_STATUS: Record<string, Record<string, { state: string }>> = {
   },
 }
 
+
+/**
+ * **The deploy timeline needs a HISTORY, not one release.**
+ *
+ * The list handler used to synthesise a single release from the stack's own
+ * pointer, so the tab could only ever render one node: no rail, no failure, no
+ * post-mortem, no config diff, and the live anchor — which fires only when the
+ * newest release is not the live one — was unreachable. Four releases with one
+ * failure at the top is the smallest set that makes every part of the tab
+ * visible at once.
+ *
+ * Matches the data set on the Figma board so the two can be compared directly.
+ */
+const ORDERS_RELEASES = [
+  {
+    id: 'r4', stack_id: STACK_ID, sequence: 4, state: ReleaseState.Failed,
+    cause: { kind: 'manual' },
+    message: '1 of 4 resources failed to become ready',
+    created_at: '2026-08-05T17:31:00Z',
+    rendered_at: '2026-08-05T17:31:12Z',
+    completed_at: '2026-08-05T17:32:31Z',
+    pins: { resources: { web: { git_sha: 'e41c7b8' } } },
+    // **`outcome.resources` has to ride the LIST item, not just the detail.**
+    // The rail's stage tracker reads `deriveStages(release, …)` off the list
+    // entry, and an empty outcome means "never reached the cluster" — which
+    // put a readiness failure on Build instead of Ready.
+    outcome: {
+      resources: {
+        web: { phase: 'Failed', ready_replicas: 0, replicas: 1, message: 'back-off 5m0s restarting failed container' },
+        worker: { phase: 'Ready', ready_replicas: 1, replicas: 1 },
+        'orders-db': { phase: 'Ready', ready_replicas: 1, replicas: 1 },
+        cache: { phase: 'Ready', ready_replicas: 1, replicas: 1 },
+      },
+    },
+  },
+  {
+    id: 'r3', stack_id: STACK_ID, sequence: 3, state: ReleaseState.Released,
+    cause: { kind: 'webhook_push' },
+    created_at: '2026-08-05T16:02:48Z',
+    rendered_at: '2026-08-05T16:02:48Z',
+    completed_at: '2026-08-05T16:04:00Z',
+    pins: { resources: { web: { git_sha: 'a3f9d2e' } } },
+      outcome: { resources: { web: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, worker: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, 'orders-db': { phase: 'Ready', ready_replicas: 1, replicas: 1 }, cache: { phase: 'Ready', ready_replicas: 1, replicas: 1 } } },
+  },
+  {
+    id: 'r2', stack_id: STACK_ID, sequence: 2, state: ReleaseState.Released,
+    cause: { kind: 'manual' },
+    created_at: '2026-08-04T11:19:02Z',
+    rendered_at: '2026-08-04T11:19:02Z',
+    completed_at: '2026-08-04T11:20:00Z',
+    pins: { resources: { web: { git_sha: '7c1b8e4' } } },
+      outcome: { resources: { web: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, worker: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, 'orders-db': { phase: 'Ready', ready_replicas: 1, replicas: 1 }, cache: { phase: 'Ready', ready_replicas: 1, replicas: 1 } } },
+  },
+  {
+    id: 'r1', stack_id: STACK_ID, sequence: 1, state: ReleaseState.Released,
+    cause: { kind: 'manual' },
+    created_at: '2026-08-02T09:10:56Z',
+    rendered_at: '2026-08-02T09:10:56Z',
+    completed_at: '2026-08-02T09:12:00Z',
+    pins: { resources: { web: { git_sha: '2f90aa1' } } },
+      outcome: { resources: { web: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, worker: { phase: 'Ready', ready_replicas: 1, replicas: 1 }, 'orders-db': { phase: 'Ready', ready_replicas: 1, replicas: 1 }, cache: { phase: 'Ready', ready_replicas: 1, replicas: 1 } } },
+  },
+]
+
+/** Per-release rollout status. r4 is the one that broke. */
+const ORDERS_LIVE_STATUS: Record<string, Record<string, unknown>> = {
+  r4: {
+    web: {
+      state: 'Failed',
+      conditions: [{ type: 'BuildReady', status: 'True' }],
+      last_failure: {
+        type: 'readiness_failure',
+        container: {
+          reason: 'CrashLoopBackOff',
+          message: 'back-off 5m0s restarting failed container',
+          exit_code: 1,
+          restart_count: 3,
+          failure_type: 'crash_loop',
+        },
+      },
+    },
+    worker: { state: 'Ready', conditions: [{ type: 'BuildReady', status: 'True' }] },
+    'orders-db': { state: 'Ready' },
+    cache: { state: 'Ready' },
+  },
+}
+
+/** The activity stream for r4 — the console's whole reason to exist. */
+const ORDERS_EVENTS = [
+  { sequence: 1,  level: 'info',    scope: 'release',  resource_name: '',          message: 'rendering release #4',                      at: '17:31:12' },
+  { sequence: 2,  level: 'success', scope: 'resource', resource_name: 'web',       message: 'build succeeded',                           at: '17:31:14',
+    links: [{ kind: 'build_logs', label: 'Build logs', target: { build_id: 'b-9f21', resource_name: 'web' } }] },
+  { sequence: 3,  level: 'info',    scope: 'resource', resource_name: 'web',       message: 'web: rolling out revision 5',               at: '17:31:20', type: 'resource_deploying' },
+  { sequence: 4,  level: 'info',    scope: 'resource', resource_name: 'worker',    message: 'worker: rolling out revision 5',            at: '17:31:22', type: 'resource_deploying' },
+  { sequence: 5,  level: 'success', scope: 'resource', resource_name: 'worker',    message: 'worker is ready',                           at: '17:31:41', type: 'resource_ready' },
+  { sequence: 6,  level: 'success', scope: 'resource', resource_name: 'orders-db', message: 'orders-db is ready',                        at: '17:31:58', type: 'resource_ready' },
+  { sequence: 7,  level: 'success', scope: 'resource', resource_name: 'cache',     message: 'cache is ready',                            at: '17:32:03', type: 'resource_ready' },
+  { sequence: 8,  level: 'warning', scope: 'resource', resource_name: 'web',       message: 'web: readiness probe failed: HTTP 503 on /healthz', at: '17:32:19', type: 'resource_waiting' },
+  { sequence: 9,  level: 'error',   scope: 'resource', resource_name: 'web',       message: 'web: back-off 5m0s restarting failed container',    at: '17:32:31', type: 'resource_failed' },
+  { sequence: 10, level: 'error',   scope: 'release',  resource_name: '',          message: 'deploy failed — 1 of 4 resources not ready', at: '17:32:31' },
+].map((e) => ({ ...e, occurred_at: `2026-08-05T${e.at}Z` }))
+
+
+/**
+ * Snapshots per release, so the Changes section has a real diff to draw.
+ *
+ * **Derived from the stack's own spec, never hand-written.** A hand-written
+ * snapshot listed the four resources and nothing else; the editor builds its
+ * draft from the baseline snapshot, hit the missing `volumes`/`connections`,
+ * and the whole route died in `canonicalFromDraft` on a null entry. Only
+ * `web`'s log level differs between #3 and #4 — the smallest change that still
+ * draws a `from → to` row.
+ */
+function ordersSnapshot(logLevel: string) {
+  const spec = (stacks.find((s) => s.id === STACK_ID)?.spec ?? {}) as {
+    stack_resources?: { name?: string }[]
+    volumes?: unknown[]
+    connections?: unknown[]
+  }
+  return {
+    resources: (spec.stack_resources ?? []).map((r) =>
+      r?.name === 'web'
+        ? { ...r, execution_config: { environment_variables: [{ name: 'LOG_LEVEL', value: logLevel }] } }
+        : r,
+    ),
+    volumes: spec.volumes ?? [],
+    connections: spec.connections ?? [],
+  }
+}
+
+const ORDERS_LOG_LEVEL: Record<string, string> = { r4: 'debug', r3: 'info', r2: 'info', r1: 'info' }
+
+
+/**
+ * **Metrics, scripted.** Without these the tab renders `Disconnected` over four
+ * empty cards forever: `EventSource` hits the JSON catch-all, gets the wrong
+ * MIME type and aborts. The samples arrive a few hundred ms apart so the
+ * summary sparklines fill in front of you rather than appearing complete.
+ *
+ * Per-resource values are the board's: web 180m/200Mi, worker 60m/112Mi,
+ * orders-db 210m/640Mi. `cache` is deliberately absent — a resource with no
+ * sample is what makes the `Waiting for data` card reachable.
+ */
+const METRIC_SAMPLES: Record<string, [number, number]> = {
+  web: [180, 200],
+  worker: [60, 112],
+  'orders-db': [210, 640],
+}
+
+const metricFrames = (cpu: number, mem: number) =>
+  Array.from({ length: 14 }, (_, i) => ({
+    // A gentle wobble so the sparkline has a shape instead of a flat wall.
+    data: {
+      cpu_usage: String(Math.round(cpu * (0.82 + 0.22 * Math.sin(i / 1.7)))),
+      memory_usage: String(Math.round(mem * (0.94 + 0.06 * Math.sin(i / 2.3)))),
+      timestamp: new Date(Date.parse('2026-08-05T17:32:04Z') + i * 5000).toISOString(),
+    },
+    delay: i === 0 ? 120 : 320,
+  }))
+
 const liveStatusFor = (stackId: string) => LIVE_STATUS[stackId] ?? LIVE_STATUS['s1-orders']
+
+/**
+ * **Three projects, not one.** The preview shipped every stack in `default`,
+ * which quietly made the stacks table look better than it was: with one project
+ * name the `branch@sha` under each stack happened to start at the same x on
+ * every row, so the drift that argued for splitting Name into columns was
+ * invisible on the only surface anyone judges from.
+ *
+ * `default` stays first and stays the default project, so every page that
+ * reaches for "the project" is unaffected. **The `empty` scenario still answers
+ * with one project** — a brand-new org has exactly `default`, and three would
+ * be a first-run state nobody is ever in. Added 23 Aug 2026.
+ */
+export const PROJECTS = [
+  makeProject(),
+  makeProject({ id: 'p2', name: 'platform-eu', default_project: false }),
+  makeProject({ id: 'p3', name: 'data-warehouse-prod', default_project: false }),
+]
 
 const stacks = [
   makeStack({
@@ -199,13 +401,22 @@ const stacks = [
   } as Partial<Stack>),
   makeStack({
     spec: spec(['web>orders-db,cache+uploads=/var/uploads', 'worker>orders-db+assets=/var/assets', 'orders-db@postgres:16', 'cache@redis:7'], ['uploads', 'assets'], 'main', 'a3f9d2e91a02c4d5'),
-    updated_at: '2026-07-31T12:00:00Z',
-    latest_release: { id: 'r1', state: ReleaseState.Released },
+    updated_at: '2026-08-05T17:32:31Z',
+    // **Latest failed, converged is older.** That gap is what puts a release
+    // history on the tab at all: the live anchor only fires when the newest
+    // release is not the live one, and the post-mortem only has something to
+    // show when a deploy actually failed.
+    latest_release: {
+      id: 'r4',
+      state: ReleaseState.Failed,
+      message: '1 of 4 resources failed to become ready',
+      created_at: '2026-08-05T17:31:00Z',
+    },
     converged_release: {
-      id: 'r1',
+      id: 'r3',
       state: ReleaseState.Released,
-      health: 'ok',
-      completed_at: '2026-07-31T12:00:00Z',
+      health: 'degraded',
+      completed_at: '2026-08-05T16:04:00Z',
     },
   } as Partial<Stack>),
   makeStack({ id: 's4', name: 'staging-sandbox', spec: spec(['web'], ['data'], 'main') }),
@@ -216,7 +427,7 @@ const stacks = [
     name: 'admin-console-with-a-deliberately-long-name',
     spec: spec(['web'], [], 'chore/rename-everything-for-the-truncation-test'),
   }),
-].map((s) => ({ ...s, project_id: makeProject().id })) as Stack[]
+].map((s, i) => ({ ...s, project_id: PROJECTS[i % PROJECTS.length].id })) as Stack[]
 
 const addons = [
   makeAddon(),
@@ -452,6 +663,7 @@ const previewEnvs = [
     id: 'pe-1',
     config_id: 'pc-1',
     stack_id: 'stk-1',
+    name: 'pr-128-web-storefront',
     pr_number: '128',
     branch: 'feat/checkout-redesign',
     commit: 'a3f9d2e4c1b7',
@@ -467,6 +679,7 @@ const previewEnvs = [
     id: 'pe-2',
     config_id: 'pc-1',
     stack_id: 'stk-2',
+    name: 'pr-131-web-storefront',
     pr_number: '131',
     branch: 'fix/cart-total',
     source: 'manual',
@@ -478,6 +691,7 @@ const previewEnvs = [
     id: 'pe-3',
     config_id: 'pc-1',
     stack_id: 'stk-3',
+    name: 'pr-117-web-storefront',
     pr_number: '117',
     branch: 'chore/bump-deps',
     source: 'webhook',
@@ -491,6 +705,7 @@ const previewEnvs = [
     id: 'pe-4',
     config_id: 'pc-2',
     stack_id: 'stk-4',
+    name: 'pr-64-checkout-api',
     pr_number: '64',
     branch: 'feat/tax-rules',
     commit: 'b81c4470de92',
@@ -511,7 +726,7 @@ export const previewHandlers = [
   // ── identity ──────────────────────────────────────────────────────────
   http.get('/api/v1/config', () => HttpResponse.json({})),
   http.get('/api/v1/users/current', () => HttpResponse.json(makeUser())),
-  http.get('/api/v1/users/current/projects', () => list([makeProject()])),
+  http.get('/api/v1/users/current/projects', () => list(isEmpty ? [makeProject()] : PROJECTS)),
   http.post('/api/v1/auth/refresh', () =>
     HttpResponse.json({ token: 'preview-token', refreshToken: 'preview-refresh' }),
   ),
@@ -569,6 +784,19 @@ export const previewHandlers = [
   }),
   http.get(`${PROJECT}/stacks/:stackId/releases/:releaseId`, ({ params }) => {
     const stack = stacks.find((s) => s.id === params.stackId)
+    const releaseId = String(params.releaseId)
+    const known = ORDERS_RELEASES.find((r) => r.id === releaseId)
+    if (params.stackId === STACK_ID && known) {
+      const failed = known.state === ReleaseState.Failed
+      return HttpResponse.json({
+        ...known,
+        snapshot: ordersSnapshot(ORDERS_LOG_LEVEL[releaseId] ?? 'info'),
+        live_status: {
+          health: failed ? 'failed' : 'ok',
+          resources: ORDERS_LIVE_STATUS[releaseId] ?? liveStatusFor(String(params.stackId)),
+        },
+      })
+    }
     return HttpResponse.json({
       id: params.releaseId,
       stack_id: params.stackId,
@@ -586,6 +814,9 @@ export const previewHandlers = [
    * the detail handler above was never called and `live_status` never arrived.
    */
   http.get(`${PROJECT}/stacks/:stackId/releases`, ({ params }) => {
+    // orders-api carries the full history; every other stack keeps the single
+    // synthesised release, which is all their canvases need.
+    if (params.stackId === STACK_ID) return list(ORDERS_RELEASES)
     const stack = stacks.find((s) => s.id === params.stackId) as
       | (Stack & { latest_release?: { id: string; state: string }; converged_release?: { id: string; state: string } })
       | undefined
@@ -602,6 +833,14 @@ export const previewHandlers = [
       },
     ])
   }),
+  /**
+   * The release event stream, one-shot. The tab polls this for a terminal
+   * release (SSE is only used while one is in flight), so the console fills
+   * without needing a scripted stream.
+   */
+  http.get(`${PROJECT}/stacks/:stackId/releases/:releaseId/events`, ({ params }) =>
+    HttpResponse.json({ items: params.releaseId === 'r4' ? ORDERS_EVENTS : [] }),
+  ),
   // Without this the catch-all below answered with an empty LIST, the editor
   // read `spec` off it, and every route past /stacks died on an error boundary
   // — so the journey could not be reviewed at all.
@@ -639,7 +878,49 @@ export const previewHandlers = [
     }
     return HttpResponse.json(stack);
   }),
-  http.get(`${ORG}/projects`, () => list([makeProject()])),
+  /**
+   * **The log stream, scripted — so the resource drawer's Logs tab is judgeable
+   * in the preview.**
+   *
+   * Without it the browser's `EventSource` hits the JSON catch-all below, gets
+   * the wrong MIME type back and aborts, and the tab renders `Disconnected from
+   * log stream` forever. That is a real state, but it is not the one anybody
+   * opens the tab to look at, and a design that only ever shows its error
+   * branch cannot be reviewed.
+   *
+   * The frames arrive spread over a few seconds so the follow-scroll and the
+   * `Connecting → Connected` transition are both visible, and the stream is left
+   * open: closing it restarts `EventSource`'s reconnect loop, which re-invokes
+   * this handler forever.
+   */
+  http.get(`${PROJECT}/stacks/:id/resources/:resource/logs`, ({ params }) =>
+    sseResponse(logFrames(String(params.resource))),
+  ),
+  http.get(`${PROJECT}/stacks/:id/logs`, () => sseResponse(logFrames('web'))),
+  /**
+   * `?stream=true` is the SSE form of the same path; the plain GET is the
+   * one-shot read. MSW ignores the query when matching, so the branch is here.
+   */
+  http.get(`${PROJECT}/stacks/:id/metrics`, ({ request }) => {
+    const total = Object.values(METRIC_SAMPLES).reduce(
+      (a, [c, m]) => [a[0] + c, a[1] + m] as [number, number], [0, 0] as [number, number],
+    )
+    if (!new URL(request.url).searchParams.has('stream')) {
+      return HttpResponse.json({ cpu_usage: String(total[0]), memory_usage: String(total[1]) })
+    }
+    return sseResponse(metricFrames(total[0], total[1]))
+  }),
+  http.get(`${PROJECT}/stacks/:id/resources/:resource/metrics`, ({ request, params }) => {
+    const sample = METRIC_SAMPLES[String(params.resource)]
+    // No sample → an empty stream, which is the `Waiting for data` card.
+    if (!sample) return sseResponse([])
+    if (!new URL(request.url).searchParams.has('stream')) {
+      return HttpResponse.json({ cpu_usage: String(sample[0]), memory_usage: String(sample[1]) })
+    }
+    return sseResponse(metricFrames(sample[0], sample[1]))
+  }),
+
+  http.get(`${ORG}/projects`, () => list(isEmpty ? [makeProject()] : PROJECTS)),
   http.get(`${ORG}/secrets`, () => list(isEmpty ? [] : secrets)),
   http.get(`${ORG}/object-stores`, () => list(isEmpty ? [] : objectStores)),
   // Blank in `empty` on purpose. The page allows exactly one cluster, so a

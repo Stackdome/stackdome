@@ -33,7 +33,7 @@ export function Panel({ title, count, action, className, bodyClassName, bare, to
     >
       {(title || action) && (
         <header className={cn(
-          "flex items-center justify-between gap-4 px-5 py-3 border-b",
+          "flex items-center justify-between gap-4 px-5 py-3 border-b border-border-subtle",
           invalid ? "border-danger-border" : "border-border",
           bare && "px-0",
         )}>

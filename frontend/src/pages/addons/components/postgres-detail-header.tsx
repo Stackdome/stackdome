@@ -37,12 +37,10 @@ function stateVariant(state?: string): StatusVariant {
 
 export function PostgresDetailHeader({
   addon,
-  onDelete,
   onEdit,
   canWrite = true,
 }: {
   addon: PostgresAddon;
-  onDelete: () => void;
   /** Opens the addon drawer in edit mode. Editing one object is a drawer (§13),
    *  so this no longer navigates to a page of its own. */
   onEdit: () => void;
@@ -108,20 +106,18 @@ export function PostgresDetailHeader({
             ? `Created ${new Date(addon.created_at).toLocaleDateString()}`
             : "Managed PostgreSQL cluster"
         }
+        /* **Delete is not here any more — it is in the danger zone at the
+            foot of the page.** An act whose cost lands on OTHER things gets
+            the block that says so; a red-outlined button on the header band
+            put the page's most destructive act in its most permanent chrome,
+            two pixels from `Edit`, with nothing between the click and the
+            confirm but muscle memory. §10, and §12a's "never in the sheet
+            header". */
         actions={
           canWrite ? (
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={onEdit}>
-                Edit
-              </Button>
-              <Button
-                variant="outline"
-                className="border-danger-border text-danger hover:bg-danger-bg hover:text-danger"
-                onClick={onDelete}
-              >
-                Delete
-              </Button>
-            </div>
+            <Button variant="outline" onClick={onEdit}>
+              Edit
+            </Button>
           ) : undefined
         }
       />

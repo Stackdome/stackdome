@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuChevron,
@@ -9,14 +9,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SearchField } from "@/components/branded/search-field";
 import { PageHeader, EmptyState } from "@/components/branded";
 import { NoConnectionGlyph, NoSecretsGlyph, SearchGlyph } from "@/components/branded/empty-state";
 import { cn } from "@/lib/utils";
 import { useBreadcrumb } from "@/hooks/use-breadcrumb";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useResourceProjects } from "@/hooks/use-resource-projects";
 import { usePostgresAddons } from "@/hooks/use-postgres-addons";
+import { useConfirm } from "@/components/branded/confirm";
+import { useToast } from "@/components/ui/use-toast";
+import { deletePostgresAddon, type PostgresAddon } from "@/api/addons";
+import { getErrorMessage, isErrorStatus } from "@/api/client";
+import { getCurrentOrganizationId } from "@/lib/common";
 import { AddonList, AddonListSkeleton } from "./components/addon-list";
 import { AddonDrawer } from "./components/addon-drawer";
+import { AddonDetailsDrawer } from "./components/addon-details-drawer";
 import {
   filterAndSortAddons,
   countByBucket,
@@ -39,7 +47,17 @@ const SORT_OPTIONS: { key: AddonSortKey; label: string }[] = [
 export default function AddonsPage() {
   const { addons, loading, error, refetch } = usePostgresAddons();
   const { canWriteAnyProject, canWrite } = useCurrentUser();
+  const { projectNameById } = useResourceProjects();
+  const navigate = useNavigate();
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [pickerOpen, setPickerOpen] = useState(false);
+  /** Which row is open, not a boolean — the drawer is driven by the click, so
+   *  there is no second `open` flag to keep in step with it. */
+  const [detailsFor, setDetailsFor] = useState<PostgresAddon | null>(null);
+  /** The addon being edited. Opening it CLOSES the details drawer: two stacked
+   *  modals is two scrims and two focus traps for one object. */
+  const [editing, setEditing] = useState<PostgresAddon | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<AddonStatusFilter>("all");
   const [sortKey, setSortKey] = useState<AddonSortKey>("created");
@@ -55,6 +73,52 @@ export default function AddonsPage() {
     () => filterAndSortAddons(addons, query, status, sortKey),
     [addons, query, status, sortKey],
   );
+
+  /**
+   * **Say what goes, and say it before the click.** The words are the detail
+   * page's, because deleting an addon from the list is the same act with the
+   * same blast radius — a second phrasing of one destruction is how two screens
+   * come to disagree about what it costs.
+   */
+  async function requestDelete(addon: PostgresAddon) {
+    const ok = await confirm({
+      title: "Delete addon?",
+      description: `The underlying database and storage for “${addon.name}” are removed. This cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    const orgId = getCurrentOrganizationId();
+    const projectName = projectNameById(addon.project_id);
+    if (!orgId || !addon.id || !projectName) {
+      toast({
+        title: "Delete failed",
+        description: "Could not resolve the project for this addon.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await deletePostgresAddon(orgId, projectName, addon.id);
+      toast({
+        title: "Addon deleted",
+        description: `"${addon.name}" is being torn down.`,
+        variant: "success",
+      });
+      setDetailsFor(null);
+      refetch();
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        // A 409 is not a failure of the delete, it is a dependency the user can
+        // clear — so it says which one rather than repeating the refusal.
+        description: isErrorStatus(e, 409)
+          ? `${getErrorMessage(e)} Remove the stack references first, then try again.`
+          : getErrorMessage(e),
+        variant: "destructive",
+      });
+    }
+  }
 
   const statusLabel = STATUS_FILTERS.find((f) => f.key === status)?.label ?? "All";
   const sortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? "Sort";
@@ -79,16 +143,13 @@ export default function AddonsPage() {
    */
   const toolbar = error ? undefined : (
     <>
-      <div className="relative w-[300px]">
-        <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-fg-muted" />
-        <Input
-          placeholder="Filter addons…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-8"
-          aria-label="Filter addons"
-        />
-      </div>
+      <SearchField
+        className="w-[300px]"
+        value={query}
+        onChange={setQuery}
+        placeholder="Filter addons…"
+        label="Filter addons"
+      />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           {/* Filters are working controls: `flat`, never a pill (§9). */}
@@ -202,10 +263,40 @@ export default function AddonsPage() {
           }
         />
       ) : (
-        <AddonList addons={rows} canWrite={(projectId?: string) => canWrite(projectId ?? "")} />
+        <AddonList
+          addons={rows}
+          canWrite={(projectId?: string) => canWrite(projectId ?? "")}
+          onOpen={setDetailsFor}
+        />
       )}
 
       <AddonDrawer open={pickerOpen} onOpenChange={setPickerOpen} onSaved={refetch} />
+
+      {/* The list stays on screen behind it — which is the whole reason one
+          object's detail is a drawer and not a page (§13). */}
+      <AddonDetailsDrawer
+        addon={detailsFor}
+        onOpenChange={(open) => !open && setDetailsFor(null)}
+        canWrite={detailsFor ? canWrite(detailsFor.project_id ?? "") : false}
+        onEdit={(addon) => {
+          setDetailsFor(null);
+          setEditing(addon);
+        }}
+        onDelete={(addon) => void requestDelete(addon)}
+        onOpenPage={(addon) => navigate(`/addons/postgres/${addon.id}`)}
+      />
+
+      {editing && (
+        <AddonDrawer
+          open
+          onOpenChange={(open) => !open && setEditing(null)}
+          addon={editing}
+          onSaved={() => {
+            setEditing(null);
+            refetch();
+          }}
+        />
+      )}
     </div>
   );
 }

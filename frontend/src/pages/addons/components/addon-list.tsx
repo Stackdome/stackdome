@@ -1,5 +1,3 @@
-import { useNavigate } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
 import { StatusText } from "@/components/branded/status-text";
 import {
   DataListCell,
@@ -9,7 +7,6 @@ import {
   DataListSkeleton,
 } from "@/components/branded/data-list";
 import { relativeAge, absoluteAge } from "@/components/branded/entity-card";
-import { cn } from "@/lib/utils";
 import type { PostgresAddon } from "@/api/addons";
 
 /**
@@ -20,7 +17,13 @@ import type { PostgresAddon } from "@/api/addons";
  * lives in it, and extra width buys a sentence that finishes rather than one
  * that truncates.
  *
- * **Six tracks, down from eight columns.** `Type` said `postgres` on every row,
+ * **Five tracks.** The sixth was a 32px chevron at the end of every row — the
+ * affordance for "this goes to a page". The row opens a **drawer** now, and a
+ * chevron pointing off the screen at a panel that slides in from the right is
+ * the wrong arrow for the wrong movement. The row's own hover wash says it is
+ * a target; nothing else has to.
+ *
+ * Down from eight columns before that. `Type` said `postgres` on every row,
  * and `Backups` said "backups on" or "backups off" — a column whose value never
  * varies is not reporting, it is repeating, and one whose value is a word rather
  * than a fact belongs on the addon's own page. The type ICON went with the
@@ -28,13 +31,9 @@ import type { PostgresAddon } from "@/api/addons";
  * the word cannot, and with one addon type there is no distinction to make. Both
  * come back the day a second type ships.
  */
-const ADDON_TRACKS = "grid-cols-[minmax(240px,420px)_minmax(0,1fr)_90px_90px_130px_32px]";
+const ADDON_TRACKS = "grid-cols-[minmax(240px,420px)_minmax(0,1fr)_90px_90px_130px]";
 
-const LABELS = ["Name", "Status", "Version", "Size", "Created", ""];
-
-function addonPath(a: PostgresAddon): string {
-  return `/addons/postgres/${a.id}`;
-}
+const LABELS = ["Name", "Status", "Version", "Size", "Created"];
 
 /**
  * The **shared** age, not a second reading of the same fact.
@@ -68,7 +67,6 @@ export function AddonListSkeleton() {
           { w: 48, h: 3 },
           { w: 40, h: 3 },
           { w: 72, h: 3 },
-          null,
         ]}
       />
     </div>
@@ -78,15 +76,23 @@ export function AddonListSkeleton() {
 export function AddonList({
   addons,
   canWrite,
+  onOpen,
 }: {
   /** Already filtered and sorted — the tools live in the sheet header now. */
   addons: PostgresAddon[];
   // Gate per-row mutating actions by the row's project. Show by default when
   // undefined (caller hasn't opted into role-based gating).
   canWrite?: (projectId?: string) => boolean;
+  /**
+   * **The row opens the drawer, not the page.**
+   *
+   * It used to navigate to `/addons/postgres/<id>`, so every glance — which
+   * version, is the schedule the one I set — cost a page load and a trip back.
+   * The page keeps everything it has; the drawer is what the click reaches, and
+   * two of its rows lead on to the page for the subjects it cannot hold.
+   */
+  onOpen: (addon: PostgresAddon) => void;
 }) {
-  const navigate = useNavigate();
-
   return (
     <div>
       <AddonListHeader />
@@ -99,7 +105,7 @@ export function AddonList({
             key={a.id || a.name}
             columns={ADDON_TRACKS}
             label={`${a.name} addon`}
-            onActivate={() => navigate(addonPath(a))}
+            onActivate={() => onOpen(a)}
             data-can-write={canWrite ? canWrite(a.project_id) : true}
           >
             <DataListName name={a.name ?? ""} />
@@ -119,11 +125,6 @@ export function AddonList({
               {createdLabel(a)}
             </DataListCell>
 
-            {/* The chevron is the row's own affordance rather than an action, so
-                it stays put instead of waiting for the pointer. */}
-            <div className={cn("flex justify-end")}>
-              <ChevronRight className="size-4 text-fg-muted" aria-hidden />
-            </div>
           </DataListRow>
         );
       })}

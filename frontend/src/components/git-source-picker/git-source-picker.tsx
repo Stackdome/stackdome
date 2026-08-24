@@ -13,7 +13,7 @@ import {
   PickerRowTick,
 } from "@/components/branded";
 import { SearchGlyph } from "@/components/branded/empty-state";
-import { SearchField } from "@/pages/stacks/components/create/search-field";
+import { SearchField } from "@/components/branded/search-field";
 import { StickyBar } from "@/pages/stacks/components/create/sticky-bar";
 import { parsePublicRepoUrl } from "@/pages/stacks/components/create/selection";
 import {

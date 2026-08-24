@@ -239,24 +239,24 @@ describe("git repository row", () => {
 describe("commit pin row", () => {
   it("renders the pin populated alongside a branch revision", () => {
     renderGitTab({ gitRevisionType: "branch", gitRevisionValue: "main", gitCommitPin: "abc123" });
-    const input = screen.getByLabelText(/pin to commit/i);
+    const input = screen.getByRole("textbox", { name: /pin to commit/i });
     expect(input).toHaveValue("abc123");
   });
 
   it("patches gitCommitPin on change", () => {
     const { onPatchResource } = renderGitTab({ gitRevisionType: "branch", gitRevisionValue: "main" });
-    fireEvent.change(screen.getByLabelText(/pin to commit/i), { target: { value: "b1eff14" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /pin to commit/i }), { target: { value: "b1eff14" } });
     expect(onPatchResource).toHaveBeenCalledWith({ gitCommitPin: "b1eff14" });
   });
 
   it("is disabled when no revision type is chosen and no pin is set", () => {
     renderGitTab();
-    expect(screen.getByLabelText(/pin to commit/i)).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: /pin to commit/i })).toBeDisabled();
   });
 
   it("stays enabled for a legacy pin without a revision so it can be cleared", () => {
     renderGitTab({ gitCommitPin: "legacy1" });
-    expect(screen.getByLabelText(/pin to commit/i)).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: /pin to commit/i })).toBeEnabled();
   });
 
   it("offers only default/branch/tag revision choices and clears the pin on default", () => {
@@ -275,8 +275,8 @@ describe("commit pin row", () => {
 describe("advanced build fields", () => {
   it("patches dockerfile_path", () => {
     const { onPatchResource } = renderGitTab();
-    fireEvent.click(screen.getByText("Advanced"));
-    const input = screen.getByLabelText(/dockerfile path/i);
+    fireEvent.click(screen.getByRole("button", { name: /^Advanced/ }));
+    const input = screen.getByRole("textbox", { name: /dockerfile path/i });
     fireEvent.change(input, { target: { value: "docker/Dockerfile.prod" } });
     expect(onPatchResource).toHaveBeenCalledWith({
       source: { git: expect.objectContaining({ dockerfile_path: "docker/Dockerfile.prod" }) },
@@ -285,8 +285,8 @@ describe("advanced build fields", () => {
 
   it("patches build_context", () => {
     const { onPatchResource } = renderGitTab();
-    fireEvent.click(screen.getByText("Advanced"));
-    const input = screen.getByLabelText(/build context/i);
+    fireEvent.click(screen.getByRole("button", { name: /^Advanced/ }));
+    const input = screen.getByRole("textbox", { name: /build context/i });
     fireEvent.change(input, { target: { value: "services/api" } });
     expect(onPatchResource).toHaveBeenCalledWith({
       source: { git: expect.objectContaining({ build_context: "services/api" }) },
@@ -295,14 +295,14 @@ describe("advanced build fields", () => {
 
   it("restores the default on blur when cleared", () => {
     const { onPatchResource, rerenderWithGitSource } = renderGitTab();
-    fireEvent.click(screen.getByText("Advanced"));
-    const input = screen.getByLabelText(/dockerfile path/i);
+    fireEvent.click(screen.getByRole("button", { name: /^Advanced/ }));
+    const input = screen.getByRole("textbox", { name: /dockerfile path/i });
     fireEvent.change(input, { target: { value: "" } });
     // Carry the cleared value into a re-render (see renderGitTab) so the
     // controlled input actually reads "" when blur fires, matching how the
     // real app re-renders with the patched draft between change and blur.
     rerenderWithGitSource({ dockerfile_path: "" });
-    fireEvent.blur(screen.getByLabelText(/dockerfile path/i));
+    fireEvent.blur(screen.getByRole("textbox", { name: /dockerfile path/i }));
     expect(onPatchResource).toHaveBeenLastCalledWith({
       source: { git: expect.objectContaining({ dockerfile_path: "Dockerfile" }) },
     });
