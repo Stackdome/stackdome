@@ -1,4 +1,4 @@
-import { RefreshCw, Trash2 } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BlockedAction } from "@/components/branded";
 import {
@@ -106,7 +106,6 @@ export function PreviewRow({
   showRepository,
   onOpen,
   onSync,
-  onDelete,
   canWrite = true,
 }: {
   env: PreviewStack;
@@ -116,7 +115,6 @@ export function PreviewRow({
   showRepository: boolean;
   onOpen: (env: PreviewStack) => void;
   onSync: (env: PreviewStack) => void;
-  onDelete: (env: PreviewStack) => void;
   canWrite?: boolean;
 }) {
   const phase = env.status?.phase;
@@ -167,41 +165,29 @@ export function PreviewRow({
       {/* `DataListActions` and never a hand-rolled copy — the primitive is what
           answers `focus-within` on the ROW, so a keyboard user reaches these on
           the same tab as everywhere else in the product (§11). */}
+      {/* **Sync is the only thing on the row.** Delete came off it — Jaseem,
+          Aug 2026 — and it did not move anywhere, because the drawer this row
+          opens has carried it the whole time. That is the rule: a row opens the
+          object, and the object's own sheet is where you act on it. Sync stays
+          because it is not that kind of act — it re-runs the thing the row is
+          already showing you, changes nothing you would want to confirm, and is
+          the one action worth reaching without opening anything. */}
       <DataListActions>
         {canWrite && (
-          <>
-            <BlockedAction reason={teardownReason}>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                shape="flat"
-                aria-label={`Sync ${label}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSync(env);
-                }}
-              >
-                <RefreshCw />
-              </Button>
-            </BlockedAction>
-            {/* `ghost`, not `destructive`. A red trash on every hovered row
-                makes deletion the loudest thing on the page; the escalation
-                belongs to the confirm that follows (§11). */}
-            <BlockedAction reason={teardownReason}>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                shape="flat"
-                aria-label={`Delete ${label}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(env);
-                }}
-              >
-                <Trash2 />
-              </Button>
-            </BlockedAction>
-          </>
+          <BlockedAction reason={teardownReason}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              shape="flat"
+              aria-label={`Sync ${label}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSync(env);
+              }}
+            >
+              <RefreshCw />
+            </Button>
+          </BlockedAction>
         )}
       </DataListActions>
     </DataListRow>

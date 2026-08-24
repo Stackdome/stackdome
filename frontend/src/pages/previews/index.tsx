@@ -519,7 +519,6 @@ export default function PreviewsPage() {
                     repositoryName={configName(env.config_id)}
                     onOpen={openPreview}
                     onSync={setSyncing}
-                    onDelete={(e) => void requestDeleteEnv(e)}
                     canWrite={canWriteAnyProject}
                   />
                 ))}

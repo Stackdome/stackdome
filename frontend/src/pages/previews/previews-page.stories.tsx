@@ -285,7 +285,7 @@ export const ReadOnly: Story = {
     // The URLs stay.
     await expect(await canvas.findByText('pr-128.preview.acme.dev')).toBeInTheDocument()
     // Every control goes: the header primary, the rail's add and its gear, and
-    // both row actions.
+    // the row's sync. (Delete is never on the row — it is in the drawer.)
     await expect(canvas.queryByRole('button', { name: /new preview/i })).toBeNull()
     await expect(canvas.queryByRole('button', { name: /enable repository/i })).toBeNull()
     await expect(canvas.queryByRole('button', { name: /settings for/i })).toBeNull()

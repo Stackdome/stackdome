@@ -42,7 +42,6 @@ const meta = {
     showRepository: false,
     onOpen: fn(),
     onSync: fn(),
-    onDelete: fn(),
   },
   parameters: { layout: 'fullscreen' },
   decorators: [
@@ -87,14 +86,15 @@ export const Failed: Story = {
   },
 }
 
-/** Both row actions refuse while the environment is on its way out, and both
- *  say why — §11 binds a disabled row action exactly as it binds a primary. */
+/** The row's one action refuses while the environment is on its way out, and it
+ *  says why — §11 binds a disabled row action exactly as it binds a primary. */
 export const Deleting: Story = {
   args: { env: makeEnv({ status: { phase: 'Deleting' } } as Partial<PreviewStack>) },
   play: async ({ canvas }) => {
     await expect(canvas.getByText('tearing down…')).toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: /sync pr #128/i })).toBeDisabled()
-    await expect(canvas.getByRole('button', { name: /delete pr #128/i })).toBeDisabled()
+    // Delete is not here to refuse — it lives in the drawer this row opens.
+    await expect(canvas.queryByRole('button', { name: /delete pr #128/i })).toBeNull()
   },
 }
 
