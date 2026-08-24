@@ -6145,3 +6145,70 @@ There was no safety net. No stash, no APFS snapshot, no editor local-history
 entry, and both running Vite servers had already re-read the file. The rule that
 came out of it: **never revert a shared file to undo your own edit** — snapshot
 it first, or put the lines back by hand.
+
+## The graph turned to face the way it is read
+
+**24 August 2026.** The canvas ranked `BT` — bottom to top — so a dependency
+chain had to be followed **upwards**, against the direction the rest of the
+screen is read in and against the way every arrow on the board points. It flows
+left to right now. A service sits to the left of what it feeds. Vertical is
+still an option, because a deep chain is happier that way.
+
+### dagre owes nobody a straight edge
+
+A connector attaches at face CENTRES, so it draws as one straight line exactly
+when two nodes' centres share a line — and bends the moment they do not. dagre
+ranks and de-crosses; alignment is not its job. Measured on a representative
+stack: **six bends out of six.**
+
+So after dagre decides which rank everything is in and in what order, a
+straightening pass decides where in the rank each node sits.
+
+| Step | |
+|---|---|
+| **Wish** | The **median** of a node's already-placed parents — the median, not the mean, so one distant parent cannot drag a node off the line its other two share |
+| **Reorder** | The rank sorts by that wish. Keeping dagre's order sounds safer and is not: it put the attachments last, so the sweep pushed them below every store they were meant to sit beside and undid the alignment one node at a time. The median IS what dagre orders by, so this lands in the same neighbourhood rather than fighting the crossing work |
+| **Sweep** | Forward then back, opening the minimum gap, each node giving up as little of its wish as the sweep allows |
+| **Snap** | Anything still within 24 of a parent's line goes exactly onto it — but only while both neighbours keep their full gap |
+
+**The snap refuses far more often than it fires, and that is right.** Five
+pixels of offset does not read as a route; it reads as a line that failed to
+line up, and the connector answers it with a shallow S — the shape that looks
+like a mistake. But moving one node to straighten one edge, when it squeezes the
+neighbour by five, trades one crooked line for two.
+
+**Two bugs found by measuring rather than looking.** Ranks were keyed on the
+laid-out centre, which splits a column the moment it holds both a 240 workload
+and a 180 attachment — rank now comes from longest path over the graph, which is
+what dagre ranks by anyway. And the first attempt kept dagre's order, which is
+the failure described above.
+
+**What it cannot do.** A pure fan can never be more straight than bent: a node
+with three children has at most one child on its line. Chains go perfectly
+straight, and that is what this buys.
+
+## A design PR carries no backend, and two features had to come out for that
+
+**Jaseem, 24 August 2026:** *"I don't want any backend changes in my pr, it's a
+bad look in the community."* The rule is about how the work READS to people
+outside it, and it is a real constraint on what a design pass may reach for.
+
+Two features had grown server halves.
+
+| | Why it went |
+|---|---|
+| **Deploy history** | A table, a migration, a presenter and an API field, built for a sparkline this branch then designed out — fourteen bars with no axis, no baseline and no unit cannot tell eleven deploys from four, so it drew the *shape* of substance without supplying any. Nothing rendered it. Removed whole rather than left feeding nothing |
+| **Renaming a stack** | `main` refuses a rename on the update path, because the cluster Stack CR is keyed by name and a rename would orphan it. Allowing it needs validator rules, a service path and the release worker following the new name |
+
+**The rename MECHANISM stays, deliberately dormant.** `registerRename`,
+`RenameableTitle` and the header wiring are all still here; nothing registers a
+handler for a saved stack, so the crumb is a plain title. That is §12a's rule
+holding — **absent rather than present-and-refusing** — and it is the reason the
+UI could be kept while the feature could not. A draft still renames, because
+that never touched a server: nothing is persisted until Deploy, so the handler
+is a `setState`.
+
+**The general lesson.** A design pass that needs a fact the API does not have is
+two pieces of work, not one, and the design half cannot ship alone unless the
+affordance can be honestly withheld. It could here. It will not always be able
+to.
