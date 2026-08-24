@@ -1130,7 +1130,7 @@ When we push, the PR targets `graphite-redesign`, **never `main`**.
 
 ### Working surface
 
-`pnpm --prefix frontend storybook` → <http://localhost:6006> → **Shell / Platform**
+`pnpm --prefix frontend storybook` → `http://localhost:6006` → **Shell / Platform**
 
 `frontend/src/stories/shell/platform-shell.stories.tsx` renders the **real**
 sidebar + topnav + Stacks page together on mocked data — real components, not a
@@ -2015,7 +2015,7 @@ paper frame and a control fill. A solid is correct on one and wrong on two.
 
 ### Alphredo
 
-<https://alphredo.app/> — generates translucent colours that match their opaque
+`https://alphredo.app/` — generates translucent colours that match their opaque
 counterparts against a known background. We use the method, not the tool.
 
 ## The toggle: the fix was the padding, not the border
