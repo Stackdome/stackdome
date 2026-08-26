@@ -17,9 +17,8 @@
 #   - Go 1.25+
 #   - Node.js 20.12+
 #   - Docker
-#   - jq
 #
-# k3d, kubectl, Helm, and Mage are bootstrapped by this repository.
+# jq, k3d, kubectl, Helm, and Mage are bootstrapped by this repository.
 #
 # Usage:
 #   # Start environment only (no stack)
@@ -165,7 +164,7 @@ check_prerequisites() {
     fi
 
     local missing=()
-    for cmd in docker jq; do
+    for cmd in docker; do
         if ! command -v "$cmd" &>/dev/null; then
             missing+=("$cmd")
         fi
@@ -253,12 +252,9 @@ start_api_server() {
         return
     fi
 
-    log "Building frontend..."
+    log "Building frontend and API server..."
     cd "$API_SERVER_DIR"
-    "$MAGE_CMD" buildFrontend
-
-    log "Building API server..."
-    make binary
+    "$MAGE_CMD" build
 
     if [[ -f "$API_SERVER_DIR/.env" ]]; then
         cp "$API_SERVER_DIR/.env" "$API_SERVER_DIR/.env.bak"
