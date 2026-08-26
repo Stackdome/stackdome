@@ -3,7 +3,7 @@
 # Run Stackdome locally for development.
 #
 # Bootstraps a complete local Stackdome environment:
-#   1. mage dev:setup (PostgreSQL + k3d cluster + operators + RBAC)
+#   1. ./mage dev:setup (PostgreSQL + k3d cluster + operators + RBAC)
 #   2. API server (built and run locally)
 #   3. User signup, cluster registration, org domain
 #   4. (Optional) Postgres addon deployment
@@ -14,13 +14,12 @@
 # restarted on each run.
 #
 # Prerequisites:
-#   - Go 1.22+
+#   - Go 1.25+
+#   - Node.js 20.12+
 #   - Docker
-#   - k3d (https://k3d.io)
-#   - kubectl
 #   - jq
-#   - mage (https://magefile.org)
-#   - helm
+#
+# k3d, kubectl, Helm, and Mage are bootstrapped by this repository.
 #
 # Usage:
 #   # Start environment only (no stack)
@@ -43,7 +42,7 @@
 #   CLOUD_MODE                 Set to "true" for stackdome_cloud + shared compute
 #   ORG_DOMAIN                 Organisation domain (default: stackdome.127.0.0.1.nip.io)
 #   ADDON_FILE                 Postgres addon JSON file (creates addon before stack)
-#   SKIP_INFRA                 Set to "true" to skip mage dev:setup (reuse existing)
+#   SKIP_INFRA                 Set to "true" to skip ./mage dev:setup (reuse existing)
 #   SKIP_API_SERVER            Set to "true" to skip building/starting the API server
 #   FORCE_CLUSTER_RECREATE     Set to "true" to delete and recreate k3d cluster
 #   FORCE_PG_RECREATE          Set to "true" to delete and recreate PostgreSQL container
@@ -66,6 +65,8 @@ SKIP_API_SERVER="${SKIP_API_SERVER:-false}"
 FORCE_CLUSTER_RECREATE="${FORCE_CLUSTER_RECREATE:-false}"
 FORCE_PG_RECREATE="${FORCE_PG_RECREATE:-false}"
 DEV_CONFIG="${API_SERVER_DIR}/dev_env.yaml"
+MAGE_CMD="${API_SERVER_DIR}/mage"
+STACKDOME_BIN_DIR="${HOME}/.cache/stackdome-api-server/bin"
 
 STACK_FILE="${1:-}"
 ADDON_FILE="${ADDON_FILE:-}"
@@ -81,6 +82,26 @@ log()  { echo -e "${GREEN}[+]${NC} $*"; }
 warn() { echo -e "${YELLOW}[!]${NC} $*"; }
 err()  { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 info() { echo -e "${BLUE}[i]${NC} $*"; }
+
+version_at_least() {
+    local actual="${1#v}"
+    local required="${2#v}"
+    actual="${actual#go}"
+
+    local actual_major actual_minor actual_patch
+    local required_major required_minor required_patch
+    IFS=. read -r actual_major actual_minor actual_patch <<< "$actual"
+    IFS=. read -r required_major required_minor required_patch <<< "$required"
+
+    actual_patch="${actual_patch%%[^0-9]*}"
+    required_patch="${required_patch%%[^0-9]*}"
+    [[ "$actual_major" =~ ^[0-9]+$ && "$actual_minor" =~ ^[0-9]+$ && "$actual_patch" =~ ^[0-9]+$ ]] || return 1
+    [[ "$required_major" =~ ^[0-9]+$ && "$required_minor" =~ ^[0-9]+$ && "$required_patch" =~ ^[0-9]+$ ]] || return 1
+
+    (( actual_major > required_major )) ||
+        (( actual_major == required_major && actual_minor > required_minor )) ||
+        (( actual_major == required_major && actual_minor == required_minor && actual_patch >= required_patch ))
+}
 
 PG_CONTAINER_NAME="psql-stackdome-dev"
 
@@ -102,17 +123,49 @@ trap cleanup EXIT
 trap 'exit 0' INT TERM
 
 # ============================================================
-# Prerequisites
+# Tool bootstrap and prerequisites
 # ============================================================
+bootstrap_dev_tools() {
+    export PATH="${STACKDOME_BIN_DIR}:${PATH}"
+
+    log "Bootstrapping local development tools with Mage..."
+    (
+        cd "$API_SERVER_DIR"
+        "$MAGE_CMD" deps:dev
+    )
+}
+
 check_prerequisites() {
     log "Checking prerequisites..."
+
+    if ! command -v go &>/dev/null; then
+        err "Go 1.25+ is required. Install it from https://go.dev/dl/ and rerun this script."
+    fi
+    local go_version
+    go_version="$(go env GOVERSION 2>/dev/null || true)"
+    if ! version_at_least "$go_version" "1.25.0"; then
+        err "Go 1.25+ is required (found ${go_version:-unknown}). Install it from https://go.dev/dl/ and rerun this script."
+    fi
+
+    if ! command -v node &>/dev/null; then
+        err "Node.js 20.12+ is required. Install it from https://nodejs.org/ and rerun this script."
+    fi
+    local node_version
+    node_version="$(node --version 2>/dev/null || true)"
+    if ! version_at_least "$node_version" "20.12.0"; then
+        err "Node.js 20.12+ is required (found ${node_version:-unknown}). Install it from https://nodejs.org/ and rerun this script."
+    fi
+
+    if [[ ! -x "$MAGE_CMD" ]]; then
+        err "Mage launcher not found or not executable: ${MAGE_CMD}"
+    fi
 
     if [[ "$CLOUD_MODE" != "true" && "$CLOUD_MODE" != "false" ]]; then
         err "CLOUD_MODE must be either 'true' or 'false'"
     fi
 
     local missing=()
-    for cmd in go docker k3d kubectl jq mage helm; do
+    for cmd in docker jq; do
         if ! command -v "$cmd" &>/dev/null; then
             missing+=("$cmd")
         fi
@@ -137,13 +190,13 @@ check_prerequisites() {
 }
 
 # ============================================================
-# Step 1: Infrastructure (mage dev:setup)
+# Step 1: Infrastructure (./mage dev:setup)
 # ============================================================
 setup_infra() {
     if [[ "$SKIP_INFRA" == "true" ]]; then
         warn "Skipping infrastructure setup (SKIP_INFRA=true)"
         if [[ ! -f "$DEV_CONFIG" ]]; then
-            err "SKIP_INFRA=true but ${DEV_CONFIG} not found. Run mage dev:setup first."
+            err "SKIP_INFRA=true but ${DEV_CONFIG} not found. Run ./mage dev:setup first."
         fi
         return
     fi
@@ -160,13 +213,13 @@ setup_infra() {
         docker rm -f "$PG_CONTAINER_NAME" 2>/dev/null || true
     fi
 
-    log "Running mage dev:setup (PostgreSQL + k3d cluster + operators + RBAC)..."
+    log "Running ./mage dev:setup (PostgreSQL + k3d cluster + operators + RBAC)..."
     log "This may take 5-10 minutes on first run..."
     cd "$API_SERVER_DIR"
-    mage dev:setup
+    "$MAGE_CMD" dev:setup
 
     if [[ ! -f "$DEV_CONFIG" ]]; then
-        err "mage dev:setup completed but ${DEV_CONFIG} not found."
+        err "./mage dev:setup completed but ${DEV_CONFIG} not found."
     fi
     log "Infrastructure ready."
 }
@@ -200,8 +253,11 @@ start_api_server() {
         return
     fi
 
-    log "Building API server..."
+    log "Building frontend..."
     cd "$API_SERVER_DIR"
+    "$MAGE_CMD" buildFrontend
+
+    log "Building API server..."
     make binary
 
     if [[ -f "$API_SERVER_DIR/.env" ]]; then
@@ -593,7 +649,7 @@ EOF
     log "  kubectl --context k3d-${K3D_CLUSTER_NAME} get pods -A -w"
     log ""
     log "  # Tear down everything"
-    log "  mage dev:teardown"
+    log "  ./mage dev:teardown"
     log ""
 }
 
@@ -659,6 +715,7 @@ main() {
     log ""
 
     check_prerequisites
+    bootstrap_dev_tools
     setup_infra
     read_dev_config
     start_api_server
@@ -675,7 +732,7 @@ main() {
 
     log "Press Ctrl+C to stop the API server."
     log "Infrastructure (k3d + PostgreSQL) will remain running."
-    log "To tear down everything: mage dev:teardown"
+    log "To tear down everything: ./mage dev:teardown"
     wait "$API_SERVER_PID"
 }
 

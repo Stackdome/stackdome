@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+export MAGEFILE_CACHE="$SCRIPT_DIR/.cache/magefile"
+export GOFLAGS=""
+
+if [[ ! -x "bin/mage" || "cmd/mage/main.go" -nt "bin/mage" || "go.mod" -nt "bin/mage" || "go.sum" -nt "bin/mage" ]]; then
+  go build -o bin/mage ./cmd/mage
+fi
+
+exec ./bin/mage -v "$@"
