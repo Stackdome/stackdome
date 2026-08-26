@@ -97,6 +97,7 @@ const (
 	// Versions
 	KindVersion      = "v0.20.0"
 	K3dVersion       = "v5.9.0"
+	JqVersion        = "jq-1.8.2"
 	YqVersion        = "v4.44.1"
 	HelmVersion      = "v3.14.0"
 	KubectlVersion   = "v1.29.0"
@@ -207,13 +208,13 @@ func BuildFrontend(ctx context.Context) error {
 func Build() error {
 	mg.Deps(BuildFrontend)
 	fmt.Println("Building API server...")
-	return sh.Run("go", "build", "-o", "bin/api-server", "./cmd")
+	return sh.Run("go", "build", "-o", "bin/stackdome-server", "cmd/main.go")
 }
 
 // Run runs the API server locally
 func Run() error {
 	mg.Deps(Build)
-	return sh.Run("./bin/api-server", "serve")
+	return sh.Run("./bin/stackdome-server", "serve")
 }
 
 // Generate regenerates OpenAPI client code
@@ -298,6 +299,7 @@ func (Deps) Dev(ctx context.Context) error {
 		version string
 	}{
 		{"k3d", K3dVersion},
+		{"jq", JqVersion},
 		{"helm", HelmVersion},
 		{"kubectl", KubectlVersion},
 	}
@@ -387,6 +389,8 @@ func installDep(ctx context.Context, name, version string) error {
 		return installKind(ctx, version)
 	case "k3d":
 		return installK3d(ctx, version)
+	case "jq":
+		return installJq(ctx, version)
 	case "yq":
 		return installYq(ctx, version)
 	case "helm":
@@ -435,6 +439,28 @@ func installK3d(ctx context.Context, version string) error {
 
 	if err := os.Chmod(binPath, 0755); err != nil {
 		return fmt.Errorf("failed to make k3d executable: %w", err)
+	}
+
+	return nil
+}
+
+func installJq(ctx context.Context, version string) error {
+	osName := goOs
+	if osName == "darwin" {
+		osName = "macos"
+	}
+	if (osName != "macos" && osName != "linux") || (goArch != "amd64" && goArch != "arm64") {
+		return fmt.Errorf("unsupported jq platform: %s/%s", goOs, goArch)
+	}
+
+	url := fmt.Sprintf("https://github.com/jqlang/jq/releases/download/%s/jq-%s-%s",
+		version, osName, goArch)
+	binPath := filepath.Join(binDir, "jq")
+	if err := downloadFile(ctx, url, binPath); err != nil {
+		return fmt.Errorf("failed to download jq: %w", err)
+	}
+	if err := os.Chmod(binPath, 0755); err != nil {
+		return fmt.Errorf("failed to make jq executable: %w", err)
 	}
 
 	return nil
