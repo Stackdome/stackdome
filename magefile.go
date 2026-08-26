@@ -22,6 +22,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/magefile/mage/target"
 	"github.com/mt-sre/devkube/dev"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -95,6 +96,7 @@ const (
 
 	// Versions
 	KindVersion      = "v0.20.0"
+	K3dVersion       = "v5.9.0"
 	YqVersion        = "v4.44.1"
 	HelmVersion      = "v3.14.0"
 	KubectlVersion   = "v1.29.0"
@@ -160,15 +162,36 @@ func mustGetEnv(key string) string {
 // BuildFrontend builds the Vite SPA into pkg/web/dist for //go:embed.
 // Skips `tsc -b` so unrelated type errors don't block the build.
 func BuildFrontend(ctx context.Context) error {
+	if _, err := exec.LookPath("node"); err != nil {
+		return fmt.Errorf("node not found on PATH; install Node.js >=20.12 from https://nodejs.org/")
+	}
+
+	changed, err := target.Dir("pkg/web/dist/index.html",
+		"frontend/src",
+		"frontend/public",
+		"frontend/index.html",
+		"frontend/package.json",
+		"frontend/pnpm-lock.yaml",
+		"frontend/vite.config.ts",
+		"frontend/tsconfig.json",
+		"frontend/tsconfig.app.json",
+		"frontend/tsconfig.node.json",
+	)
+	if err != nil {
+		return fmt.Errorf("checking frontend build freshness: %w", err)
+	}
+	if !changed {
+		fmt.Println("✓ Frontend bundle is up to date")
+		return nil
+	}
+
 	fmt.Println("Building frontend (pnpm install + vite build)...")
 	if err := installDep(ctx, "pnpm", PnpmVersion); err != nil {
 		return fmt.Errorf("failed to ensure pnpm: %w", err)
 	}
-	if _, err := exec.LookPath("node"); err != nil {
-		return fmt.Errorf("node not found on PATH (Node >=20.12 required, see frontend/package.json engines)")
-	}
 	pnpmBin := filepath.Join(binDir, "pnpm")
-	if err := sh.RunV(pnpmBin, "--prefix", "frontend", "install", "--frozen-lockfile"); err != nil {
+	if err := sh.RunWithV(map[string]string{"CI": "true"}, pnpmBin,
+		"--prefix", "frontend", "install", "--frozen-lockfile"); err != nil {
 		return fmt.Errorf("pnpm install failed: %w", err)
 	}
 	if err := sh.RunV(pnpmBin, "--prefix", "frontend", "exec", "vite", "build"); err != nil {
@@ -266,6 +289,29 @@ var Default = Build
 // Deps namespace for dependency management
 type Deps mg.Namespace
 
+// Dev installs the binary dependencies required by the local dev environment.
+func (Deps) Dev(ctx context.Context) error {
+	fmt.Println("Installing local dev environment dependencies...")
+
+	deps := []struct {
+		name    string
+		version string
+	}{
+		{"k3d", K3dVersion},
+		{"helm", HelmVersion},
+		{"kubectl", KubectlVersion},
+	}
+
+	for _, dep := range deps {
+		if err := installDep(ctx, dep.name, dep.version); err != nil {
+			return fmt.Errorf("failed to install %s: %w", dep.name, err)
+		}
+	}
+
+	fmt.Println("✅ Local dev environment dependencies installed")
+	return nil
+}
+
 // Install installs all required dependencies for integration testing
 func (Deps) Install(ctx context.Context) error {
 	fmt.Println("Installing integration test dependencies...")
@@ -325,10 +371,10 @@ func installDep(ctx context.Context, name, version string) error {
 
 	// Check if already installed
 	if _, err := os.Stat(binPath); err == nil {
-		// Verify it's executable
-		cmd := exec.CommandContext(ctx, binPath, "--version")
-		if err := cmd.Run(); err == nil {
-			fmt.Printf("✓ %s already installed\n", name)
+		// Verify it is executable and matches the requested pinned version.
+		cmd := exec.CommandContext(ctx, binPath, dependencyVersionArgs(name)...)
+		if output, err := cmd.CombinedOutput(); err == nil && dependencyVersionMatches(version, string(output)) {
+			fmt.Printf("✓ %s %s already installed\n", name, version)
 			return nil
 		}
 	}
@@ -339,6 +385,8 @@ func installDep(ctx context.Context, name, version string) error {
 	switch name {
 	case "kind":
 		return installKind(ctx, version)
+	case "k3d":
+		return installK3d(ctx, version)
 	case "yq":
 		return installYq(ctx, version)
 	case "helm":
@@ -350,6 +398,46 @@ func installDep(ctx context.Context, name, version string) error {
 	default:
 		return fmt.Errorf("unknown dependency: %s", name)
 	}
+}
+
+func dependencyVersionArgs(name string) []string {
+	switch name {
+	case "helm":
+		return []string{"version", "--short"}
+	case "kubectl":
+		return []string{"version", "--client"}
+	default:
+		return []string{"--version"}
+	}
+}
+
+func dependencyVersionMatches(expected, output string) bool {
+	expected = strings.TrimPrefix(expected, "v")
+	for _, field := range strings.Fields(output) {
+		candidate := strings.Trim(field, ",;()")
+		candidate = strings.TrimPrefix(candidate, "v")
+		candidate = strings.SplitN(candidate, "+", 2)[0]
+		if candidate == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func installK3d(ctx context.Context, version string) error {
+	url := fmt.Sprintf("https://github.com/k3d-io/k3d/releases/download/%s/k3d-%s-%s",
+		version, goOs, goArch)
+
+	binPath := filepath.Join(binDir, "k3d")
+	if err := downloadFile(ctx, url, binPath); err != nil {
+		return fmt.Errorf("failed to download k3d: %w", err)
+	}
+
+	if err := os.Chmod(binPath, 0755); err != nil {
+		return fmt.Errorf("failed to make k3d executable: %w", err)
+	}
+
+	return nil
 }
 
 func installKind(ctx context.Context, version string) error {
@@ -457,7 +545,7 @@ func installKubectl(ctx context.Context, version string) error {
 }
 
 func downloadFile(ctx context.Context, url, filepath string) error {
-	cmd := exec.CommandContext(ctx, "curl", "-L", "-o", filepath, url)
+	cmd := exec.CommandContext(ctx, "curl", "--fail", "--location", "--show-error", "--output", filepath, url)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("download failed: %w\nOutput: %s", err, output)
 	}
@@ -935,6 +1023,11 @@ func (Dev) Setup(ctx context.Context) error {
 	fmt.Println("========================================")
 	fmt.Println(" Setting up Stackdome dev environment")
 	fmt.Println("========================================")
+	fmt.Println()
+
+	if err := (Deps{}).Dev(ctx); err != nil {
+		return fmt.Errorf("failed to install dev dependencies: %w", err)
+	}
 	fmt.Println()
 
 	// Step 1: Load .env and get DB config

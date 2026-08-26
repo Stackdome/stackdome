@@ -11,6 +11,7 @@ test/cloudint/.cache/
 cluster_config.yaml
 database.yaml
 bin/
+.cache/
 dev_env.yaml
 
 .superpowers/
