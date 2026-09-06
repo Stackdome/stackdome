@@ -25,12 +25,15 @@ export interface TimelineRailProps {
   initialWindow?: number;
 }
 
-// Only the live release gets a solid dot (the single filled marker); others are hollow rings.
-// In-flight deploys keep their spinner.
-function dotShape(state: string, isLive: boolean): RailDotShape {
-  if (isLive) return "solid";
+// **Hollow means unsettled.** A failure never finished, so it stays a ring; a
+// release that landed is solid whether or not it is the one serving traffic.
+// Reserving the only solid dot for the live release left a rail of identical
+// hollow rings, where the one thing worth finding — the failure — looked like
+// every release above it. Jaseem's call on the board, August 2026.
+function dotShape(state: string): RailDotShape {
   if (isDeploying(state)) return "spinner";
-  return "ring";
+  if (state === ReleaseState.Failed) return "ring";
+  return "solid";
 }
 
 /**
@@ -83,9 +86,8 @@ export function TimelineRail(props: TimelineRailProps) {
         shown.map((r, idx) => {
           const isLast = idx === shown.length - 1 && hidden <= 0;
           const state = r.state ?? "";
-          const isLive = !!liveReleaseId && r.id === liveReleaseId;
           return (
-            <RailNode key={r.id ?? idx} id={r.id ? `deploy-node-${r.id}` : undefined} tone={stateTone(state)} shape={dotShape(state, isLive)} pulse={isDeploying(state)} isLast={isLast}>
+            <RailNode key={r.id ?? idx} id={r.id ? `deploy-node-${r.id}` : undefined} tone={stateTone(state)} shape={dotShape(state)} pulse={isDeploying(state)} isLast={isLast}>
               <TimelineNode
                 release={r}
                 prevReleaseId={prevIdFor(idx)}
@@ -114,7 +116,7 @@ export function TimelineRail(props: TimelineRailProps) {
 
       {hidden > 0 && (
         <div className="ml-12 pt-2">
-          <button onClick={() => setWindowN(releases.length)} className="font-sans text-[12.5px] font-medium text-primary">
+          <button onClick={() => setWindowN(releases.length)} className="font-sans text-meta font-medium text-primary">
             Show more ({hidden})
           </button>
         </div>

@@ -4,7 +4,14 @@ import { Loader2, PlayCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import cronstrue from "cronstrue";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Panel, EmptyState, FieldShell } from "@/components/branded";
+import {
+  Panel,
+  EmptyState,
+  FieldShell,
+  BlockedAction,
+  DangerZone,
+  DangerZoneRow,
+} from "@/components/branded";
 import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
 import { getCurrentOrganizationId } from "@/lib/common";
@@ -22,6 +29,7 @@ import { useObjectStores } from "@/hooks/use-object-stores";
 import { detectPlan } from "./lib/payload";
 import { PLAN_PRESETS } from "./lib/plan-presets";
 import { PostgresDetailHeader } from "./components/postgres-detail-header";
+import { AddonDrawer } from "./components/addon-drawer";
 import { PostgresConnectionPanel } from "./components/postgres-connection-panel";
 import { BackupsList } from "./components/backups-list";
 import { usePostgresBackups } from "./hooks/use-postgres-backups";
@@ -37,7 +45,7 @@ function ReadField({
 }) {
   return (
     <FieldShell label={label}>
-      <div className="text-sm text-foreground">{children}</div>
+      <div className="text-body text-foreground">{children}</div>
     </FieldShell>
   );
 }
@@ -52,6 +60,7 @@ export default function PostgresDetailPage() {
   const [addon, setAddon] = useState<PostgresAddon | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
   const { setCustomLabel, setPathLoading, registerNonClickablePath } =
     useBreadcrumb();
   const { objectStores } = useObjectStores();
@@ -112,7 +121,7 @@ export default function PostgresDetailPage() {
   if (error) {
     return (
       <div className="p-6">
-        <p className="text-sm text-danger">{error}</p>
+        <p className="text-body text-danger">{error}</p>
       </div>
     );
   }
@@ -215,7 +224,16 @@ export default function PostgresDetailPage() {
         <PostgresDetailHeader
           addon={addon}
           canWrite={canWrite(addon.project_id ?? "")}
-          onDelete={() => void handleDelete()}
+          onEdit={() => setEditOpen(true)}
+        />
+
+        {/* The addon stays on screen behind it — which is the whole reason a
+            change to ONE object is a drawer and not a page (§13). */}
+        <AddonDrawer
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          addon={addon}
+          onSaved={() => void refetch()}
         />
 
         <PostgresConnectionPanel addon={addon} projectName={defaultProjectName ?? ""} />
@@ -226,7 +244,7 @@ export default function PostgresDetailPage() {
               <ReadField label="Plan">
                 {planLabel}
                 {resourcesLine && (
-                  <span className="block font-mono text-xs text-muted-foreground">
+                  <span className="block font-mono text-meta text-muted-foreground">
                     {resourcesLine}
                   </span>
                 )}
@@ -249,8 +267,8 @@ export default function PostgresDetailPage() {
               </ReadField>
             </div>
 
-            <div className="border-t border-border pt-5">
-              <h3 className="text-sm font-semibold text-foreground mb-3">
+            <div className="border-t border-border-subtle pt-5">
+              <h3 className="text-body font-semibold text-foreground mb-3">
                 Backups
               </h3>
               <div className="flex flex-col gap-5">
@@ -269,7 +287,7 @@ export default function PostgresDetailPage() {
                             · UTC
                           </span>
                         </span>
-                        <code className="select-all font-mono text-xs text-muted-foreground/70">
+                        <code className="select-all font-mono text-meta text-muted-foreground/70">
                           {b.schedule}
                         </code>
                       </span>
@@ -283,7 +301,7 @@ export default function PostgresDetailPage() {
                 </div>
 
                 {hasDestination && (
-                  <div className="flex items-center justify-end border-t border-border pt-4">
+                  <div className="flex items-center justify-end border-t border-border-subtle pt-4">
                     <Button onClick={handleTrigger} disabled={triggering}>
                       {triggering ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -296,9 +314,9 @@ export default function PostgresDetailPage() {
                 )}
 
                 {backupsError ? (
-                  <div className="text-sm text-danger">{backupsError}</div>
+                  <div className="text-body text-danger">{backupsError}</div>
                 ) : backupsLoading && backups.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">Loading…</div>
+                  <div className="text-body text-muted-foreground">Loading…</div>
                 ) : backups.length === 0 ? (
                   hasDestination ? (
                     <EmptyState
@@ -310,7 +328,7 @@ export default function PostgresDetailPage() {
                   <>
                     <BackupsList backups={backups} />
                     {backupsPageCount > 1 && (
-                      <div className="flex items-center justify-between border-t border-border pt-3 text-sm text-muted-foreground">
+                      <div className="flex items-center justify-between border-t border-border-subtle pt-3 text-body text-muted-foreground">
                         <span className="tabular-nums">
                           {backupsPage * backupsPageSize + 1}–
                           {Math.min(
@@ -320,30 +338,50 @@ export default function PostgresDetailPage() {
                           of {backupsTotal}
                         </span>
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setBackupsPage(backupsPage - 1)}
-                            disabled={backupsPage === 0 || backupsLoading}
+                          {/* The page counter sits between these two and is
+                              always visible, but it states position, not why
+                              the control is dead. While loading the reason is
+                              suppressed — that end is in-flight, not blocked. */}
+                          <BlockedAction
+                            reason={
+                              !backupsLoading && backupsPage === 0
+                                ? "Already on the first page"
+                                : null
+                            }
                           >
-                            <ChevronLeft className="h-4 w-4" />
-                            Prev
-                          </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setBackupsPage(backupsPage - 1)}
+                              disabled={backupsPage === 0 || backupsLoading}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                              Prev
+                            </Button>
+                          </BlockedAction>
                           <span className="tabular-nums">
                             Page {backupsPage + 1} of {backupsPageCount}
                           </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setBackupsPage(backupsPage + 1)}
-                            disabled={
-                              backupsPage + 1 >= backupsPageCount ||
-                              backupsLoading
+                          <BlockedAction
+                            reason={
+                              !backupsLoading && backupsPage + 1 >= backupsPageCount
+                                ? "Already on the last page"
+                                : null
                             }
                           >
-                            Next
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setBackupsPage(backupsPage + 1)}
+                              disabled={
+                                backupsPage + 1 >= backupsPageCount ||
+                                backupsLoading
+                              }
+                            >
+                              Next
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </BlockedAction>
                         </div>
                       </div>
                     )}
@@ -353,6 +391,29 @@ export default function PostgresDetailPage() {
             </div>
           </div>
         </Panel>
+
+        {/* **The last block on the page, after everything you would read before
+            deciding.** Deleting a managed database destroys storage that cannot
+            be rebuilt, and the API refuses outright while a stack still points
+            at it — that is a blast radius, so it takes the block that says so
+            rather than a red button on the header band (§10). */}
+        {canWrite(addon.project_id ?? "") && (
+          <DangerZone>
+            <DangerZoneRow
+              title="Delete this database"
+              description="The database and its storage are destroyed."
+              action={
+                <Button
+                  variant="destructive-ghost"
+                  shape="flat"
+                  onClick={() => void handleDelete()}
+                >
+                  Delete addon
+                </Button>
+              }
+            />
+          </DangerZone>
+        )}
       </div>
     </TooltipProvider>
   );

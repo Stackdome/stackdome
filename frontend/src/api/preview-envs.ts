@@ -8,8 +8,22 @@ export type PreviewStackSync = components["schemas"]["PreviewStackSync"];
 
 export type PreviewPhase = NonNullable<NonNullable<PreviewStack["status"]>["phase"]>;
 
+/**
+ * The wire's phase vocabulary, named once so no screen has to spell one as a
+ * string literal. `satisfies` keeps it pinned to the generated enum: a phase
+ * renamed in the spec fails to compile here rather than silently going unmatched
+ * in a `switch` on the other side of the app.
+ */
+export const PREVIEW_PHASE = {
+  provisioning: "Provisioning",
+  deploying: "Deploying",
+  ready: "Ready",
+  failed: "Failed",
+  deleting: "Deleting",
+} as const satisfies Record<string, PreviewPhase>;
+
 /** Phases where the backend has finished reconciling; polling can stop. */
-export const TERMINAL_PHASES: PreviewPhase[] = ["Ready", "Failed"];
+export const TERMINAL_PHASES: PreviewPhase[] = [PREVIEW_PHASE.ready, PREVIEW_PHASE.failed];
 
 function base(orgId: string, projectName: string): string {
   return `/organizations/${orgId}/projects/${projectName}/preview-stacks`;

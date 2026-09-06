@@ -36,6 +36,9 @@ export interface NodePresentation {
   brandSlug?: string;
   /** First card line: `image[:tag]` (registry/org stripped), or "git build"/"service". */
   summary: string;
+  /** The summary IS an image reference — the one thing on a card that stays
+   *  mono (§6). `git build · main` is prose about a build and is not. */
+  summaryIsRef: boolean;
   /** One entry per declared port: `port N · public|internal`. */
   details: PortLine[];
 }
@@ -135,7 +138,7 @@ function buildPortLines(ports: PresentationPort[] | undefined): PortLine[] {
 
 export function nodePresentation(input: PresentationInput): NodePresentation {
   if (input.isAddon) {
-    return { kindLabel: "Postgres", glyph: "postgres", brandSlug: "postgres", summary: "managed postgres", details: [] };
+    return { kindLabel: "Postgres", glyph: "postgres", brandSlug: "postgres", summary: "managed postgres", summaryIsRef: false, details: [] };
   }
   const image = (input.image ?? "").trim();
   const isPublic = !!input.ports?.some((p) => p.exposedToPublic);
@@ -146,6 +149,7 @@ export function nodePresentation(input: PresentationInput): NodePresentation {
     glyph: meta.glyph,
     brandSlug: detectBrandSlug(image),
     summary: buildSummary(image, input.hasBuild),
+    summaryIsRef: !!imageParts(image).base,
     details: buildPortLines(input.ports),
   };
 }

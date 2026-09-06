@@ -93,7 +93,8 @@ describe("SplitConsole", () => {
     expect(screen.getByText("· worker")).toBeInTheDocument();
     // Pinned detail: status (also on the rail pill), source, failure message, restart count.
     expect(screen.getAllByText("CrashLoopBackOff").length).toBeGreaterThan(1);
-    expect(screen.getByText("▢ tooljet/tooljet:v3")).toBeInTheDocument();
+    // The `▢` typed into the copy is now a glyph per source kind (git vs image).
+    expect(screen.getByText("tooljet/tooljet:v3")).toBeInTheDocument();
     expect(screen.getByText("no match for platform in manifest")).toBeInTheDocument();
     expect(screen.getByText("3 restarts")).toBeInTheDocument();
     // Console filtered to worker's events only.

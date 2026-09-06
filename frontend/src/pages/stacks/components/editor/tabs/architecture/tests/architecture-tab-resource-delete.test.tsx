@@ -57,7 +57,18 @@ function Harness({ resources }: { resources: { name: string; depends_on?: string
   }
   return (
     <ConfirmProvider>
+      {/* **`viewMode` and `onViewModeChange` are required here, and their
+          absence is why this suite failed after the merge.** It arrived from
+          main, whose ArchitectureTab owned the draft/live switch itself; on this
+          branch the header's version chip owns it and hands the canvas a value
+          plus a way to ask for the other one. Opening a resource drawer LEAVES
+          Live first — a drawer is draft-indexed — so `onViewModeChange` is
+          called on the way, and an undefined prop threw before `setSelection`
+          ever ran. The drawer never opened and every assertion below reported a
+          missing button on a product that was fine. */}
       <ArchitectureTab
+        viewMode="draft"
+        onViewModeChange={() => {}}
         session={session}
         baselineResources={resources}
         baselineVolumes={NO_VOLUMES}

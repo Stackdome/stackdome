@@ -18,13 +18,7 @@ const credential: RegistryCredential = {
 
 function renderRow(props: Partial<Parameters<typeof RegistryRow>[0]> = {}) {
   return render(
-    <RegistryRow
-      credential={credential}
-      onVerify={vi.fn()}
-      onUpdateCredentials={vi.fn()}
-      onRemove={vi.fn()}
-      {...props}
-    />
+    <RegistryRow credential={credential} onOpen={vi.fn()} {...props} />
   );
 }
 
@@ -46,24 +40,21 @@ describe("RegistryRow", () => {
     expect(screen.getByText("Pull only")).toBeInTheDocument();
   });
 
-  it("routes menu actions with the credential", async () => {
-    const onVerify = vi.fn();
-    const onUpdateCredentials = vi.fn();
-    const onRemove = vi.fn();
+  /**
+   * **The row opens the registry, and carries nothing else.**
+   *
+   * It used to hold a kebab with three acts on one object — verify, rotate,
+   * remove — behind a click that had to happen before you could see any of
+   * them. All three live on the drawer the row opens.
+   */
+  it("opens the credential and holds no actions of its own", async () => {
+    const onOpen = vi.fn();
     const user = userEvent.setup();
-    renderRow({ onVerify, onUpdateCredentials, onRemove });
+    renderRow({ onOpen });
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
-    await user.click(await screen.findByRole("menuitem", { name: /update credentials/i }));
-    await waitFor(() => expect(onUpdateCredentials).toHaveBeenCalledWith(credential));
-
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
-    await user.click(await screen.findByRole("menuitem", { name: /verify registry access/i }));
-    await waitFor(() => expect(onVerify).toHaveBeenCalledWith(credential));
-
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
-    await user.click(await screen.findByRole("menuitem", { name: /remove registry/i }));
-    await waitFor(() => expect(onRemove).toHaveBeenCalledWith(credential));
+    expect(screen.queryByRole("button")).toBeNull();
+    await user.click(screen.getByRole("link", { name: /docker hub registry/i }));
+    await waitFor(() => expect(onOpen).toHaveBeenCalledWith(credential));
   });
 
 });

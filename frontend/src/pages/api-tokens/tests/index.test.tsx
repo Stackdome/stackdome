@@ -4,6 +4,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { SheetHost } from "@/test-support/sheet-host";
 import ApiTokensPage from "../index";
 import * as tokensApi from "@/api/api-tokens";
 import { ConfirmProvider } from "@/components/branded/confirm";
@@ -34,11 +35,21 @@ const token = {
   created_at: "2026-08-01T00:00:00Z",
 };
 
+/**
+ * **Inside the sheet host, because a page's actions do not render where the
+ * page is.** This suite arrived from main, where `PageHeader` drew its own
+ * title row; on this branch the title is the breadcrumb's last segment and
+ * `actions` portals into `#topnav-actions` on the sheet header. Mounted bare,
+ * the page renders with no Create button at all and every assertion that looks
+ * for one fails against a product that is fine.
+ */
 function renderPage() {
   return render(
     <MemoryRouter>
       <ConfirmProvider>
-        <ApiTokensPage />
+        <SheetHost>
+          <ApiTokensPage />
+        </SheetHost>
       </ConfirmProvider>
     </MemoryRouter>,
   );

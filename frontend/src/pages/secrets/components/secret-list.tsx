@@ -1,95 +1,124 @@
-import { MoreHorizontal, Edit, Trash2, KeyRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  DataListCell,
+  DataListHeader,
+  DataListName,
+  DataListRow,
+  DataListSkeleton,
+} from "@/components/branded/data-list";
+import { relativeAge, absoluteAge } from "@/components/branded/entity-card";
 import type { Secret } from "../types";
 
-interface SecretListProps {
-  secrets: Secret[];
-  onEdit: (secret: Secret) => void;
-  onDelete: (secret: Secret) => void;
-  canWrite?: (projectId?: string) => boolean;
-}
+/**
+ * The Stacks list's track shape: the name is capped, one track takes the slack,
+ * the rest are pinned.
+ *
+ * `Type` is the flexible one — it is the longest word in the row
+ * ("Username/Password") and the only one that varies in length.
+ */
+/**
+ * **Three tracks.** The fourth was a 64px slot for a hover-revealed `Edit` and
+ * `Delete`.
+ *
+ * A secret has no live state to read — a name, a kind and a value — so there is
+ * nothing for a details drawer to show that the form does not. **The row opens
+ * the form**, which is what both of those buttons were for, and `Delete` moves
+ * into the drawer's danger zone: it takes every stack that reads the secret
+ * with it, and §10 puts an act with dependents on the object rather than under
+ * a pointer on a row you were scanning.
+ */
+const SECRET_TRACKS = "grid-cols-[minmax(240px,420px)_minmax(0,1fr)_130px]";
+
+const LABELS = ["Name", "Type", "Created"];
 
 export function formatSecretType(type: string): string {
   switch (type) {
     case "Generic":
       return "Generic";
     case "DockerRegistry":
-      return "Docker Registry";
+      return "Docker registry";
     case "GitCredentials":
-      return "Git Credentials";
+      return "Git credentials";
     case "UsernamePassword":
-      return "Username/Password";
+      return "Username / password";
     case "Token":
       return "Token";
     case "SSHKey":
-      return "SSH Key";
+      return "SSH key";
     default:
       return type;
   }
 }
 
-export function SecretList({ secrets, onEdit, onDelete, canWrite }: SecretListProps) {
-  if (!secrets.length) {
-    return <div className="text-muted-foreground p-4">No secrets found.</div>;
-  }
+/**
+ * **A time column on a list page is an age, not a date.**
+ *
+ * This shipped `toLocaleDateString()` — `8/1/2026` — which is the one thing a
+ * column you scan cannot be: a value you have to subtract from today before it
+ * means anything. `relativeAge` is the same helper the Stacks list's
+ * `Last change` uses, and the exact timestamp rides along as the cell's title
+ * for the one case where the date itself is the question.
+ */
+function createdLabel(secret: Secret): string {
+  return relativeAge(secret.created_at) ?? "—";
+}
 
+export function SecretListHeader() {
+  return <DataListHeader columns={SECRET_TRACKS} labels={LABELS} />;
+}
+
+/**
+ * The real column headers, then six rows at the real 64px pitch — so the only
+ * thing that changes when the data lands is the text.
+ */
+export function SecretListSkeleton() {
   return (
-    <div className="divide-y divide-border">
+    <div>
+      <SecretListHeader />
+      <DataListSkeleton
+        columns={SECRET_TRACKS}
+        shape={[
+          [
+            { w: 152, h: 4 },
+            { w: 200, h: 3 },
+          ],
+          { w: 88, h: 3 },
+          { w: 72, h: 3 },
+        ]}
+      />
+    </div>
+  );
+}
+
+export function SecretList({
+  secrets,
+  onOpen,
+}: {
+  secrets: Secret[];
+  /** The row opens the form. A secret is entirely settings, so there is no
+   *  read-first step to put in front of it — see the tracks above. */
+  onOpen: (secret: Secret) => void;
+}) {
+  return (
+    <div>
+      <SecretListHeader />
       {secrets.map((secret) => {
-        const rowCanWrite = canWrite ? canWrite(secret.project_id) : true;
         return (
-          <div key={secret.id} className="flex w-full items-center gap-4 px-4 py-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card">
-                <KeyRound className="h-5 w-5 shrink-0 text-muted-foreground" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-[15px] font-medium text-foreground">{secret.name}</p>
-                <p className="truncate font-mono text-[11.5px] text-fg-muted">
-                  {secret.description || "No description"}
-                </p>
-              </div>
-            </div>
-            <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-              {formatSecretType(secret.type)}
-            </span>
-            <span className="w-[90px] text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-              {secret.created_at ? new Date(secret.created_at).toLocaleDateString() : "—"}
-            </span>
-            {rowCanWrite ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Secret actions">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[160px]">
-                  {/* Edit opens a dialog; deferred so the dialog mounts only after
-                      the menu has closed and released its body pointer-events lock.
-                      See https://github.com/radix-ui/primitives/issues/1836 */}
-                  <DropdownMenuItem onSelect={() => setTimeout(() => onEdit(secret), 0)}>
-                    <Edit className="h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-danger focus:text-danger"
-                    onSelect={() => onDelete(secret)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <span className="h-8 w-8" />
-            )}
-          </div>
+          <DataListRow
+            key={secret.id}
+            columns={SECRET_TRACKS}
+            label={`${secret.name} secret`}
+            onActivate={() => onOpen(secret)}
+          >
+            {/* The description is the name's second line. The key glyph that used
+                to sit in a 40px bordered tile is gone: every row on this page is
+                a secret, so it drew no distinction the word did not already make,
+                and the tile was a card inside a list. */}
+            <DataListName name={secret.name ?? ""} secondary={secret.description} mono={false} />
+            <DataListCell>{formatSecretType(secret.type)}</DataListCell>
+            <DataListCell numeric title={absoluteAge(secret.created_at) ?? undefined}>
+              {createdLabel(secret)}
+            </DataListCell>
+          </DataListRow>
         );
       })}
     </div>

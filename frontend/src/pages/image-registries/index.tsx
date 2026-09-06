@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader, Panel } from "@/components/branded";
+import { PageHeader } from "@/components/branded";
+import { AlertBanner } from "@/components/branded/alert-banner";
+import { useBreadcrumb } from "@/hooks/use-breadcrumb";
 import { useConfirm } from "@/components/branded/confirm";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -11,9 +13,9 @@ import {
 import { getErrorMessage } from "@/api/client";
 import { getCurrentOrganizationId } from "@/lib/common";
 import { RegistriesErrorState, RegistriesEmptyState } from "./components/page-states";
-import { RegistryRow } from "./components/registry-row";
-import { AddRegistryDialog } from "./components/add-registry-dialog";
-import { UpdateCredentialsDialog } from "./components/update-credentials-dialog";
+import { RegistryRow, RegistryListHeader, RegistryListSkeleton } from "./components/registry-row";
+import { AddRegistryDrawer } from "./components/add-registry-drawer";
+import { RegistryDrawer } from "./components/registry-drawer";
 import { VerifyRegistryDialog } from "./components/verify-registry-dialog";
 
 export default function ImageRegistriesPage() {
@@ -24,7 +26,16 @@ export default function ImageRegistriesPage() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<RegistryCredential | null>(null);
   const [verifying, setVerifying] = useState<RegistryCredential | null>(null);
+  const [removing, setRemoving] = useState(false);
   const confirm = useConfirm();
+  const { setCustomLabel, setPathLoading } = useBreadcrumb();
+
+  // Without this the sheet header takes its title from the URL slug and says
+  // "Image-registries".
+  useEffect(() => {
+    setCustomLabel("/image-registries", "Image registries");
+    setPathLoading("/image-registries", loading);
+  }, [setCustomLabel, setPathLoading, loading]);
 
   const refresh = useCallback(async () => {
     const orgId = getCurrentOrganizationId();
@@ -65,6 +76,7 @@ export default function ImageRegistriesPage() {
       });
       return;
     }
+    setRemoving(true);
     try {
       const res = await deleteRegistryCredential(orgId, credential.id);
       const affected = res.affected_stacks ?? [];
@@ -77,70 +89,65 @@ export default function ImageRegistriesPage() {
       } else {
         toast({ title: "Registry removed", variant: "success" });
       }
+      // The drawer is the surface the act was taken FROM, so it is the surface
+      // that closes — a form still editing a registry that is gone is a form
+      // whose Save can only fail.
+      setEditing(null);
       await refresh();
     } catch (e) {
       toast({ title: "Remove failed", description: getErrorMessage(e), variant: "destructive" });
+    } finally {
+      setRemoving(false);
     }
   };
 
   const addButton = (
     <Button onClick={() => setAdding(true)}>
-      <Plus className="h-4 w-4" />
+      <Plus />
       Add registry
     </Button>
   );
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-2 text-muted-foreground">Loading image registries...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 p-6">
+    <div className="flex flex-1 flex-col h-full">
       <PageHeader
-        eyebrow="Integrations"
-        title="Image registries"
-        subtitle="Store registry credentials so builds can pull private images and push artifacts."
         actions={addButton}
       />
 
-      {/* Full-page error only when there's nothing to show; a failed re-fetch
-          keeps the already-loaded list visible with an inline error line. */}
-      {error && credentials.length === 0 && (
+      {/* Full-page error only when there is nothing to show; a failed RE-fetch
+          keeps the already-loaded list up and says so in a line above it. */}
+      {loading ? (
+        <RegistryListSkeleton />
+      ) : error && credentials.length === 0 ? (
         <RegistriesErrorState message={error} onRetry={() => void refresh()} />
+      ) : credentials.length === 0 ? (
+        <RegistriesEmptyState onAdd={() => setAdding(true)} />
+      ) : (
+        <div>
+          {error && (
+            <AlertBanner tone="info" className="mb-2">
+              These registries could not be refreshed: {error}
+            </AlertBanner>
+          )}
+          <RegistryListHeader />
+          {credentials.map((credential) => (
+            <RegistryRow key={credential.id} credential={credential} onOpen={setEditing} />
+          ))}
+        </div>
       )}
 
-      {!error && credentials.length === 0 && <RegistriesEmptyState onAdd={() => setAdding(true)} />}
+      <AddRegistryDrawer open={adding} onOpenChange={setAdding} onCreated={() => void refresh()} />
 
-      {credentials.length > 0 && (
-        <>
-          {error && <p className="text-sm text-destructive">Couldn&apos;t refresh registries: {error}</p>}
-          <Panel title="Connected registries" count={credentials.length}>
-            <div className="divide-y divide-border">
-              {credentials.map((credential) => (
-                <RegistryRow
-                  key={credential.id}
-                  credential={credential}
-                  onVerify={setVerifying}
-                  onUpdateCredentials={setEditing}
-                  onRemove={(c) => void remove(c)}
-                />
-              ))}
-            </div>
-          </Panel>
-        </>
-      )}
-
-      <AddRegistryDialog open={adding} onOpenChange={setAdding} onCreated={() => void refresh()} />
-
-      <UpdateCredentialsDialog
+      {/* The row's destination: the login to rotate, `Verify` on the band, and
+          `Remove` in the danger zone — the three things the kebab used to hide
+          behind one click, on one surface you can read before deciding. */}
+      <RegistryDrawer
         credential={editing}
         onOpenChange={(o) => !o && setEditing(null)}
         onUpdated={() => void refresh()}
+        onVerify={setVerifying}
+        onRemove={(c) => void remove(c)}
+        removing={removing}
       />
 
       <VerifyRegistryDialog

@@ -7,6 +7,38 @@ import type {
 
 const TOAST_LIMIT = 5
 
+/** How long the exit animation runs, after which the toast leaves the store. */
+const TOAST_REMOVE_DELAY = 250
+
+/**
+ * **A toast dismisses itself, and how long it stays is a function of how much
+ * there is to read.**
+ *
+ * A fixed number is wrong at both ends: "Secret created" holds the screen long
+ * after it has been read, and a sentence naming three affected stacks is gone
+ * before it has. The reading-time guideline behind WCAG 2.2.1's discussion of
+ * notifications is **~1 second per three words over a 3 second base**, and that
+ * is what this is, clamped so nothing flashes and nothing squats.
+ *
+ * The clamp matters more than the formula. 4s is about the floor at which a
+ * message registers at all; past 10s a toast has stopped reporting and started
+ * sitting there.
+ */
+const MIN_DURATION = 4_000
+const MAX_DURATION = 10_000
+
+function wordCount(node: React.ReactNode): number {
+  // Only a string can be counted. Anything else keeps its own counsel, and the
+  // base time covers it.
+  return typeof node === "string" ? node.trim().split(/\s+/).filter(Boolean).length : 0
+}
+
+export function readingDuration(title?: React.ReactNode, description?: React.ReactNode): number {
+  const words = wordCount(title) + wordCount(description)
+  const ms = 3_000 + (words / 3) * 1_000
+  return Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(ms)))
+}
+
 type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
@@ -71,8 +103,12 @@ const reducer = (state: State, action: Action): State => {
     case actionTypes.DISMISS_TOAST: {
       const { toastId } = action
 
-      // Dismiss all toasts if toastId is not provided
+      // Closing only marks it closed, so the exit animation can run. Queue the
+      // removal too, or the store keeps every toast ever raised and the
+      // `TOAST_LIMIT` slice starts evicting live toasts to make room for dead
+      // ones.
       if (toastId === undefined) {
+        state.toasts.forEach((t) => queueRemoval(t.id))
         return {
           ...state,
           toasts: state.toasts.map((t) => ({
@@ -82,7 +118,7 @@ const reducer = (state: State, action: Action): State => {
         }
       }
 
-      // Dismiss specific toast if toastId is provided
+      queueRemoval(toastId)
       return {
         ...state,
         toasts: state.toasts.map((t) =>
@@ -109,6 +145,20 @@ const reducer = (state: State, action: Action): State => {
       }
     }
   }
+}
+
+/** One pending removal per toast, so a double dismiss cannot stack timers. */
+const removalTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function queueRemoval(toastId: string) {
+  if (removalTimers.has(toastId)) return
+  removalTimers.set(
+    toastId,
+    setTimeout(() => {
+      removalTimers.delete(toastId)
+      dispatch({ type: actionTypes.REMOVE_TOAST, toastId })
+    }, TOAST_REMOVE_DELAY),
+  )
 }
 
 const listeners: Array<(state: State) => void> = []
@@ -141,6 +191,18 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
+      /**
+       * **A toast carrying an action never times out.** The clock is there to
+       * clear a message that has been read; a control has to be *found* and
+       * *pressed*, and a timer racing the pointer is the failure WCAG 2.2.1 is
+       * about. A caller that hands the toast something to do has said the user
+       * still has a move to make, so the toast waits.
+       *
+       * An explicit `duration` from the caller still wins over both.
+       */
+      duration: props.duration ?? (props.action ? Infinity : readingDuration(props.title, props.description)),
+      // Radix runs the clock and pauses it on hover, focus and window blur,
+      // then calls this — which routes into `DISMISS_TOAST` and queues removal.
       onOpenChange: (open) => {
         if (!open) dismiss()
       },

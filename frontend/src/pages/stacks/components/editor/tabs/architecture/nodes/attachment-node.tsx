@@ -1,7 +1,9 @@
 import { memo } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { Archive, HardDrive, KeyRound, type LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { NODE_KIND, type AttachmentKind, type AttachmentNodeData } from "@/pages/stacks/lib/canvas/graph-from-connections";
+import { NODE_CARD } from "./node-card";
 
 export type AttachmentFlowNode = Node<AttachmentNodeData, "attachment">;
 
@@ -16,20 +18,50 @@ const ICON: Record<AttachmentKind, LucideIcon> = {
 
 /**
  * Compact node for connection endpoints that aren't workloads — secrets,
- * volumes, object stores. Same card language as ResourceNode, one line,
- * visually lighter. Volume nodes open the volume drawer on click; secret/
- * object-store nodes stay display-only for now.
+ * volumes, object stores.
+ *
+ * **It is the resource card, smaller — not a second card.** Same shell, same
+ * card inside it, same inset and glyph and gap; everything comes from
+ * `NODE_CARD`, which is the point of the constant.
+ *
+ * It stays **180 and one line**, and that is deliberate: the difference between
+ * these and a workload is real, and after the shell redesign the size is the
+ * only thing left carrying it. Widening every node to 240 would have made the
+ * board one silhouette and lost the distinction entirely.
+ *
+ * **Its shell is always empty.** Nothing docks into a secret. It takes the
+ * shape anyway so a board of mixed nodes reads as one family of object — the
+ * same reason a workload with no volumes still draws its tray.
+ *
+ * **It keeps its kind word where the resource card gives that slot to state.**
+ * An attachment has no state to put there — a secret is or is not attached, and
+ * nothing in `AttachmentNodeData` reports health. The kind is the only fact it
+ * has beyond its name, and `key`, `drive` and `archive` are not as self-evident
+ * as a Redis logo. **Open:** if attachments ever gain a status from the API, the
+ * word should give way to it, the way it did on the resource card.
  */
-function AttachmentNodeImpl({ data }: NodeProps<AttachmentFlowNode>) {
+function AttachmentNodeImpl({ data, selected }: NodeProps<AttachmentFlowNode>) {
   const Icon = ICON[data.kind];
   return (
-    <div className="w-[180px] cursor-pointer rounded-lg border border-border bg-card px-[13px] py-2.5 shadow-xs transition-colors hover:border-brand/60">
+    <div
+      className={cn(
+        "relative w-[180px]",
+        NODE_CARD.shell,
+        NODE_CARD.cursor,
+        NODE_CARD.clip,
+        selected ? NODE_CARD.selected : "outline-border",
+        !selected && NODE_CARD.hover,
+      )}
+    >
       <Handle type="target" position={Position.Left} style={HIDDEN_HANDLE} isConnectable={false} />
       <Handle type="source" position={Position.Right} style={HIDDEN_HANDLE} isConnectable={false} />
-      <div className="flex items-center gap-2.5">
-        <Icon className="size-[15px] shrink-0 text-fg-muted" aria-hidden />
-        <span className="flex-1 truncate text-[13px] font-medium text-fg-2">{data.name}</span>
-        <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] text-fg-muted">{data.kindLabel}</span>
+      <div className={cn(NODE_CARD.card, NODE_CARD.inset, NODE_CARD.padY)}>
+        {/* Hugs its content, so the card's 16 is the whole of the inset. */}
+        <div className={cn("flex items-center", NODE_CARD.gap)}>
+          <Icon className={cn(NODE_CARD.glyph, "shrink-0 text-fg-2")} aria-hidden />
+          <span className="min-w-0 flex-1 truncate text-body font-medium text-foreground">{data.name}</span>
+          <span className="shrink-0 text-meta text-fg-muted">{data.kindLabel}</span>
+        </div>
       </div>
     </div>
   );

@@ -39,7 +39,7 @@ export interface ViewChangesModalProps {
 
 function RowLine({ row }: { row: DiffRow }) {
   return (
-    <div className="grid grid-cols-[140px_1fr] items-baseline gap-2.5 px-3 py-0.5 font-mono text-[11px]">
+    <div className="grid grid-cols-[140px_1fr] items-baseline gap-2.5 px-3 py-0.5 font-mono text-label">
       <span className="text-fg-muted [overflow-wrap:anywhere]">{row.key}</span>
       <span className="flex flex-wrap items-baseline gap-1.5">
         {row.kind === "added" && <span className="text-success">{row.to}</span>}
@@ -59,15 +59,15 @@ function RowLine({ row }: { row: DiffRow }) {
 const BADGE_STYLES: Record<string, string> = {
   added: "border-success-border bg-success-bg text-success",
   removed: "border-danger-border bg-danger-bg text-danger",
-  modified: "border-brand-border bg-brand-bg text-brand",
-  renamed: "border-brand-border bg-brand-bg text-brand",
+  modified: "border-change-border bg-change-bg text-change",
+  renamed: "border-change-border bg-change-bg text-change",
 };
 
 const DOT_STYLES: Record<string, string> = {
   added: "bg-success",
   removed: "bg-danger",
-  modified: "bg-brand",
-  renamed: "bg-brand",
+  modified: "bg-change",
+  renamed: "bg-change",
 };
 
 /** Compact flat change card: dot + name + badge + always-visible Discard in the
@@ -97,7 +97,7 @@ function ChangeCard({
       type="button"
       variant="ghost"
       size="sm"
-      className="h-6 flex-none gap-1 px-2 font-mono text-[10.5px] text-fg-muted hover:text-brand"
+      className="h-6 flex-none gap-1 px-2 font-mono text-label text-fg-muted hover:text-change"
       disabled={disabled}
       onClick={onDiscard}
     >
@@ -109,7 +109,7 @@ function ChangeCard({
     <div data-change-card className="flex-none overflow-hidden rounded-md border border-border">
       <div className="flex items-center gap-2.5 bg-muted py-1.5 pl-3 pr-1.5">
         <span className={`h-[7px] w-[7px] flex-none rounded-full ${DOT_STYLES[change]}`} />
-        <span className="min-w-0 font-mono text-[12px] font-semibold text-foreground [overflow-wrap:anywhere]">
+        <span className="min-w-0 font-mono text-meta font-semibold text-foreground [overflow-wrap:anywhere]">
           {change === "renamed" && fromName ? (
             <>
               {fromName} <span className="text-fg-muted">→</span> {name}
@@ -119,7 +119,7 @@ function ChangeCard({
           )}
         </span>
         <span
-          className={`flex-none rounded-sm border px-1.5 py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-wider ${BADGE_STYLES[change]}`}
+          className={`flex-none rounded-sm border px-1.5 py-0.5 font-mono text-[9.5px] font-medium ${BADGE_STYLES[change]}`}
         >
           {change}
         </span>
@@ -136,7 +136,7 @@ function ChangeCard({
         )}
       </div>
       {note && (
-        <div className="flex items-start gap-2 border-t border-border px-3 pb-0.5 pt-1.5 text-[11.5px] text-fg-muted">
+        <div className="flex items-start gap-2 border-t border-border-subtle px-3 pb-0.5 pt-1.5 text-label text-fg-muted">
           <span className="flex-none">−</span>
           <span>{note}</span>
         </div>
@@ -144,9 +144,9 @@ function ChangeCard({
       {sections
         .filter((s) => s.rows.length > 0)
         .map((sec, si) => (
-          <div key={si} className="border-t border-border py-1.5">
+          <div key={si} className="border-t border-border-subtle py-1.5">
             {sec.label && (
-              <div className="px-3 pb-0.5 font-mono text-[9px] uppercase tracking-widest text-fg-muted">
+              <div className="px-3 pb-0.5 font-mono text-[9px] text-fg-muted">
                 {sec.label}
               </div>
             )}
@@ -161,7 +161,7 @@ function ChangeCard({
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mt-2 flex-none px-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.09em] text-fg-muted first:mt-0">
+    <div className="mt-2 flex-none px-0.5 font-mono text-label font-medium text-fg-muted first:mt-0">
       {children}
     </div>
   );
@@ -193,11 +193,11 @@ export function ViewChangesModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 p-0 sm:max-w-[760px]">
-        <DialogHeader className="flex-row items-center gap-2.5 space-y-0 border-b border-border py-3.5 pl-5 pr-12">
-          <DialogTitle className="text-[15px]">Undeployed changes</DialogTitle>
+      <DialogContent size="work" className="gap-0 p-0">
+        <DialogHeader className="flex-row items-center gap-2.5 space-y-0 border-b border-border-subtle py-3.5 pl-5 pr-12">
+          <DialogTitle className="text-name">Undeployed changes</DialogTitle>
           {count > 0 && (
-            <span className="rounded-full border border-warn-border bg-warn-bg px-2 py-0.5 font-mono text-[11px] font-bold text-warn">
+            <span className="rounded-full border border-warn-border bg-warn-bg px-2 py-0.5 font-mono text-label font-semibold text-warn">
               {count}
             </span>
           )}
@@ -208,7 +208,7 @@ export function ViewChangesModal({
         <div className="flex max-h-[56vh] flex-col gap-1.5 overflow-auto px-5 pb-4 pt-3">
           {empty ? (
             <p
-              className={`py-8 text-center text-[13px] ${errored ? "text-danger" : "text-fg-muted"}`}
+              className={`py-8 text-center text-body ${errored ? "text-danger" : "text-fg-muted"}`}
             >
               {errored
                 ? "Changes couldn't be saved. Fix the highlighted error and try again."
@@ -247,8 +247,8 @@ export function ViewChangesModal({
           )}
         </div>
 
-        <DialogFooter className="flex-row items-center border-t border-border px-5 py-3 sm:justify-start">
-          <Button
+        <DialogFooter className="flex-row items-center border-t border-border-subtle px-5 py-3 sm:justify-start">
+          <Button shape="flat"
             type="button"
             variant="outline"
             size="sm"

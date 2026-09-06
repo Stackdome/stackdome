@@ -11,7 +11,7 @@ import type { ReleaseDetail } from "../use-release-detail";
 import { releaseValidationBannerItems } from "../release-errors";
 import { useReleaseEvents } from "../use-release-events";
 import { SplitConsole, type ResourceRowVM, type LogContext } from "./split-console";
-import { ReleaseBodyTabs } from "./release-body-tabs";
+import { ReleaseBodySections } from "./release-body-sections";
 import { DeployFailedBanner } from "./deploy-failed-banner";
 
 export interface LiveReleaseBodyProps {
@@ -82,7 +82,7 @@ export function LiveReleaseBody({ release, stack, logContext, detail, prevReleas
     phase: s.state ?? "",
     replicas: replicaLabel(s.available_replicas, s.replicas),
     msg: s.message,
-    tag: recoveredNames.has(name) ? "RECOVERED" : undefined,
+    tag: recoveredNames.has(name) ? "Recovered" : undefined,
     failure: failingByName.get(name),
     source: resourceSource(sourceByName.get(name)),
   }));
@@ -106,12 +106,12 @@ export function LiveReleaseBody({ release, stack, logContext, detail, prevReleas
         />
       )}
 
-      <ReleaseBodyTabs diff={diff} hasPrev={canDiff} prevSeq={prevSeq} loading={canDiff && !prevLoaded}>
+      <ReleaseBodySections diff={diff} hasPrev={canDiff} prevSeq={prevSeq} loading={canDiff && !prevLoaded}>
         <SplitConsole rows={rows} events={events} streaming={eventsStatus === "streaming"} logContext={logContext} />
-      </ReleaseBodyTabs>
+      </ReleaseBodySections>
 
       {recovered.length > 0 && (
-        <div className="mt-4 rounded-md border border-warn-border bg-warn-bg px-3.5 py-2.5 text-[12.5px] text-fg-muted">
+        <div className="mt-4 rounded-md border border-warn-border bg-warn-bg px-3.5 py-2.5 text-meta text-fg-muted">
           {recovered.map((r) => (
             <div key={r.name}>
               <span className="font-medium text-foreground">{r.name}</span> recovered

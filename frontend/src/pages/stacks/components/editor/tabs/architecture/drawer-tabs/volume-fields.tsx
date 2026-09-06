@@ -1,11 +1,8 @@
 import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { CornerDownRight, Trash2 } from "lucide-react";
-import {
-  LedgerRow,
-  LedgerSection,
-} from "@/pages/stacks/components/editor/tabs/architecture/drawer-tabs/ledger";
+import { CornerDownRight } from "lucide-react";
+import { FieldGrid, FieldShell, FormSection } from "@/components/branded";
+import { onNameInput } from "@/pages/stacks/lib/name-rule";
 import type { FormVolumeExtendedData as VolumeFormData, FormStackResourceData } from "@/pages/stacks/schemas/form-schema";
 
 /** Derive the list of resources that mount this volume. */
@@ -29,7 +26,6 @@ interface VolumeFieldsProps {
   volume: Partial<VolumeFormData>;
   index: number;
   onChange: (index: number, updated: Partial<VolumeFormData>) => void;
-  onRemove: (index: number) => void;
   errors: { [field: string]: string | undefined };
   allVolumes: Partial<VolumeFormData>[];
   allStackResources?: Partial<FormStackResourceData>[];
@@ -47,12 +43,12 @@ interface VolumeFieldsProps {
   specReadOnly?: boolean;
 }
 
-/** Shared form body for a volume: spec ledger, mount details, and remove footer. */
+/** Shared form body for a volume: spec ledger and mount details. Removing it
+ *  is the owning surface's footer action, not a row at the end of the form. */
 export function VolumeFields({
   volume,
   index,
   onChange,
-  onRemove,
   errors,
   allVolumes,
   allStackResources = [],
@@ -69,91 +65,88 @@ export function VolumeFields({
 
   return (
     <>
-      <LedgerSection label="Specification">
-        <LedgerRow
-          label="Name"
-          htmlFor={`volume-name-${index}`}
-          required
-          meta={nameReadOnly ? "rename from volumes list" : "unique in stack"}
-          error={errors.name || (isDuplicate ? "Volume name must be unique" : undefined)}
-        >
-          <Input
-            id={`volume-name-${index}`}
-            placeholder="Volume name"
-            value={volume.name || ""}
-            onChange={(e) => update({ name: e.target.value })}
-            disabled={nameReadOnly}
-            className={`h-9 font-mono text-[12.5px] ${errors.name || isDuplicate ? "border-danger" : ""}`}
-            aria-invalid={!!errors.name || isDuplicate}
-          />
-        </LedgerRow>
-        <LedgerRow
-          label="Size"
-          htmlFor={`volume-size-${index}`}
-          required
-          meta={specReadOnly ? "fixed once provisioned" : "e.g. 1Gi, 500Mi"}
-          error={errors["spec.size"]}
-        >
-          <Input
-            id={`volume-size-${index}`}
-            placeholder="e.g., 1Gi, 500Mi"
-            value={volume.spec?.size || ""}
-            onChange={(e) =>
-              update({
-                spec: {
-                  ...volume.spec,
-                  size: e.target.value,
-                  needs_sync_before_use: volume.spec?.needs_sync_before_use ?? false,
-                  access_mode: volume.spec?.access_mode ?? "ReadWriteOnce",
-                },
-              })
-            }
-            disabled={specReadOnly}
-            className={`h-9 font-mono text-[12.5px] ${errors["spec.size"] ? "border-danger" : ""}`}
-            aria-invalid={!!errors["spec.size"]}
-          />
-        </LedgerRow>
-        <LedgerRow label="Access mode" meta="single resource · read/write">
-          <code className="inline-block rounded-[3px] bg-secondary px-2 py-1 font-mono text-[11.5px] text-muted-foreground">
+      <FormSection label="Specification">
+        <FieldGrid>
+          <FieldShell
+            label="Name"
+            htmlFor={`volume-name-${index}`}
+            required
+            // Read-only says WHY in one line, so it stays a hint; the rule itself is
+            // long, repeats, and is now enforced as you type — so it goes to the `?`.
+            // Read-only still says WHY it is off (§9). Editable says nothing: the
+            // field performs the rule, and the error covers what it cannot.
+            help={nameReadOnly ? "Rename from the volumes list." : undefined}
+            error={errors.name || (isDuplicate ? "Volume name must be unique" : undefined)}
+          >
+            <Input
+              id={`volume-name-${index}`}
+              placeholder="Volume name"
+              value={volume.name || ""}
+              // Same rule as the resource name, applied at the keystroke.
+              onChange={(e) => onNameInput(e, (name) => update({ name }))}
+              disabled={nameReadOnly}
+
+              aria-invalid={!!errors.name || isDuplicate}
+            />
+          </FieldShell>
+          <FieldShell
+            label="Size"
+            htmlFor={`volume-size-${index}`}
+            required
+            hint={specReadOnly ? undefined : "For example 1Gi or 500Mi."}
+            help={specReadOnly ? "Fixed once provisioned." : undefined}
+            error={errors["spec.size"]}
+          >
+            <Input
+              id={`volume-size-${index}`}
+              placeholder="e.g., 1Gi, 500Mi"
+              value={volume.spec?.size || ""}
+              onChange={(e) =>
+                update({
+                  spec: {
+                    ...volume.spec,
+                    size: e.target.value,
+                    needs_sync_before_use: volume.spec?.needs_sync_before_use ?? false,
+                    access_mode: volume.spec?.access_mode ?? "ReadWriteOnce",
+                  },
+                })
+              }
+              disabled={specReadOnly}
+
+              aria-invalid={!!errors["spec.size"]}
+            />
+          </FieldShell>
+          <FieldShell label="Access mode" help="One resource at a time, read and write.">
+            {/* deliberate off-scale: ~22px-tall code chip, rounded-sm reads too round */}
+            <span className="inline-block rounded-sm bg-secondary px-2 py-1 text-label text-fg-muted">
             ReadWriteOnce (RWO)
-          </code>
-        </LedgerRow>
-      </LedgerSection>
+            </span>
+          </FieldShell>
+        </FieldGrid>
+      </FormSection>
 
       {mountingInfo.length > 0 && (
-        <LedgerSection
+        <FormSection
           label="Mounts"
-          meta={`${mountingInfo.length} ${mountingInfo.length === 1 ? "resource" : "resources"}`}
+          state={`${mountingInfo.length} ${mountingInfo.length === 1 ? "resource" : "resources"}`}
         >
           {mountingInfo.map((mount, mountIdx) => (
-            <div key={mountIdx} className="border-b border-secondary/80 py-1">
-              <div className="flex items-center gap-3 rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted/20">
-                <div className="flex w-[150px] shrink-0 items-center gap-2 text-[13px] text-foreground/80 dark:text-fg-2">
+            <div key={mountIdx}>
+              <div className="flex items-center gap-3 rounded-md px-1.5 py-1.5 transition-colors hover:bg-[var(--wash-hover)]">
+                <div className="flex w-[150px] shrink-0 items-center gap-2 text-body text-foreground/80 dark:text-fg-2">
                   <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-fg-muted" aria-hidden />
                   <span className="truncate">{mount.resourceName}</span>
                 </div>
-                <code className="shrink-0 rounded-[3px] bg-secondary px-2 py-1 font-mono text-[11.5px] text-muted-foreground">
+                {/* deliberate off-scale: ~22px-tall code chip, rounded-sm reads too round */}
+                <span className="shrink-0 rounded-sm bg-secondary px-2 py-1 text-label text-fg-muted">
                   {mount.targetPath}
-                </code>
+                </span>
               </div>
             </div>
           ))}
-        </LedgerSection>
+        </FormSection>
       )}
 
-      <div className="mt-5 flex justify-end border-t border-border pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1.5 px-2 text-[12.5px] text-danger hover:bg-danger-bg hover:text-danger"
-          onClick={() => onRemove(index)}
-          title="Remove volume"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Remove volume
-        </Button>
-      </div>
     </>
   );
 }

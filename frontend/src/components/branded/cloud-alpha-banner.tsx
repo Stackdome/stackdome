@@ -24,7 +24,16 @@ export function CloudAlphaBanner() {
   };
 
   return (
-    <AlertBanner variant="notice" onDismiss={dismiss}>
+    /* **Ported at the merge, not designed.** `main` built this against the old
+       AlertBanner (`variant="notice"` plus an `onDismiss` ✕); this branch had
+       already replaced that component — tones are `danger | blocking | info`,
+       and the one affordance sits BELOW the message rather than as a corner ✕.
+       `notice` maps to `info`, and dismissal becomes that affordance.
+
+       Its copy is left exactly as main wrote it, including the inline brand
+       link. Worth a design pass: this banner has a headline and a detail, which
+       is what AlertBanner's `title` prop is for. */
+    <AlertBanner tone="info" action={{ label: "Dismiss", onClick: dismiss }}>
       <span className="font-semibold">Alpha:</span> Stackdome Cloud is ephemeral
       and capacity is limited. Stacks are deleted 6 hours after they are created.{" "}
       <a

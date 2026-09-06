@@ -1,18 +1,21 @@
-import type React from "react";
 import { Mail } from "lucide-react";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { ProjectChip } from "./project-chip";
 import type { PendingRow as PendingRowModel } from "../hooks/use-users";
 import { formatRelative } from "../lib/format-relative";
 
 interface PendingRowProps {
   row: PendingRowModel;
-  actions?: React.ReactNode;
+  /** The row's one act: open this invite's drawer. It carried a trailing cell
+   *  holding a kebab — `Resend` and `Revoke`, neither visible until the menu
+   *  was open. Removing the action means removing its cell too. */
+  onOpen: (row: PendingRowModel) => void;
   /** Name of the default project in the org (to render star on chip) */
   defaultProjectName?: string;
 }
 
-export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps) {
+export function PendingRow({ row, onOpen, defaultProjectName }: PendingRowProps) {
   // Use invite.created_at for "invited X ago" label
   const invitedAgo = formatRelative(row.invite.created_at);
 
@@ -26,7 +29,16 @@ export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps
     : null;
 
   return (
-    <TableRow className="border-b border-border hover:bg-muted/50">
+    <TableRow
+      role="link"
+      tabIndex={0}
+      aria-label={`${row.email} invite`}
+      className="cursor-pointer border-b border-border-subtle hover:bg-[var(--wash-hover)]"
+      onClick={() => onOpen(row)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onOpen(row);
+      }}
+    >
       {/* User */}
       <TableCell className="py-3.5">
         <div className="flex items-center gap-3">
@@ -35,12 +47,10 @@ export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-xs text-foreground truncate">{row.email}</span>
-              <span className="inline-flex items-center px-2 py-px rounded border border-warn-border bg-warn-bg text-warn text-[11px] font-mono shrink-0">
-                invited
-              </span>
+              <span className="font-mono text-meta text-foreground truncate">{row.email}</span>
+              <Badge variant="warning" className="shrink-0">invited</Badge>
             </div>
-            <div className="font-mono text-[11px] text-muted-foreground truncate mt-0.5">
+            <div className="text-meta text-fg-muted truncate mt-0.5">
               Invited by {row.invited_by ?? "—"} · {invitedAgo}
             </div>
           </div>
@@ -49,7 +59,7 @@ export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps
 
       {/* Org role — en dash for pending */}
       <TableCell className="py-3.5">
-        <span className="font-mono text-[11px] text-muted-foreground">–</span>
+        <span className="text-meta text-fg-muted">–</span>
       </TableCell>
 
       {/* Projects */}
@@ -60,16 +70,15 @@ export function PendingRow({ row, actions, defaultProjectName }: PendingRowProps
             isDefault={defaultProjectName ? row.project_name === defaultProjectName : undefined}
           />
         ) : (
-          <span className="font-mono text-[11px] text-muted-foreground">–</span>
+          <span className="text-meta text-fg-muted">–</span>
         )}
       </TableCell>
 
       {/* Last active */}
       <TableCell className="py-3.5">
-        <span className="font-mono text-[11px] text-muted-foreground">–</span>
+        <span className="text-meta text-fg-muted">–</span>
       </TableCell>
 
-      <TableCell className="py-3.5 text-right">{actions}</TableCell>
     </TableRow>
   );
 }

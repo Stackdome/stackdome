@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { HardDrive } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogSection, DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -44,51 +46,54 @@ export function MountPathDialog({ volumeName, resources, resourceIdx, onCancel, 
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <HardDrive className="size-[18px] text-brand" /> Attach “{volumeName}”
-          </DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4">
-          {resourceIdx == null && (
-            <FieldShell label="Service" htmlFor="attach-service" required error={errors.resource}>
-              <Select value={pickedIdx == null ? "" : String(pickedIdx)} onValueChange={(v) => setPickedIdx(Number(v))}>
-                <SelectTrigger id="attach-service" className={errors.resource ? "border-danger" : ""}>
-                  <SelectValue placeholder="Select service" />
-                </SelectTrigger>
-                <SelectContent>
-                  {resources.map((r, i) =>
-                    r.name ? (
-                      <SelectItem key={r.name} value={String(i)}>
-                        {r.name}
-                      </SelectItem>
-                    ) : null,
-                  )}
-                </SelectContent>
-              </Select>
-            </FieldShell>
-          )}
-          <FieldShell
-            label="Mount path"
-            htmlFor="attach-path"
-            required
-            hint="Absolute path inside the service."
-            error={errors.targetPath}
-          >
-            <Input
-              id="attach-path"
-              value={targetPath}
-              onChange={(e) => setTargetPath(e.target.value)}
-              placeholder="/var/lib/data"
-              className={`font-mono ${errors.targetPath ? "border-danger" : ""}`}
-              aria-invalid={!!errors.targetPath}
-              autoFocus
-            />
-          </FieldShell>
-        </div>
+      <DialogContent size="ask">
+        <DialogBody>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HardDrive className="size-[18px] text-brand" /> Attach “{volumeName}”
+            </DialogTitle>
+          </DialogHeader>
+          <DialogSection>
+            <div className="grid gap-4">
+              {resourceIdx == null && (
+                <FieldShell label="Service" htmlFor="attach-service" required error={errors.resource}>
+                  <Select value={pickedIdx == null ? "" : String(pickedIdx)} onValueChange={(v) => setPickedIdx(Number(v))}>
+                    <SelectTrigger id="attach-service" aria-invalid={!!errors.resource}>
+                      <SelectValue placeholder="Select service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {resources.map((r, i) =>
+                        r.name ? (
+                          <SelectItem key={r.name} value={String(i)}>
+                            {r.name}
+                          </SelectItem>
+                        ) : null,
+                      )}
+                    </SelectContent>
+                  </Select>
+                </FieldShell>
+              )}
+              <FieldShell
+                label="Mount path"
+                htmlFor="attach-path"
+                required
+                hint="Absolute path inside the service."
+                error={errors.targetPath}
+              >
+                <Input
+                  id="attach-path"
+                  value={targetPath}
+                  onChange={(e) => setTargetPath(e.target.value)}
+                  placeholder="/var/lib/data"
+                  aria-invalid={!!errors.targetPath}
+                  autoFocus
+                />
+              </FieldShell>
+            </div>
+          </DialogSection>
+        </DialogBody>
         <DialogFooter>
-          <Button variant="ghost" onClick={onCancel}>
+          <Button shape="flat" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
           <Button onClick={submit}>Attach</Button>

@@ -1,32 +1,43 @@
-import { GitBranch, Plus, RefreshCw, TriangleAlert } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/branded";
+import { NoConnectionGlyph } from "@/components/branded/empty-state";
 
+/**
+ * The load failed. **The retry refetches** — this page already had a real
+ * `refresh()` rather than a page reload, and that behaviour is kept.
+ */
 export function IntegrationsErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-danger-border bg-danger/[0.07] px-6 py-10 text-center">
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-bg text-danger">
-        <TriangleAlert className="h-5 w-5" />
-      </span>
-      <h3 className="text-sm font-semibold text-foreground">Couldn&apos;t load integrations</h3>
-      <p className="font-mono text-[11.5px] text-fg-muted">{message}</p>
-      <Button variant="outline" size="sm" onClick={onRetry}>
-        <RefreshCw className="h-3.5 w-3.5" />
-        Retry
-      </Button>
-    </div>
+    <EmptyState
+      className="flex-1 gap-6"
+      icon={<NoConnectionGlyph />}
+      title="Git providers could not be loaded"
+      description={message}
+      action={
+        <Button variant="outline" onClick={onRetry}>
+          Try again
+        </Button>
+      }
+    />
   );
 }
 
 export function IntegrationsEmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <EmptyState
-      icon={<GitBranch className="h-8 w-8" />}
-      title="No git integrations yet"
-      description="Connect a provider so Stackdome can clone your repositories and trigger preview environments on every push."
+      className="flex-1 gap-6"
+      /* The same drawing as a failed load, and deliberately so: a provider that
+         is not connected and a provider that cannot be reached are the same
+         picture, so they are the same art. */
+      icon={<NoConnectionGlyph />}
+      title="No git providers yet"
+      description="Connect a provider and Stackdome can clone your repositories, build them on every push, and open a preview environment per pull request."
       action={
-        <Button onClick={onAdd}>
-          <Plus className="h-4 w-4" />
+        /* Outline, never filled (§9). The header already carries this exact
+           action as the page's one fill. */
+        <Button variant="outline" onClick={onAdd}>
+          <Plus />
           Connect provider
         </Button>
       }

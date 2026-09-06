@@ -8,6 +8,8 @@ describe("nodePresentation", () => {
       glyph: "postgres",
       brandSlug: "postgres",
       summary: "managed postgres",
+      // Prose about the addon, not a reference — so it does not take mono.
+      summaryIsRef: false,
       details: [],
     });
   });

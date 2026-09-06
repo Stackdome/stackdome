@@ -7,7 +7,13 @@ import ImageRegistriesPage from "../index";
 import { ConfirmProvider } from "@/components/branded/confirm";
 import { PURPOSE_BOTH } from "../lib/providers";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // Radix locks `pointer-events` on `body` while a drawer is open and only
+  // restores it on unmount; `cleanup()` does not let that finish, so the lock
+  // leaks into the next test and every pointer event lands on nothing.
+  document.body.style.pointerEvents = "";
+});
 
 const toastMock = vi.fn();
 
@@ -36,7 +42,7 @@ describe("ImageRegistriesPage", () => {
   it("shows the empty state with an add action when list is empty", async () => {
     vi.mocked(listRegistryCredentials).mockResolvedValue({ items: [] });
     render(<ConfirmProvider><ImageRegistriesPage /></ConfirmProvider>);
-    await waitFor(() => expect(screen.getByText(/no image registries yet/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/no registries yet/i)).toBeInTheDocument());
     expect(screen.getAllByRole("button", { name: /add registry/i }).length).toBeGreaterThanOrEqual(1);
   });
 
@@ -44,7 +50,8 @@ describe("ImageRegistriesPage", () => {
     vi.mocked(listRegistryCredentials).mockResolvedValue({ items: [row] });
     render(<ConfirmProvider><ImageRegistriesPage /></ConfirmProvider>);
     await waitFor(() => expect(screen.getByText("index.docker.io")).toBeInTheDocument());
-    expect(screen.getByText(/connected registries/i)).toBeInTheDocument();
+    // The list renders as a data list, with its columns labelled.
+    expect(screen.getByText("Purpose")).toBeInTheDocument();
     expect(screen.getByText("Pull & push")).toBeInTheDocument();
   });
 
@@ -55,11 +62,15 @@ describe("ImageRegistriesPage", () => {
     render(<ConfirmProvider><ImageRegistriesPage /></ConfirmProvider>);
     await waitFor(() => expect(screen.getByText("index.docker.io")).toBeInTheDocument());
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
-    await user.click(await screen.findByRole("menuitem", { name: /update credentials/i }));
+    // The row opens the registry's drawer — there is no menu to go through.
+    await user.click(screen.getByRole("link", { name: /docker hub registry/i }), {
+      pointerEventsCheck: 0,
+    });
 
-    await user.type(await screen.findByLabelText(/password/i), "n3w");
-    await user.click(screen.getByRole("button", { name: /^update credentials$/i }));
+    await user.type(await screen.findByLabelText(/password/i), "n3w", { pointerEventsCheck: 0 });
+    await user.click(screen.getByRole("button", { name: /^update credentials$/i }), {
+      pointerEventsCheck: 0,
+    });
 
     await waitFor(() => {
       expect(updateRegistryCredential).toHaveBeenCalledWith("org-1", "r1", {
@@ -81,9 +92,17 @@ describe("ImageRegistriesPage", () => {
     render(<ConfirmProvider><ImageRegistriesPage /></ConfirmProvider>);
     await waitFor(() => expect(screen.getByText("index.docker.io")).toBeInTheDocument());
 
-    await user.click(screen.getByRole("button", { name: /open row menu/i }));
-    await user.click(await screen.findByRole("menuitem", { name: /remove registry/i }));
-    await user.click(await screen.findByRole("button", { name: /^remove$/i }));
+    // Remove lives in the drawer's danger zone: it takes every stack pulling
+    // from this host with it, which is a cost that lands on other objects (§10).
+    await user.click(screen.getByRole("link", { name: /docker hub registry/i }), {
+      pointerEventsCheck: 0,
+    });
+    await user.click(await screen.findByRole("button", { name: /^remove registry$/i }), {
+      pointerEventsCheck: 0,
+    });
+    await user.click(await screen.findByRole("button", { name: /^remove$/i }), {
+      pointerEventsCheck: 0,
+    });
 
     await waitFor(() => {
       expect(deleteRegistryCredential).toHaveBeenCalledWith("org-1", "r1");

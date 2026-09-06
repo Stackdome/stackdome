@@ -9,21 +9,46 @@ import {
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogBody,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogSection,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { releaseStaleBodyLock } from "@/lib/radix-body-lock";
+
+/**
+ * §6a — the friction is proportional to the blast radius.
+ *
+ * One `destructive` variant applied to everything trains people to click
+ * through it, so the gate escalates with the damage. It is also a *legibility*
+ * device: it tells you how bad this is before you do it.
+ *
+ * | Level | Gate | For |
+ * |---|---|---|
+ * | 1 | none — red button, live | reversible or cheap |
+ * | 2 | `{ kind: "acknowledge" }` | rebuildable — an addon, a preview env, a secret |
+ * | 3 | `{ kind: "retype", name }` | has dependents or data — a stack, a cluster, a project |
+ */
+export type ConfirmGate =
+  | { kind: "acknowledge"; label: string }
+  | { kind: "retype"; name: string };
 
 export interface ConfirmOptions {
   title: string;
+  /** Say what will BREAK, in plain words — "All requests using this key will
+   *  start failing" — not "This action cannot be undone." */
   description?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "default" | "destructive";
+  /** Level 2 or 3. Omit for level 1. */
+  gate?: ConfirmGate;
 }
 
 export type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>;
@@ -60,6 +85,15 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<PendingConfirm | null>(null);
   const [open, setOpen] = useState(false);
   const pendingRef = useRef<PendingConfirm | null>(null);
+  // Gate state, reset every time a new confirm opens — a ticked box must never
+  // survive into the next dialog.
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [typedName, setTypedName] = useState("");
+
+  const gate = pending?.opts.gate;
+  const gateMet =
+    !gate ||
+    (gate.kind === "acknowledge" ? acknowledged : typedName.trim() === gate.name);
 
   const confirm = useCallback<ConfirmFn>((opts) => {
     return new Promise<boolean>((resolve) => {
@@ -70,6 +104,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         const next = { opts, resolve };
         pendingRef.current = next;
         setPending(next);
+        setAcknowledged(false);
+        setTypedName("");
         setOpen(true);
       }, 0);
     });
@@ -92,17 +128,69 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       <AlertDialog open={open} onOpenChange={(o) => !o && settle(false)}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{pending?.opts.title}</AlertDialogTitle>
-            {/* Always rendered so Radix's aria-describedby wiring stays valid;
-                visually hidden when the caller gave no description. */}
-            <AlertDialogDescription className={pending?.opts.description == null ? "sr-only" : undefined}>
-              {pending?.opts.description ?? pending?.opts.title}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+          {/* A confirm with no gate has no content band at all — the body is
+              just the header, and the footer still breaks at 32. */}
+          <AlertDialogBody>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{pending?.opts.title}</AlertDialogTitle>
+              {/* Always rendered so Radix's aria-describedby wiring stays valid;
+                  visually hidden when the caller gave no description. */}
+              <AlertDialogDescription className={pending?.opts.description == null ? "sr-only" : undefined}>
+                {pending?.opts.description ?? pending?.opts.title}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            {gate?.kind === "acknowledge" && (
+              <AlertDialogSection>
+                {/* 8 horizontal: box and sentence are one statement. */}
+                <label className="flex items-start gap-2 text-body text-fg-2">
+                  <Checkbox
+                    checked={acknowledged}
+                    onCheckedChange={(v) => setAcknowledged(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span>{gate.label}</span>
+                </label>
+              </AlertDialogSection>
+            )}
+
+            {gate?.kind === "retype" && (
+              <AlertDialogSection>
+                {/* 4 from label to control — the same pair gap every field in
+                    the product runs. One number per relationship. */}
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="confirm-retype" className="text-body text-fg-2">
+                    Type <span className="font-mono text-foreground">{gate.name}</span> to confirm
+                  </label>
+                  <Input
+                    id="confirm-retype"
+                    value={typedName}
+                    onChange={(e) => setTypedName(e.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="font-mono"
+                  />
+                </div>
+              </AlertDialogSection>
+            )}
+          </AlertDialogBody>
+
           <AlertDialogFooter>
+            {/* Red button LAST, after Cancel (§6a). */}
             <AlertDialogCancel>{pending?.opts.cancelLabel ?? "Cancel"}</AlertDialogCancel>
-            <AlertDialogAction variant={pending?.opts.variant} onClick={() => settle(true)}>
+            <AlertDialogAction
+              variant={pending?.opts.variant}
+              // Rendered DISABLED, not hidden — the cost has to be visible
+              // before it is payable.
+              disabled={!gateMet}
+              onClick={(e) => {
+                if (!gateMet) {
+                  e.preventDefault();
+                  return;
+                }
+                settle(true);
+              }}
+            >
               {pending?.opts.confirmLabel ?? "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>

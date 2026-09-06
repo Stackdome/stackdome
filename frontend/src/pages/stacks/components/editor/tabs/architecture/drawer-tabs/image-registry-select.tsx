@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Globe, Package } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronsUpDown, Globe, Package } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { selectTriggerVariants } from "@/components/ui/select";
 import {
   Command,
   CommandGroup,
@@ -79,19 +79,28 @@ export function ImageRegistrySelect({ id, imageRef, registryCredentialsId, onCha
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
+        <button
           id={id}
-          variant="outline"
+          type="button"
           role="combobox"
           aria-expanded={open}
+          data-slot="select-trigger"
+          data-state={open ? "open" : "closed"}
           className={cn(
-            "h-9 w-full justify-between font-mono text-[12.5px] font-normal",
-            !host && !matched && "text-muted-foreground",
+            // **The select FIELD's look, from `select.tsx`.** It was a
+            // `Button variant="outline"` — the toolbar's dropdown button — so
+            // this field was a different object from the eight around it.
+            //
+            // A registry host is a URL, so it keeps mono (§6) at the value's
+            // own 13.
+            selectTriggerVariants(),
+            "w-full font-mono",
+            !host && !matched && "text-fg-muted",
           )}
         >
           <span className="truncate">{display}</span>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        </Button>
+          <ChevronsUpDown className="size-3.5 shrink-0 text-fg-2" />
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
         <Command shouldFilter={false}>
@@ -100,13 +109,13 @@ export function ImageRegistrySelect({ id, imageRef, registryCredentialsId, onCha
             <CommandGroup>
               <CommandItem value="public" onSelect={pickPublic}>
                 <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[12.5px]">{PUBLIC_LABEL}</span>
+                <span className="text-meta">{PUBLIC_LABEL}</span>
               </CommandItem>
               {credentials.map((cred) => (
                 <CommandItem key={cred.id} value={cred.id!} onSelect={() => pickCredential(cred)}>
                   <Package className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="flex-1 truncate font-mono text-[12.5px]">{cred.host}</span>
-                  <span className="text-[11px] text-muted-foreground">{cred.username}</span>
+                  <span className="flex-1 truncate font-mono">{cred.host}</span>
+                  <span className="text-label text-muted-foreground">{cred.username}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -115,7 +124,7 @@ export function ImageRegistrySelect({ id, imageRef, registryCredentialsId, onCha
                 <CommandSeparator />
                 <CommandGroup>
                   <CommandItem value={`custom-${query}`} onSelect={pickCustom}>
-                    <span className="truncate text-[12.5px]">Use &quot;{query.trim()}&quot; as registry host</span>
+                    <span className="truncate text-meta">Use &quot;{query.trim()}&quot; as registry host</span>
                   </CommandItem>
                 </CommandGroup>
               </>

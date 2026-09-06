@@ -13,10 +13,14 @@ export const PLACEHOLDER_PASSWORDS: ReadonlySet<string> = new Set([
   MSSQL_PLACEHOLDER_PASSWORD,
 ]);
 
+// Sentence case, not caps (§11 — caps strip the word-shape the eye reads by).
+// These were `SERVICES` / `DATABASES` / `CACHE, SEARCH & ANALYTICS`; the old
+// block picker set them in mono, which made the uppercase read as a machine
+// value rather than as the group label it is.
 export const BLOCK_CATEGORY_META: BlockCategoryMeta[] = [
-  { id: "services", label: "SERVICES" },
-  { id: "databases", label: "DATABASES" },
-  { id: "analytics", label: "CACHE, SEARCH & ANALYTICS" },
+  { id: "services", label: "Services" },
+  { id: "databases", label: "Databases" },
+  { id: "analytics", label: "Cache, search and analytics" },
 ];
 
 export const blockCatalog: BlockPreset[] = [
@@ -24,6 +28,10 @@ export const blockCatalog: BlockPreset[] = [
   { id: BlockId.Custom, name: "Custom", category: "services", icon: "box", summary: "empty container shape" },
   {
     id: BlockId.Postgres, name: "Postgres", category: "databases", icon: "postgres", summary: "postgres:16 · :5432",
+    // The only service Stackdome runs as a managed add-on today. The backend
+    // is the constraint, not the catalogue: `pkg/worker/postgresaddon` exists
+    // and nothing equivalent does for the rest.
+    managed: true,
     compose: [
       "services:",
       "  postgres:",
@@ -111,6 +119,18 @@ export const blockCatalog: BlockPreset[] = [
 
 export function getBlockById(id: string): BlockPreset | undefined {
   return blockCatalog.find((b) => b.id === id);
+}
+
+/**
+ * The one query predicate every picker filters with.
+ *
+ * It lived in `block-picker.tsx` and outlived it: both callers imported the
+ * component's module for this function alone once the canvas picker moved onto
+ * `PickerRow`. A predicate over the catalogue belongs with the catalogue.
+ */
+export function blockMatchesQuery(block: BlockPreset, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return !q || block.name.toLowerCase().includes(q) || block.summary.toLowerCase().includes(q);
 }
 
 export { BlockId } from "./types";

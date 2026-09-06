@@ -1,160 +1,706 @@
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/fraunces";
+@import "@fontsource/redaction/400.css";
+@import "@fontsource/redaction/700.css";
+@import "@fontsource/redaction-35/400.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* ── Light mode: Bright — strict 6-swatch palette ──
-     bg #fdfcf9 · card #ffffff · fg #0d0d0d · border #e8e4d6 · muted #9c9c9c · amber #f97316 */
-  --background: oklch(0.992 0.004 85);     /* bg #fdfcf9 */
-  --foreground: oklch(0.137 0 0);          /* fg #0d0d0d */
-  --card: oklch(1 0 0);                    /* card #ffffff */
-  --card-foreground: oklch(0.137 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.137 0 0);
-  --primary: oklch(0.72 0.20 40);          /* amber #f97316 */
-  --primary-foreground: oklch(0.137 0 0);
-  --secondary: oklch(0.920 0.018 85);      /* border #e8e4d6 */
-  --secondary-foreground: oklch(0.137 0 0);
-  --muted: oklch(0.920 0.018 85);          /* border #e8e4d6 */
-  --muted-foreground: oklch(0.668 0 0);    /* muted #9c9c9c */
-  --accent: oklch(0.920 0.018 85);         /* border #e8e4d6 */
-  --accent-foreground: oklch(0.137 0 0);
-  --destructive: oklch(0.55 0.20 23);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.920 0.018 85);         /* border #e8e4d6 */
-  --border-strong: oklch(0.668 0 0);       /* muted #9c9c9c */
-  --input: oklch(1 0 0);                   /* card #ffffff */
-  --ring: oklch(0.72 0.20 40);
+  /* ── Bone light — warm neutrals mixed toward ink #191714 ── */
+  --background: #F5F4F1;
+  --foreground: #191714;
+  --card: #FFFFFF;
+  --card-foreground: #191714;
+  --popover: #FFFFFF;
+  --popover-foreground: #191714;
+  --primary: #191714;                    /* black is the only action colour */
+  --primary-hover: #33302A;
+  --primary-press: #0D0C0A;              /* pressed: darker than rest (see Polaris) */
+  --primary-foreground: #FFFFFF;
+  --secondary: #FAF9F6;                  /* surface-2 */
+  --secondary-foreground: #191714;
+  --muted: #F0EEE9;                      /* hover wash */
+  --muted-foreground: #5C574E;           /* ink-dim — readable secondary (AA 6.5:1) */
+  --accent: #F0EEE9;
+  --accent-foreground: #191714;
+  --destructive: #BE3B2D;
+  --destructive-foreground: #FFFFFF;
+  /* ── Lines are ALPHA, and their ink is NOT the text ink ──
+     A line has to sit on the white sheet, the paper frame and a control fill
+     and stay the same line. An opaque hex cannot: it is right on one surface
+     and wrong on the other two.
 
-  /* ── Brand tokens (light) — design system: amber #f97316, hover #ea6a0e, press #c25809 ── */
-  --brand: oklch(0.72 0.20 40);
-  --brand-hover: oklch(0.67 0.20 40);
-  --brand-press: oklch(0.55 0.16 40);
-  --brand-darker: var(--brand-hover); /* legacy alias */
-  --brand-bg: oklch(0.72 0.20 40 / 0.10);
-  --brand-bg-hover: oklch(0.72 0.20 40 / 0.16);
-  --brand-border: oklch(0.72 0.20 40 / 0.30);
+     The ink is derived the way Alphredo derives one — solve for the colour
+     that, at the smallest alpha which keeps every channel in range, composites
+     to the target line on the sheet:
 
-  /* ── Foreground hierarchy (light) — palette only has 2 ink tones (fg, muted) ── */
-  --fg-2: oklch(0.668 0 0);                /* muted #9c9c9c */
-  --fg-muted: oklch(0.668 0 0);            /* muted #9c9c9c */
+         a = max((bg - target) / bg)      per channel
+         ink = (target - bg * (1 - a)) / a
 
-  /* ── Status semantic tokens (light) — design system: ok #15803d, warn #a16207, err #b91c1c, info #1d4ed8 ── */
-  --success: oklch(0.51 0.16 145);
-  --success-bg: oklch(0.51 0.16 145 / 0.10);
-  --success-border: oklch(0.51 0.16 145 / 0.40);
-  --warn: oklch(0.50 0.13 75);
-  --warn-bg: oklch(0.50 0.13 75 / 0.12);
-  --warn-border: oklch(0.50 0.13 75 / 0.45);
-  --danger: oklch(0.51 0.20 27);
-  --danger-bg: oklch(0.51 0.20 27 / 0.10);
-  --danger-border: oklch(0.51 0.20 27 / 0.50);
-  --info: oklch(0.48 0.20 264);
-  --info-bg: oklch(0.48 0.20 264 / 0.10);
-  --info-border: oklch(0.48 0.20 264 / 0.45);
+     For the #E8E6E2 hairline on white that gives rgb(53 35 0) at 11.37%, and
+     the round trip is exact.
 
-  --chart-1: oklch(0.72 0.20 40);
-  --chart-2: oklch(0.55 0.22 264);
-  --chart-3: oklch(0.65 0.18 145);
-  --chart-4: oklch(0.74 0.16 85);
-  --chart-5: oklch(0.55 0.20 25);
+     Why it matters: the old line ink was the TEXT ink, #191714. That is nearly
+     neutral, so it composited to #E6E5E5 and #D6D5D5 — grey lines on a warm
+     palette, going colder as they got stronger. The derived ink holds the
+     warmth all the way up the ladder (#E9E7E3 → #DBD7D1). */
+  --line-ink: 53 35 0;
+  --border-subtle: rgb(var(--line-ink) / 0.06);  /* inside a control */
+  --border: rgb(var(--line-ink) / 0.11);         /* the hairline */
+  --border-strong: rgb(var(--line-ink) / 0.18);  /* hover, emphasis */
+  /* A field is a grey WELL, not a white box (§3). It was #FFFFFF — white on the
+     white sheet, held by a hairline alone, which made the search field the
+     quietest thing in a toolbar it should lead. Decided on the board by drawing
+     the whole toolbar row both ways over the table it sits on. Same value as
+     --control, and dark already agreed. */
+  --input: #F7F6F3;
 
-  --sidebar: oklch(1 0 0);                 /* card #ffffff */
-  --sidebar-foreground: oklch(0.137 0 0);
-  --sidebar-primary: oklch(0.137 0 0);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.72 0.20 40 / 0.10);
-  --sidebar-accent-foreground: oklch(0.65 0.22 35);
-  --sidebar-border: oklch(0.920 0.018 85); /* border #e8e4d6 */
-  --sidebar-ring: oklch(0.72 0.20 40);
+  /* ── Focus — a ring drawn as a SHADOW, and the gap is the exception ──
+     Drawn as box-shadow, never `outline`: a shadow follows the radius, stacks,
+     and composes with an element's own elevation (`--focus-ring,
+     var(--shadow-lg)`). An outline can do none of that.
 
-  --font-sans: Geist, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: Geist Mono, monospace;
-  --radius: 0.5rem;
+     The ring is SOLID. The gap it used to always carry existed to stop a
+     ring being read as a thicker border — at 47% that was a real risk, at
+     100% it is not. So the flush ring (`--focus-ring-edge`) is now the
+     DEFAULT, and the gap survives in exactly one place: a control whose own
+     face is dark. That was load-bearing while the ring was ink and vanished on
+     a black button; now the ring is blue and reads there on its own, so the gap
+     is a refinement rather than the signal. Open: it may be droppable.
 
-  --shadow-2xs: 0px 1px 2px 0px hsl(220 20% 4% / 0.08);
-  --shadow-xs: 0px 1px 2px 0px hsl(220 20% 4% / 0.10);
-  --shadow-sm: 0px 1px 2px 0px hsl(220 20% 4% / 0.14), 0px 1px 2px -1px hsl(220 20% 4% / 0.14);
-  --shadow: 0px 1px 2px 0px hsl(220 20% 4% / 0.14), 0px 1px 2px -1px hsl(220 20% 4% / 0.14);
-  --shadow-md: 0px 1px 2px 0px hsl(220 20% 4% / 0.14), 0px 2px 4px -1px hsl(220 20% 4% / 0.14);
-  --shadow-lg: 0px 1px 2px 0px hsl(220 20% 4% / 0.14), 0px 4px 6px -1px hsl(220 20% 4% / 0.14);
-  --shadow-xl: 0px 1px 2px 0px hsl(220 20% 4% / 0.14), 0px 8px 10px -1px hsl(220 20% 4% / 0.14);
-  --shadow-2xl: 0px 1px 2px 0px hsl(220 20% 4% / 0.40);
+     The offset colour is a GROUND, so it is solid (§3) — it aliases the
+     surface. Anything focusable on the paper frame re-points
+     `--ring-offset-color` locally; the geometry never changes with it. */
+  /* SETTLED Aug 2026 (§5) — the accent blue, carrying BOTH focus and selection.
+     It was solid ink, and ink failed twice: invisible on a near-black button, and
+     with nothing left to say "selected" with on a page that is already ink.
+     Blue is a STATE mark, never an action — a filled primary stays ink (§7).
+     Figma calls it `accent/primary`; `line/ring` and `focus/ink` alias it. */
+  --ring: #3B6FE0;                       /* was #191714. At full strength the ring can
+                                            never be read as a border, which is what the
+                                            gap used to be protecting against. */
+  --ring-width: 2px;
+  --ring-offset: 2px;
+  --ring-offset-color: var(--card);
+  --focus-ring:
+    0 0 0 var(--ring-offset) var(--ring-offset-color),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--ring);
+  /* THE DEFAULT. One stop, no gap — the ring lands on the element's own edge.
+     The gap was painted in the SURFACE colour, so on anything that is not the
+     surface (a grey field, a card that is hovered) it showed up as a bright
+     band prying the ring off the thing it points at. */
+  --focus-ring-edge: 0 0 0 var(--ring-width) var(--ring);
+  /* Same two stops, turned inward. For anything FLUSH to the edge of its
+     container — a full-bleed list row, a segment inside a track — where an
+     outside ring would be clipped by the container and lose a side. */
+  --focus-ring-inset:
+    inset 0 0 0 var(--ring-offset) var(--ring-offset-color),
+    inset 0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--ring);
+
+  /* ── Brand orange — a voice (eyebrows, wires, mark), never an action ── */
+  --brand: #FF6007;
+  --brand-hover: #E0530A;
+  --brand-press: #C74A09;
+  --brand-darker: var(--brand-hover);
+  --brand-bg: rgba(255, 96, 7, 0.09);
+  --brand-bg-hover: rgba(255, 96, 7, 0.16);
+  --brand-border: rgba(255, 96, 7, 0.30);
+
+  /* ── Change — the accent blue, and it is NOT the brand ──────────────────
+     Every mark that means "this differs from what is deployed" — the dirty
+     rail on a field, the modified/renamed rows in View changes, the count
+     chip in the inspector band, the dot on the tab that holds them.
+
+     **It ran in `--brand` orange, and orange is the wrong job.** Orange is the
+     product's mark and its accent; spending it on "you edited this" put the
+     loudest colour in the system on the most ordinary thing a user does in the
+     editor, and it collided with the one place orange means something else.
+     Blue is already the system's STATE mark (§5) — it is what `--ring` says
+     for focus and for selection — and "changed" is a state, not an action.
+
+     Same three rungs as `--brand`, so the two families are swappable at a call
+     site without touching anything but the word.
+
+     **The ink is `--ring`, aliased, not a second copy of the hex.** Figma does
+     the same — `state/change` is an alias of `accent/primary`, not a duplicate
+     — and for the same reason: one blue, one place to change it. Only the two
+     alphas below are the change family's own, and they sit on the rungs
+     `brand/bg` and `brand/border` already use (9% and 30%). */
+  --change: var(--ring);
+  --change-bg: rgba(59, 111, 224, 0.09);
+  --change-border: rgba(59, 111, 224, 0.30);
+
+  /* ── Ink tiers ── */
+  --fg-2: #5C574E;                       /* ink-dim — body/supporting copy */
+  /* ink-mute — furniture and time (group labels, timestamps, breadcrumb "/"),
+     and, since ghost failed AA, every PLACEHOLDER too.
+
+     Darkened twice. First from #8B8579 (3.67:1 on white, 3.33:1 on paper).
+     Then from #726C63, which cleared white and paper but was measured against
+     the wrong ground: the darkest surface muted ink ever sits on is not the
+     page, it is the HOVER WASH --muted #F0EEE9, where #726C63 landed 4.48:1 —
+     under by a rounding error, on every hovered row and every hovered select.
+     A tier is only as good as its worst ground, so the worst ground is what
+     it is now solved against. Warmth held (R-B = 15, same as before), only
+     lightness moved. Now 4.83:1 on the wash, 5.18 on the input fill, 5.60 on
+     white. The type scale puts this tier at 12px, where AA needs 4.5:1. */
+  --fg-muted: #6D675E;
+  /* ink-ghost — DISABLED ONLY, in both themes. 1.81:1 on the input fill and
+     1.69:1 on the hover wash, which WCAG permits for disabled controls and
+     permits for nothing else. Placeholder text is NOT exempt: it needs 4.5:1,
+     and the luminance that clears 4.5:1 (L 0.166) is within 9% of --fg-muted
+     (L 0.152) — there is no room for a fourth rung between them. So
+     placeholder is --fg-muted, and the placeholder/value distinction is
+     carried by weight of meaning, not by a lighter grey. Never reach for this
+     tier to soften live text. */
+  --fg-ghost: #BEB9AF;
+
+  /* ── Status — hue reports state ──
+     Each tone is a THREE-RUNG LADDER of one hue, not one value at three alphas.
+     A single value cannot do all three jobs: the alpha that makes a readable
+     word makes a muddy fill, and amber proves it — at the lightness text needs,
+     amber is brown. So the rungs are picked by lightness and then thinned:
+
+       fill   L* 82 @ 12%   a clean tint, no grey in it
+       border L* 63 @ 55%   a line you see without it fencing the message
+       ink    L* ~55, opaque   the glyph and the action label
+
+     Every ink rung clears 4.5:1 on its own fill — measured, not assumed:
+     success 4.60 · warn 4.65 · danger 4.96 · info 4.71. The old one-value
+     tokens failed this (warn 3.88, info 4.08). */
+  --success: #04814A;
+  --success-bg: rgba(50, 232, 141, 0.12);
+  --success-border: rgba(8, 163, 94, 0.55);
+  --warn: #9F6204;
+  --warn-bg: rgba(250, 182, 78, 0.12);
+  --warn-border: rgba(188, 120, 5, 0.55);
+  --danger: #C93224;
+  --danger-bg: rgba(255, 172, 159, 0.12);
+  --danger-border: rgba(229, 78, 61, 0.55);
+  --info: #3368DF;
+  --info-bg: rgba(167, 197, 255, 0.12);
+  --info-border: rgba(73, 129, 250, 0.55);
+
+  /* ── Diagram palette (vc) — inside product visuals only ── */
+  --chart-1: #3B6FE0;
+  --chart-2: #1B8A54;
+  --chart-3: #7C5CE6;
+  --chart-4: #B4770D;
+  --chart-5: #C4392B;
+
+  --sidebar: #F5F4F1;                    /* chrome sits on the field */
+  --sidebar-foreground: #191714;
+  --sidebar-primary: #191714;
+  --sidebar-primary-foreground: #FFFFFF;
+  /* ── Interaction washes — one ink, three rungs (§4) ─────────────────
+     Hover, selected and pressed all used to share the 6% tint, so a hovered
+     row was indistinguishable from the selected one and pressing showed
+     nothing at all. Hover sits BELOW selected on purpose: selection has to
+     stay the stronger signal — and a SELECTED face takes no hover at all, so
+     there is no fourth rung above it. */
+  --wash-hover: rgba(25, 23, 20, 0.04);
+  --wash-selected: rgba(25, 23, 20, 0.06);
+  /* **The well — the product's one RECESSED ground.** RESTORED; it was lost in
+     the same revert as the four tokens above, and six files ask for it by name:
+     the tab track, the segmented control, the switch, the multi-select, the
+     metrics bar and the diff header. With the token gone every one of them
+     painted nothing, so a selected tab and an unselected one were the same
+     surface and the segmented control had no track to slide in.
+
+     One tint for all of them, deliberately: a track, a switch, a chip and a
+     selected tab are the same idea — a shape cut INTO the plane rather than
+     laid on it — and one value is what keeps them reading that way. */
+  --well: rgba(25, 23, 20, 0.04);
+  --wash-pressed: rgba(25, 23, 20, 0.12);
+  --sidebar-accent: var(--wash-selected);
+  --sidebar-accent-foreground: #191714;
+  --sidebar-border: var(--border);
+  --sidebar-ring: #3B6FE0;               /* SETTLED (§5) — the accent blue, as --ring */
+  /* The rail is the paper frame, so a ring's gap has to be the frame — not
+     the sheet. Only the offset colour changes; the geometry is shared. */
+  --sidebar-ring-offset-color: var(--sidebar);
+
+  /* ── Bone material ── */
+
+  /* ── Button press ────────────────────────────────────────────────────
+     Buttons are FLAT at rest: no highlight, no bevel, no drop. Copying
+     Polaris's full material wholesale fought the Bone language — the glow
+     and the thickness read as someone else's product.
+
+     What we kept is the part that carries the feel: on press the face recesses,
+     the label travels 1px with it, and the fill darkens. Depth appears only
+     while you are touching it.
+
+     ONE GEOMETRY for every variant — 1px side walls, a 2px top shadow, 2px
+     blur. Only the INTENSITY changes, and it is set by how light or dark the
+     face is, never by how important the button is. A hard zero-blur shadow on
+     one variant and a soft one on another reads as two different components. */
+  --btn-press-soft:                      /* light faces — control, ghost, rail */
+    inset 1px 0 2px 0 rgba(25, 23, 20, 0.10),
+    inset -1px 0 2px 0 rgba(25, 23, 20, 0.10),
+    inset 0 2px 3px 0 rgba(25, 23, 20, 0.18);
+  --btn-press-mid:                       /* mid-tone fills — destructive */
+    inset 1px 0 2px 0 rgba(0, 0, 0, 0.18),
+    inset -1px 0 2px 0 rgba(0, 0, 0, 0.18),
+    inset 0 2px 3px 0 rgba(0, 0, 0, 0.34);
+  --btn-press-strong:                    /* near-black faces — primary, inverse */
+    inset 1px 0 2px 0 rgba(0, 0, 0, 0.38),
+    inset -1px 0 2px 0 rgba(0, 0, 0, 0.38),
+    inset 0 2px 3px 0 rgba(0, 0, 0, 0.62);
+  --press: inset 0 2px 5px rgba(25, 23, 20, 0.16), inset 0 1px 2px rgba(25, 23, 20, 0.10);
+  --control: #F7F6F3;                    /* raised-control fill (D5) */
+  --control-hover: #FAF9F6;
+  --ctl-h-l: 40px;
+  --ctl-px-l: 15px;
+
+  /* ── Canvas ── */
+  /* **The canvas has a ground again, and it is `#FBFBF8`.**
+     
+     It spent a pass as the sheet's own white, on the argument that a canvas is
+     a space rather than a surface and the GRID is what says so. Judged on the
+     board beside the peer sheet, that argument loses to a simpler one: with the
+     inspector now a card of its own, the screen holds three planes — rail,
+     canvas, panel — and two of them being the identical white made the working
+     surface the only region on screen with no edge of its own.
+     
+     1.3 L off the sheet is exactly the amount that was called "merged" before,
+     and it is the right amount now: enough that the canvas reads as its own
+     plane against the two cards, not so much that the white node cards sitting
+     on it have a tint to climb out of. Sampled off the board's own render:
+     `rgb(251, 251, 248)`, to the byte. */
+  --surface-canvas: #FBFBF8;
+  /* The canvas connection. Ink, and DARKER than the hairline family it was
+     briefly bound to — a wire has to clear the dot grid it crosses, and that
+     grid is `--grid` at 0.248. `--border` (0.11) and `--border-strong` (0.18)
+     both sit under it, so a connection drawn at either reads as fainter than
+     the ground, which is the one thing a connection may never be.
+
+     0.34 is the first rung that is unmistakably a drawn line over the field
+     without becoming a second frame. The accent blue was tried here and pulled
+     — Jaseem, Aug 2026: too strong. It also spent the system's state mark (§5)
+     on decoration.
+
+     **OPAQUE, via `color-mix` rather than an alpha** — Jaseem, Aug 2026. It is
+     the same colour on screen and it stops a real artefact: with an alpha, two
+     wires crossing composite into a THIRD, darker value, and the fan out of one
+     card overlaps along its trunk, so the shared stretch rendered heavier than
+     the branches it splits into. A connector may not change weight because
+     another one happens to run under it.
+
+     Mixed against `--surface-canvas`, and it follows `--line-ink`, so it flips
+     with the theme on its own. */
+  --wire: color-mix(in srgb, rgb(var(--line-ink)) 34%, var(--surface-canvas));
+  --surface-node: #FFFFFF;
+  /* **The node SHELL — the tray a card sits in, and it is opaque.**
+     Jaseem, Aug 2026: *no transparent bg, make the bg solid so the dots don't
+     poke through*. It was `--well` straight, and `--well` is a 4% tint: the
+     canvas dot grid read through the tray, so a node had a field of dots inside
+     its own frame and the shell looked like a hole rather than a surface.
+     A node is an object ON the canvas — the canvas does not continue through it.
+
+     Same 4% ink as `--well`, flattened onto the ground it sits on, so it stays
+     the recessed rung of the ladder while being a colour rather than a film. */
+  --surface-shell: color-mix(in srgb, var(--foreground) 4%, var(--surface-canvas));
+  /* Dot-grid tokens: dots need far firmer alpha than hairlines — a 1-1.5px
+     disc at hairline alpha is invisible (see website design-system gotchas).
+     
+     **One ink at 0.5, for BOTH tiers** — the board sets `canvas/grid` and
+     `canvas/grid-bold` to the same `#19171480`, and the difference between the
+     two is size, not colour. That works because the bold gap (80) is a whole
+     multiple of the fine one (16): every bold dot lands ON a fine dot and the
+     two paints composite, so the second tier is 1 − 0.5² = 0.75 without any
+     second colour to keep in step with the first.
+     
+     Measured off the board's render at 1×, on `#FBFBF8`: the 1px disc peaks at
+     `rgb(173,173,170)` and the 2px one at `rgb(105,105,102)` — 0.35 and 0.65
+     effective, which is a 0.5 paint antialiased and a 0.75 stack antialiased.
+     The alphas below are the paint, not the peaks. */
+  /* RESTORED — this and the three tokens below were lost when I reverted this
+     file on 24 Aug 2026; the values are exact, the prose that stood with them
+     is not recovered. See the note in docs/design/redesign-log.md.
+
+     The dot is painted at a fraction of its token: measured, a 2px disc lands
+     ~0.749 of the alpha it is given, so 0.248 was what put a visible dot on the
+     canvas without the field reading as ruled.
+
+     **Now 0.203 — 82% of that**, Jaseem, Aug 2026. The node cards took the
+     `--border` hairline in the same pass, and the ground has to stay quieter
+     than the objects standing on it. Dark takes the same 82% (0.177 → 0.145) so
+     the two themes keep the relationship they were measured into. */
+  --grid: rgb(var(--line-ink) / 0.203);
+  --grid-bold: rgba(25, 23, 20, 0.5);
+
+  /* ── Terminal / code surfaces — dark in both themes ── */
+  --code-bg: #181611;
+  --code-fg: #A9A399;
+
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Fraunces Variable", Georgia, serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 12px;                        /* = --radius-lg, the panel step */
+
+  /* ── Shadows: content is flat; the scale is for OVERLAYS only ──
+     There are FOUR shadows. Tailwind's scale offers eight names, and this used
+     to spell all eight out — with 2xs, xs and sm holding one identical value,
+     shadow and md a second, lg and xl a third. A name that promises a choice it
+     cannot deliver is worse than no name: it reads as a decision someone made.
+
+     The four that differ are defined; the rest alias them, so a call site using
+     `shadow-xs` still renders and says out loud which rung it really lands on.
+     The matching Figma effect styles are named after the four. */
+  /* **The rail's own movement.** One duration and one curve, shared by the
+     sidebar frame (`sidebar-container` in ui/sidebar.tsx) and everything that
+     travels with it (`rail-*` utilities below) — the frame and its contents
+     cannot drift if they read the same two numbers. `linear` on a 200ms width
+     reads mechanical; this leaves fast and lands soft, which is what makes the
+     two edges feel attached to a single movement. */
+  --rail-duration: 200ms;
+  /* The peer sheet's own two numbers, so the column that clips it and the
+     canvas that pans for it are reading the same width. `drawerRegionWidthPx`
+     and `PEER_SHEET_GUTTER_PX` in `ui/drawer.tsx` are the same two values on
+     the JS side — the canvas has to pan by half their sum. */
+  /* **480, the region drawer's `form` rung — not 400.**
+     This is the width the slot RESERVES, and the panel that lands in it is a
+     `DrawerContent size="form"`, which is 480 wide and always has been. At 400
+     the slot reserved 408 for a 488-wide panel, so **80px of the inspector hung
+     off the frame**: measured at 1280, 1512 and 1728, the panel's right edge sat
+     72px past the window every time, and the canvas never gave up the room.
+
+     The two numbers have to be one number. `canvas-editor-shell` already says
+     "the inspector takes 480 off the right" and `drawerRegionWidthPx` — which
+     the canvas pans by half of — already reads 480; this token was the only
+     place still saying 400. With the gutter it reserves 488, which puts the
+     panel's right edge exactly on the frame's own 8px padding: the whole
+     inspector, and air after it. */
+  --peer-sheet-width: 480px;
+  --peer-sheet-gutter: 8px;
+  /* **One curve for a large surface moving.** The rail and the drawer are the
+     same job — a big plane changing where it is — so they share it rather than
+     each picking their own. It is an ease-OUT family curve: leaves fast, lands
+     soft, which is what a panel arriving from off-screen has to do. The default
+     `ease` accelerates INTO the movement, so the drawer crawled off the edge
+     for the first 40ms and then rushed the landing. */
+  --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* **The exit is shorter than the enter, deliberately.** Arriving asks to be
+     followed; leaving must not compete with whatever you turned to next. */
+  --drawer-enter: 260ms;
+  --drawer-exit: 180ms;
+
+  /* RESTORED. §5: every rung is a CONTACT layer (small, dark, seats the object)
+     plus an AMBIENT one (large, soft, the light's falloff) — one blur can only
+     draw one of them. As a single blur `sm` measured 2.0 of edge luminance and
+     reached ONE pixel: a shadow in the stylesheet and nothing on the screen.
+     Two layers put it at 6.0 and 5px. */
+  --shadow-sm: 0 3px 8px -3px rgba(16, 20, 26, 0.05), 0 1px 1px rgba(16, 20, 26, 0.08);            /* raised */
+  --shadow-md: 0 4px 16px -5px rgba(16, 20, 26, 0.06), 0 2px 6px -3px rgba(16, 20, 26, 0.035);     /* small overlay */
+  --shadow-lg: 0 20px 50px -22px rgba(16, 20, 26, 0.11), 0 8px 22px -12px rgba(16, 20, 26, 0.06);  /* popover, dropdown */
+  /* RECONSTRUCTED, not restored. §5 records that `2xl` was given a contact
+     layer on the same pass as `sm` — but it records the measured RESULT (edge
+     15.9 → 31.0 light, 6.9 → 11.1 dark), not the declaration, and the value was
+     lost with the rest of that pass. So this is measured BACK to the ratio the
+     doc reports rather than copied: on the dialog's own ground the edge moves
+     8.9 → 17.7, which is the same doubling. If the original turns up, it wins. */
+  --shadow-2xl: 0 28px 64px -20px rgba(16, 20, 26, 0.14), 0 3px 8px -2px rgba(16, 20, 26, 0.16);   /* modal */
+
+  --shadow-2xs: var(--shadow-sm);
+  --shadow-xs: var(--shadow-sm);
+  --shadow: var(--shadow-md);
+  --shadow-xl: var(--shadow-lg);
+
+  /* `elevation/lg` plus a CONTACT layer — the tight darkness where an object
+     meets the surface it sits on. The four rungs above are all soft pools with
+     negative spread, so they blur out *below* a card and leave nothing at its
+     own edge. That is right everywhere the card has something behind it.
+
+     The toast is the one surface with nothing behind it: it lands on the white
+     sheet, its own fill IS that white (`surface vs ground` measures 1.00), and
+     unlike a dialog it has no scrim. Measured on rendered pixels, the contact
+     layer takes its edge from 1.43 to 1.52 at the side and 1.54 to 1.72 below.
+
+     **A fifth value, and deliberately not a fifth RUNG.** It is `lg` with one
+     more layer, named for its one caller, so §5's ladder still has four
+     entries. Jaseem's call, 16 Aug 2026. */
+  --shadow-toast: var(--shadow-lg), 0 2px 6px -1px rgba(16, 20, 26, 0.10);
+  /* RESTORED. §12 — a raised surface gets its own edge as well as its shadow:
+     `shadow-[var(--edge-hairline),var(--shadow-lg)]` on menus, popovers and
+     tooltips, `--shadow-2xl` on dialogs. */
+  --edge-hairline: 0 0 0 1px var(--border-subtle);
+
+  /* **`elevation/lg` cast sideways, for the one panel whose only free edge is
+     vertical.** The inspector is a *region* of the sheet, not a float over it:
+     it runs the full height of the editor, so its top and bottom are flush and
+     a downward shadow has nowhere to land. Measured on the shipped panel,
+     `shadow-lg` reached **3px** horizontally — blur/2 minus spread — which is
+     to say none. Against a dot-grid canvas the panel read as having no shadow
+     at all, and the 1px hairline was carrying the whole plane change on its own.
+
+     Same ink, same blur, same spread; the offset moves from `y` to `-x`, so it
+     casts left onto the canvas it is taking space from. Reach is 20 + 3 = 23px.
+
+     **A sixth value, and deliberately not a fifth RUNG** — this is `lg` on its
+     side, named for its one caller, the same exemption `--shadow-toast` takes.
+     §5's ladder still has four entries. */
+  --shadow-region: -20px 0 50px -22px rgba(16, 20, 26, 0.11), -8px 0 22px -12px rgba(16, 20, 26, 0.06);
+
+  /* ── The scrim: ONE value, every overlay ──
+     There was no scrim token. Dialog hardcoded `bg-black/50`, AlertDialog
+     hardcoded `bg-background/80 backdrop-blur-sm`, and Sheet hardcoded
+     `bg-black/50` again — three literals with no name, which is exactly how
+     they drifted into looking like different products (§13).
+
+     It is INK at 50%, never the paper colour washed over the page. A pale wash
+     reads as the app fading out; a scrim reads as the dialog stepping forward.
+     No blur: blur costs a compositor pass on every frame and says nothing the
+     dim does not. */
+  --scrim: rgb(16 20 26 / 0.50);
 }
 
 .dark {
-  /* ── Dark mode: design-system navy charcoal (Stackdome DS dark surfaces) ── */
-  --background: oklch(0.162 0.014 258);       /* bg #0a0e14 */
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.199 0.018 260);             /* card #11161e */
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.225 0.022 260);          /* elev #161c26 */
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.72 0.20 40);
-  --primary-foreground: oklch(0.14 0 0);
-  --secondary: oklch(0.225 0.022 260);        /* elev #161c26 */
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.225 0.022 260);            /* elev #161c26 (hover/fill) */
-  --muted-foreground: oklch(0.711 0.035 257); /* fg3 #94a3b8 */
-  --accent: oklch(0.252 0.026 258);           /* between elev and border */
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.55 0.20 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.278 0.030 257);           /* border #1f2937 */
-  --border-strong: oklch(0.36 0.035 257);     /* lighter divider */
-  --input: oklch(0.205 0.018 260);            /* input fill, just under card */
-  --ring: oklch(0.72 0.20 40);
+  /* ── Bone dark — warm near-black, depth collapses to rings ──
+     One hue, one chroma, level carried by LIGHTNESS ALONE. The grounds are
+     written in OKLCH, not hex, for one reason: at these lightnesses 8-bit hex
+     gives only FOUR steps between the current warmth and dead neutral (3 units
+     of one channel), so warmth was not adjustable. In OKLCH it is a dial.
 
-  --brand: oklch(0.72 0.20 40);
-  --brand-hover: oklch(0.67 0.20 40);
-  --brand-press: oklch(0.55 0.16 40);
+     --ground-c IS THAT DIAL. Every ground below reads it, so the whole ladder
+     re-warms or cools together and can never split into two hue families again
+     — which is exactly what had happened: --input, --control, --popover and
+     --accent had drifted to chroma 0.010–0.0125 against a ladder at 0.004, so
+     every field, select and menu read khaki on a neutral screen.
+
+     Ink is NOT on this dial — it has its own, immediately below. */
+  --ground-c: 0.004;                     /* ← the warmth of every dark ground */
+  --ground-h: 85;
+
+  /* ── Ink — the SECOND dial, and where dark's warmth actually comes from ──
+     The four ink tiers had no shared chroma at all: 0.0086 / 0.0158 / 0.0177 /
+     0.0126. So the secondary greys ran up to FOUR TIMES warmer than the grounds
+     they sit on and read beige, while the grounds themselves were already at
+     the limit of what 8-bit can express — turning the ground dial to zero
+     changes almost nothing you can see. The ink is the thing you were looking
+     at. One warmth now; only LIGHTNESS separates a tier. */
+  --ink-c: 0.008;                        /* ← the warmth of every dark ink tier */
+  --ink-h: 85;
+
+  --background: oklch(18.3% var(--ground-c) var(--ground-h));
+  --foreground: oklch(95.0% var(--ink-c) var(--ink-h));
+  --card: oklch(22.2% var(--ground-c) var(--ground-h));
+  --card-foreground: var(--foreground);
+  --popover: oklch(23.2% var(--ground-c) var(--ground-h));
+  --popover-foreground: var(--foreground);
+  /* --primary is a near-white FACE, not ink — a ground (§3), so it stays put
+     and does not follow --ink-c. */
+  --primary: #F1EEE8;
+  --primary-hover: #FFFFFF;
+  --primary-press: #D8D3CA;              /* dark theme inverts: pressed is dimmer */
+  --primary-foreground: #0D0C0A;
+  --secondary: oklch(25.2% var(--ground-c) var(--ground-h));
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(27.7% var(--ground-c) var(--ground-h));  /* hover wash */
+  --muted-foreground: var(--fg-2);
+  /* Light pairs --accent WITH --muted; dark had drifted to its own khaki
+     (chroma 0.0125), so a hovered menu item was the yellowest thing on screen.
+     Back on the ladder and back in step with light. */
+  --accent: var(--muted);
+  --accent-foreground: var(--foreground);
+  --destructive: #F27F6F;
+  --destructive-foreground: #0D0C0A;
+  /* Dark does NOT keep light's alphas. The same 0.11 is a much bigger step in
+     dark: light's hairline lifts white by ΔL 0.072 in OKLCH, dark's 0.11 over
+     the card lifted it by 0.102 — ~40% louder, which is exactly what reads as
+     "the borders are more intense in dark".
+
+     Each rung is solved so its ΔL off the card MATCHES the light rung's ΔL off
+     the sheet. WCAG contrast agrees to within 0.005 at every rung, so the two
+     independent measures pick the same numbers.
+
+       rung      light   dark    ΔL light   ΔL dark
+       subtle    0.06 →  0.065   0.039      0.062   ← held ABOVE the solved 0.040
+       border    0.11 →  0.075   0.072      0.071
+       strong    0.18 →  0.130   0.119      0.120
+
+     Do not "round these back up" to match light's numbers. The alphas differ
+     precisely so the LINE does not.
+
+     `subtle` is the ONE deliberate exception. Matching ΔL put it at 0.040, and
+     at that value the divider inside a control — the only thing this rung draws
+     — was not visible in dark. It is the shortest line in the system and it has
+     a control fill on both sides rather than open sheet, so it loses more to
+     its surroundings than the parity maths accounts for. Raised to 0.065 by
+     eye against the real control, and kept there deliberately. */
+  --line-ink: 255 253 247;
+  --border-subtle: rgb(var(--line-ink) / 0.065);
+  --border: rgb(var(--line-ink) / 0.075);
+  --border-strong: rgb(var(--line-ink) / 0.13);
+  /* A field takes the SAME fill as a control — the way light already has it
+     (both #F7F6F3). Dark had --input one rung BELOW the card and --control one
+     rung above, so a search field and the select beside it in the same toolbar
+     row were two different greys in dark and one grey in light. The theme was
+     changing the relationship, not just the values. Same rung in both themes
+     now; the well/face distinction is carried by the LINE and the shadow, not
+     by a second fill. (Was oklch 20.4%.) */
+  --input: var(--secondary);
+  --ring: #6E9BFF;                       /* SETTLED (§5) — was #FFFDF7, solid the same
+                                            way round in dark. Now the accent blue. */
+
+  /* Brand stays orange in dark — the app's brand marks/eyebrows must not go near-white */
+  --brand: #FF7A2E;
+  --brand-hover: #FF6007;
+  --brand-press: #E0530A;
   --brand-darker: var(--brand-hover);
-  --brand-bg: oklch(0.72 0.20 40 / 0.10);
-  --brand-bg-hover: oklch(0.72 0.20 40 / 0.18);
-  --brand-border: oklch(0.72 0.20 40 / 0.30);
+  --brand-bg: rgba(255, 122, 46, 0.10);
+  --brand-bg-hover: rgba(255, 122, 46, 0.18);
+  --brand-border: rgba(255, 122, 46, 0.30);
 
-  --fg-2: oklch(0.869 0.020 253);   /* fg2 #cbd5e1 */
-  --fg-muted: oklch(0.554 0.041 257); /* fg-muted #64748b */
+  /* `--change` needs no dark value: it aliases `--ring`, which is redefined
+     just above. Only the two alphas are restated, on the dark accent. */
+  --change-bg: rgba(110, 155, 255, 0.10);
+  --change-border: rgba(110, 155, 255, 0.30);
 
-  /* ── Status (dark) — design system: ok #22c55e, warn #eab308, err #dc2626, info #3b82f6 ── */
-  --success: oklch(0.71 0.20 145);
-  --success-bg: oklch(0.71 0.20 145 / 0.12);
-  --success-border: oklch(0.71 0.20 145 / 0.40);
-  --warn: oklch(0.79 0.16 85);
-  --warn-bg: oklch(0.79 0.16 85 / 0.12);
-  --warn-border: oklch(0.79 0.16 85 / 0.40);
-  --danger: oklch(0.59 0.22 27);
-  --danger-bg: oklch(0.59 0.22 27 / 0.15);
-  --danger-border: oklch(0.59 0.22 27 / 0.50);
-  --info: oklch(0.62 0.20 252);
-  --info-bg: oklch(0.62 0.20 252 / 0.12);
-  --info-border: oklch(0.62 0.20 252 / 0.40);
+  /* The ink ladder. Lightness is load-bearing — --fg-muted's L is a CONTRAST
+     correction, twice over. 71.8/61.5/41.1 was solved against the CARD, which
+     is not the ground this tier fails on: dark stacks --card #1C1B19 <
+     --input #232220 < --control-hover #292826, so the lightest surface — the
+     hovered control — is the one that decides. At 61.5% muted measured 4.62:1
+     on the card but only 4.27:1 on the input fill and 3.95:1 on the hover
+     wash, so placeholders and row furniture failed wherever the pointer went.
+     65.5% clears the worst ground: 4.65:1 on the hover wash, 5.02 on the
+     input fill, 5.44 on the card, 5.92 on the page. --fg-2 already cleared
+     (5.91 at its worst) and does not move; the two rungs stay 6.3 points
+     apart, so the ladder still reads as a ladder.
+     Turning --ink-c does not move lightness, so the dial cannot break
+     contrast. Never retune a tier by picking a hex. */
+  --fg-2: oklch(71.8% var(--ink-c) var(--ink-h));
+  --fg-muted: oklch(65.5% var(--ink-c) var(--ink-h));
+  --fg-ghost: oklch(41.1% var(--ink-c) var(--ink-h));
 
-  --chart-1: oklch(0.72 0.20 40);
-  --chart-2: oklch(0.58 0.21 260);
-  --chart-3: oklch(0.72 0.18 145);
-  --chart-4: oklch(0.78 0.16 85);
-  --chart-5: oklch(0.62 0.22 25);
+  /* Dark collapses the light ladder to ONE rung. Over a near-black ground the
+     tint is already dark, so the fill needs no separate lighter base — the ink
+     itself at 12% lands there. All four sit at L* 77, the lightness where each
+     hue holds its most chroma without going neon, and each clears 6:1 on its
+     own fill (vs light's 4.6-5.0). Alphas stay 12% / 55% so the two themes
+     share one mechanic even though they don't share one value. */
+  --success: #4BD190;
+  --success-bg: rgba(75, 209, 144, 0.12);
+  --success-border: rgba(75, 209, 144, 0.55);
+  --warn: #ECA40A;
+  --warn-bg: rgba(236, 164, 10, 0.12);
+  --warn-border: rgba(236, 164, 10, 0.55);
+  --danger: #FF9181;
+  --danger-bg: rgba(255, 145, 129, 0.12);
+  --danger-border: rgba(255, 145, 129, 0.55);
+  --info: #8FB3FF;
+  --info-bg: rgba(143, 179, 255, 0.12);
+  --info-border: rgba(143, 179, 255, 0.55);
 
-  --sidebar: oklch(0.162 0.014 258);          /* bg #0a0e14 — chrome matches page */
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.98 0 0);
-  --sidebar-primary-foreground: oklch(0.162 0.014 258);
-  --sidebar-accent: oklch(0.72 0.20 40 / 0.10);
-  --sidebar-accent-foreground: oklch(0.72 0.20 40);
-  --sidebar-border: oklch(0.278 0.030 257);   /* border #1f2937 */
-  --sidebar-ring: oklch(0.72 0.20 40);
+  --chart-1: #6E9BFF;
+  --chart-2: #46C98A;
+  --chart-3: #AC91FF;
+  --chart-4: #E3A94A;
+  --chart-5: #F27F6F;
 
-  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.24);
-  --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.24);
-  --shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.32), 0px 1px 2px -1px hsl(0 0% 0% / 0.32);
-  --shadow: 0px 1px 2px 0px hsl(0 0% 0% / 0.32), 0px 1px 2px -1px hsl(0 0% 0% / 0.32);
-  --shadow-md: 0px 1px 2px 0px hsl(0 0% 0% / 0.32), 0px 2px 4px -1px hsl(0 0% 0% / 0.32);
-  --shadow-lg: 0px 1px 2px 0px hsl(0 0% 0% / 0.32), 0px 4px 6px -1px hsl(0 0% 0% / 0.32);
-  --shadow-xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.32), 0px 8px 10px -1px hsl(0 0% 0% / 0.32);
-  --shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.56);
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--foreground);
+  --sidebar-primary-foreground: #0D0C0A;
+  /* Dark runs a point firmer at every rung: a light mark on a near-black
+     field separates less than a dark mark on white (§4). */
+  --wash-hover: rgba(255, 253, 247, 0.05);
+  --wash-selected: rgba(255, 253, 247, 0.07);
+  /* RESTORED. Dark's well is 16% BLACK, not an ink tint: a dark ground has no
+     room to go lighter, so its recess is CUT rather than washed. That is why
+     this is not the light value flipped. */
+  --well: rgba(0, 0, 0, 0.16);
+  --wash-pressed: rgba(255, 253, 247, 0.13);
+  --sidebar-accent: var(--wash-selected);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: #6E9BFF;               /* SETTLED (§5) — the accent blue, as --ring */
+  --sidebar-ring-offset-color: var(--sidebar);
+
+
+  /* Dark flips which side is solid, so the recess colour flips with it: light
+     faces recess with black, the near-white primary recesses with ink. Shape
+     is identical to light — only intensity moves. */
+  --btn-press-soft:
+    inset 1px 0 2px 0 rgba(0, 0, 0, 0.30),
+    inset -1px 0 2px 0 rgba(0, 0, 0, 0.30),
+    inset 0 2px 3px 0 rgba(0, 0, 0, 0.45);
+  --btn-press-mid:
+    inset 1px 0 2px 0 rgba(25, 23, 20, 0.18),
+    inset -1px 0 2px 0 rgba(25, 23, 20, 0.18),
+    inset 0 2px 3px 0 rgba(25, 23, 20, 0.30);
+  --btn-press-strong:
+    inset 1px 0 2px 0 rgba(25, 23, 20, 0.22),
+    inset -1px 0 2px 0 rgba(25, 23, 20, 0.22),
+    inset 0 2px 3px 0 rgba(25, 23, 20, 0.36);
+  --press: inset 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  /* A control has its own FACE and sits ABOVE the card. A field shares that
+     fill (see --input) — light has always had them equal, and dark now does
+     too. These are the ladder's own rungs, so they alias them rather than
+     restate the numbers. */
+  --control: var(--secondary);
+  --control-hover: var(--muted);
+
+  /* The sheet, same as light — the grid draws the space (see the light block).
+     Dark tried 20.5% and 16.4% first: the one merged with `--card`, the other
+     read as a black hole, because dark grounds are compressed into a far
+     shorter range and there is no room for a fourth rung under the frame. */
+  --surface-canvas: var(--card);
+  --surface-node: var(--card);           /* = --card, the way light has it */
+  /* Dark's `--well` is 16% BLACK, not an ink tint — a dark ground has no room
+     to go lighter, so its recess is cut rather than washed. Flattened here for
+     the same reason as light. `--wire` needs no dark value: it mixes
+     `--line-ink` into `--surface-canvas`, and both are already redefined here. */
+  --surface-shell: color-mix(in srgb, black 16%, var(--surface-canvas));
+  /* Dark is not the light alpha flipped: white dots on the near-black field
+     separate less, so they run firmer than the light values.
+     **Unchanged when light was raised to 0.24/0.34** — measured over the dark
+     sheet these already clear 16.1 and 23.9 L, against light's 17.0 and 24.2.
+     The two modes were already matched; only light was short. */
+  /* RESTORED. Dark is not the light alpha flipped: white dots on a near-black
+     field separate less, so they run firmer than the light values. */
+  --grid: rgba(255, 253, 247, 0.145);
+  --grid-bold: rgba(255, 253, 247, 0.3);
+
+  /* ── Terminal / code surfaces — dark in both themes ── */
+  --code-bg: #181611;
+  --code-fg: #A9A399;
+
+  /* Same four rungs, same aliases — see the light block. */
+  /* RESTORED — 2.9 → 5.1 of edge, 2px → 9px of reach. */
+  --shadow-sm: 0 3px 8px -3px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 6px 18px -5px rgba(0, 0, 0, 0.55), 0 2px 6px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.7), 0 10px 24px -10px rgba(0, 0, 0, 0.55);
+  /* RECONSTRUCTED — the doc's dark ratio is 6.9 → 11.1; measured here as
+     2.2 → 3.6 on the same ground. */
+  --shadow-2xl: 0 28px 64px -20px rgba(0, 0, 0, 0.7), 0 3px 8px -2px rgba(0, 0, 0, 0.65);
+
+  /* **No contact layer in dark, measured.** A contact shadow works by darkening
+     the ground right at the edge, and dark's ground is already near-black —
+     adding one moved the toast's edge by nothing at all (1.44 / 1.32, both
+     unchanged). Dark carries its edge on the hairline instead, which is why the
+     rung went to `line/strong`. So this aliases `lg` rather than shipping a
+     layer that costs paint and buys no contrast. */
+  --shadow-toast: var(--shadow-lg);
+
+  /* `lg` on its side, as in light — see the light block. Dark's `lg` is deeper
+     and wider, so the sideways cast reaches 40px rather than 23. */
+  --shadow-region: -28px 0 64px -20px rgba(0, 0, 0, 0.7), -10px 0 24px -10px rgba(0, 0, 0, 0.55);
+
+  /* Deeper in dark: the ground is already near-black, so 50% ink barely
+     separates the overlay from the page behind it. */
+  --scrim: rgb(0 0 0 / 0.65);
+
+  --shadow-2xs: var(--shadow-sm);
+  --shadow-xs: var(--shadow-sm);
+  --shadow: var(--shadow-md);
+  --shadow-xl: var(--shadow-lg);
 }
 
 @theme inline {
@@ -165,6 +711,7 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -175,6 +722,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -185,10 +733,14 @@
   --color-brand-darker: var(--brand-darker);
   --color-brand-bg: var(--brand-bg);
   --color-brand-bg-hover: var(--brand-bg-hover);
+  --color-change: var(--change);
+  --color-change-bg: var(--change-bg);
+  --color-change-border: var(--change-border);
   --color-brand-border: var(--brand-border);
 
   --color-fg-2: var(--fg-2);
   --color-fg-muted: var(--fg-muted);
+  --color-fg-ghost: var(--fg-ghost);
 
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);
@@ -218,16 +770,89 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  --color-control: var(--control);
+  --color-control-hover: var(--control-hover);
+  --color-surface-node: var(--surface-node);
+  --color-surface-shell: var(--surface-shell);
+  --color-surface-canvas: var(--surface-canvas);
+
+  --color-code-bg: var(--code-bg);
+  --color-code-fg: var(--code-fg);
+
+  --color-primary-press: var(--primary-press);
+
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
 
-  /* Brand-tight radii (per design system r-1..r-4):
-     buttons & inputs use 'sm' = 2px, controls 'md' = 4px, cards 'lg' = 8px */
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* ── Product type scale ──────────────────────────────────────────────
+     Anchored on 13px body — the interface size. Named by JOB, not by size,
+     so a call site declares what the text IS and cannot drift.
+
+     Every line-height is a multiple of 4, so text blocks land on the same
+     rhythm as the 4px spacing grid and never push a row off by a pixel.
+
+       label   11 / 16   group labels, avatar initials, overline
+       meta    12 / 16   row data — branch, counts, status, timestamps
+       body    13 / 20   BASE. Nav, buttons, breadcrumbs, prose, inputs
+       name    14 / 20   the thing you scan a list for
+       title   16 / 24   page and section titles — the largest type we ship
+       head    20 / 28   dialogs and empty-state headlines only
+
+     Nothing above 20px exists in the product. Display type is the website's.
+     Weights: 400 default · 500 interactive/emphasis · 600 titles. Only three. */
+  --text-label: 11px;
+  --text-label--line-height: 16px;
+  /* RESTORED. `text-column` is used by the stack list's headers, DataList, the
+     deployments timeline, the split console and the canvas node's summary —
+     without this token the utility is never generated and all of them silently
+     fall back to inherited size. */
+  --text-column: 11.5px;
+  --text-column--line-height: 16px;
+  --text-meta: 12px;
+  --text-meta--line-height: 16px;
+  --text-body: 13px;
+  --text-body--line-height: 20px;
+  --text-name: 14px;
+  --text-name--line-height: 20px;
+  --text-title: 16px;
+  --text-title--line-height: 24px;
+  --text-title--letter-spacing: -0.005em;
+  --text-head: 20px;
+  --text-head--line-height: 28px;
+  --text-head--letter-spacing: -0.01em;
+
+  /* ── Radius ladder ───────────────────────────────────────────────────
+     Radius scales with the SIZE of the element, not its importance.
+
+       xs   4px   a token INSIDE a control — a chip in a multi-select field
+       sm   6px   chips, badges, tags, icon hit-areas
+       md   8px   THE DEFAULT — list rows, menu items, nav items, inputs
+       lg  12px   cards, panels, the content sheet
+       xl  16px   modals, dialogs, sheets, popovers
+
+     Pill is not on the ladder: it is `rounded-full`, and only small controls
+     (buttons, chips, toggles) get it. Anything that holds a block of content
+     gets a ladder value.
+
+     **`xs` is the rung below a control, not a smaller control.** §2 makes
+     radius a function of HEIGHT — 28/6 · 32/8 · 40/12 — and the ladder had no
+     entry under 28. A chip sitting inside a field is 22 tall, so it needs one:
+     shipped as a hardcoded `4px` in two places until this rung existed.
+
+     It is deliberately NOT `full`. A pill is right for a status word standing
+     on its own; a row of pills inside a rounded rectangle reads as lozenges
+     floating in a tray rather than as the field's own contents. Settled by
+     Jaseem on the Shape + Hierarchy board, August 2026.
+
+     Was 9 / 14 / 22 / 22 — marketing scale, ported literally from the website.
+     At those values `rounded-md` on a 32px control produced a near-pill, which
+     is why every control on the old screens looked identical. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);
@@ -236,7 +861,13 @@
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
+  --color-scrim: var(--scrim);
   --shadow-2xl: var(--shadow-2xl);
+  /* The focus rings are NOT registered here. A `--shadow-*` theme entry whose
+     value is a bare `var()` does not reliably generate its utility class — it
+     worked in the app build and silently produced a transparent shadow in the
+     Storybook one. Call sites use `shadow-[var(--focus-ring-edge)]`, the same
+     arbitrary-value form the press shadows use. */
 }
 
 body {
@@ -244,6 +875,76 @@ body {
   font-feature-settings: 'ss01', 'ss02';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* The sheet header's bottom hairline, drawn INSIDE the band.
+   A real `border-b` participates in layout and pushed the band from 108 to 109,
+   which moves every row of content below it — the same reason the sheet's own
+   edge is an outline and not a border (§12a). Figma draws this stroke with
+   align=INSIDE, and an inset shadow is the exact CSS equivalent. */
+.sheet-edge-b {
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+/* The same line, on the other side: a footer bar pinned to the bottom of the
+   sheet. Inset for the same reason — a `border-t` would make a 56px bar 57. */
+.sheet-edge-t {
+  box-shadow: inset 0 1px 0 var(--border);
+}
+
+/* ── The focus rings, as plain UNLAYERED CSS ─────────────────────────────
+   Not Tailwind utilities, and that is deliberate twice over.
+
+   1. Tailwind's extractor silently drops `shadow-[shadow:var(--x)]` when it
+      sits behind a variant — the class lands on the element, `:focus-visible`
+      matches, the variable resolves, and no rule is ever generated. It worked
+      in the dev server and produced a transparent shadow in the Storybook
+      build, which is the worst kind of difference to debug.
+   2. Unlayered CSS beats anything in `@layer utilities`, so `active:shadow-*`
+      can no longer overwrite the ring and eat it mid-press. The press recess
+      is handed back through `--press-shadow`, which each variant sets.
+
+   Which class to use is decided by the element's FACE, not by taste — see
+   DESIGN-PRODUCT §5. */
+.focus-ring:focus-visible,
+.focus-ring-edge:focus-visible,
+.focus-ring-inset:focus-visible { outline: none; }
+
+.focus-ring-edge:focus-visible {
+  box-shadow: 0 0 0 var(--ring-width) var(--ring);
+}
+/* A flush ring sits directly outside the element's own hairline, and the two
+   stack into a doubled edge. The ring REPLACES the line while focus is there —
+   the border keeps its 1px so nothing shifts, it just stops being visible.
+   An invalid control is the exception: that border is reporting something. */
+.focus-ring-edge:focus-visible:not([aria-invalid="true"]) {
+  border-color: transparent;
+}
+/* The box a checkbox draws is a SIBLING of the real input, so the ring has to
+   be cast by the element next to the one that has focus. */
+.peer:focus-visible ~ .focus-ring-peer {
+  box-shadow: 0 0 0 var(--ring-width) var(--ring);
+  outline: none;
+}
+.focus-ring:focus-visible {
+  box-shadow:
+    0 0 0 var(--ring-offset) var(--ring-offset-color),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--ring);
+}
+.focus-ring-inset:focus-visible {
+  box-shadow:
+    inset 0 0 0 var(--ring-offset) var(--ring-offset-color),
+    inset 0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--ring);
+}
+
+.focus-ring-edge:focus-visible:active:not(:disabled) {
+  box-shadow: 0 0 0 var(--ring-width) var(--ring), var(--press-shadow, 0 0 #0000);
+}
+.focus-ring:focus-visible:active:not(:disabled) {
+  box-shadow:
+    0 0 0 var(--ring-offset) var(--ring-offset-color),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--ring),
+    var(--press-shadow, 0 0 #0000);
 }
 
 @layer base {
@@ -274,18 +975,25 @@ body {
 
   .eyebrow {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
+    letter-spacing: 0.01em;
     color: var(--brand);
   }
+  /* §7 — no `text-transform`. If it is uppercase, it is uppercase because the
+     word is. The 11px size and the muted tier already say "this is a label";
+     caps was a third signal doing a job that was already done, and it costs
+     the word-shape the eye reads by. The tracking went with it — that existed
+     only to make caps survivable. */
+  /* SANS, not mono. §6: `font-mono` means a machine produced this and a machine
+     will read it back — an id, a key, a branch name. A group label like
+     "Start from" is a word, and mono made it look like a value the user is not
+     allowed to change. The board sets every one of these in the interface face;
+     the code had been the odd one out at all three call sites. */
   .eyebrow-muted {
-    font-family: var(--font-mono);
     font-size: 11px;
+    line-height: 16px;
     font-weight: 500;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
     color: var(--muted-foreground);
   }
   .mono-num {
@@ -356,6 +1064,75 @@ body {
   @media (prefers-reduced-motion: reduce) {
     .auth-cloud { animation: none; }
   }
+
+  /* ── auth "room" ground — open sky in light, near-black + cool lift in dark ──
+     Mirrors the marketing site's `.auth` override of its own peach --sky-grad:
+     the sign-in screen is the one place a visitor stands still and looks up. */
+  .auth-shell {
+    position: relative;
+    isolation: isolate;
+    background: linear-gradient(
+      180deg,
+      #c5d9ee 0%,
+      #d6e3f0 26%,
+      #e6e9ea 52%,
+      #f1efea 74%,
+      var(--background) 100%
+    );
+  }
+  .dark .auth-shell {
+    background: var(--background);
+  }
+  .dark .auth-shell::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -34%;
+    width: 120%;
+    height: 96%;
+    transform: translateX(-50%);
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at center 40%,
+      color-mix(in srgb, #5a7ea0 12%, transparent),
+      transparent 62%
+    );
+  }
+
+  /* ── the header — same box as the marketing nav's `.nav-inner`/`.wrap`:
+     --nav-h (58px) + the 0.5px hairline the nav's frosted bar adds on scroll. */
+  .auth-header {
+    height: 59px;
+    padding: 0 32px;
+    border: 0.5px solid transparent;
+  }
+  @media (max-width: 560px) {
+    .auth-header { padding: 0 20px; }
+  }
+
+  /* ── THE PLATE — inset product-panel material (§6), not a card on a shadow ── */
+  .auth-plate {
+    border-radius: 36px;
+    padding: 22px;
+    background: color-mix(in srgb, var(--card) 76%, var(--secondary));
+    border: 0.5px solid color-mix(in srgb, var(--foreground) 11%, transparent);
+  }
+  @media (max-width: 560px) {
+    .auth-plate { padding: 18px; }
+  }
+
+  /* ── the headline — Redaction serif + hairline stroke, same voice as the
+     marketing site's section titles ── */
+  .auth-title {
+    font-family: "Redaction", var(--font-serif), Georgia, serif;
+    font-weight: 500;
+    -webkit-text-stroke: 0.25px currentColor;
+    font-size: clamp(23px, 3.4vw, 26px);
+    line-height: 1.16;
+    letter-spacing: -0.015em;
+    color: var(--foreground);
+  }
 }
 
 @layer base {
@@ -364,5 +1141,255 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Canvas nodes/edges render fully custom (ResourceNode/AttachmentNode/
+   ConnectionEdge), so xyflow's built-in node/edge/handle default colors never
+   apply — only the drag-select marquee is generic chrome outside that custom
+   rendering, and it ships blue (#0059dc) by default. Set the non-"-default"
+   variable so it wins regardless of stylesheet load order (see
+   @xyflow/react/dist/style.css var(--xy-x, var(--xy-x-default)) pattern). */
+.react-flow {
+  --xy-selection-background-color: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --xy-selection-border: 1px dotted var(--border-strong);
+}
+
+/* ── Drawer choreography ──────────────────────────────────────────────
+   A modal drawer is a solid panel arriving from the right edge. Three things
+   follow from that sentence, and the shadcn default got all three wrong.
+
+   **1. It does not fade.** The default paired `slide-in-from-right` with
+   `fade-in-0`, so 100ms into the open the panel sat at x=1240 at 31% opacity —
+   the list showing straight through an opaque white surface. Nothing solid
+   becomes transparent while it moves. The SCRIM fades; the panel only travels.
+
+   **2. It is interruptible.** The default used keyframes for both directions,
+   and a keyframe cannot start from wherever the last one got to. Measured:
+   pressing Esc 112ms into the open, with the panel at x=1232, moved it to
+   x=800 on the very next frame — a 208px jump backwards before it began
+   leaving. A transition retargets from the current value instead, so a
+   reversal reads as a reversal.
+
+   The `drawer-present` animation is what buys that. Radix keeps an exiting
+   node mounted only while an ANIMATION is running on it, so the transition
+   alone would be unmounted before it could play. This is a no-op keyframe
+   whose only job is to hold the mount open for exactly as long as the
+   transition needs. It paints nothing.
+
+   `@starting-style` supplies the off-screen value the enter transitions FROM —
+   Radix mounts the node with `data-state="open"` already set, so without it
+   there is no start value and the panel would simply appear. Where it is not
+   supported the drawer arrives instantly, which is a degradation, not a break.
+
+   **3. It leaves faster than it arrives.** 260 in, 180 out. Arriving asks to
+   be followed; leaving must not compete with whatever you turned to next. */
+
+/* **It animates `visibility`, and that is not arbitrary.** A running animation
+   outranks a transition on the SAME property, so the first version of this held
+   `opacity: 1 → 1` and pinned the scrim fully opaque for its whole exit — the
+   panel slid away and the wash cut out underneath it in one frame. `visibility`
+   is a property nothing else here touches, so the hold is invisible. */
+@keyframes drawer-present {
+  from { visibility: visible; }
+  to { visibility: visible; }
+}
+
+@layer components {
+  [data-slot="drawer-content"] {
+    translate: 100% 0;
+    transition: translate var(--drawer-enter) var(--ease-panel);
+  }
+  [data-slot="drawer-content"][data-state="open"] {
+    translate: 0 0;
+  }
+  @starting-style {
+    [data-slot="drawer-content"][data-state="open"] {
+      translate: 100% 0;
+    }
+  }
+  [data-slot="drawer-content"][data-state="closed"] {
+    translate: 100% 0;
+    transition-duration: var(--drawer-exit);
+    animation: drawer-present var(--drawer-exit) linear;
+  }
+
+  /* The scrim is the one thing that DOES fade — it is a wash, not an object.
+     It leads the panel in slightly and clears out ahead of it, so the page is
+     never left sitting under a scrim with nothing on top of it. */
+  [data-slot="drawer-overlay"] {
+    opacity: 0;
+    transition: opacity var(--drawer-enter) var(--ease-panel);
+  }
+  [data-slot="drawer-overlay"][data-state="open"] {
+    opacity: 1;
+  }
+  @starting-style {
+    [data-slot="drawer-overlay"][data-state="open"] {
+      opacity: 0;
+    }
+  }
+  [data-slot="drawer-overlay"][data-state="closed"] {
+    opacity: 0;
+    transition-duration: var(--drawer-exit);
+    animation: drawer-present var(--drawer-exit) linear;
+  }
+
+  /* The panel still has to ARRIVE for someone who asked for less motion — a
+     drawer that was not there a moment ago is a change of place, not a
+     flourish. It just arrives without the journey. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="drawer-content"],
+    [data-slot="drawer-overlay"] {
+      transition-duration: 1ms;
+      animation-duration: 1ms;
+    }
+  }
+}
+
+/* ── Rail collapse choreography ───────────────────────────────────────
+   The rail travels 240 → 56 in 200ms. Two rules are what make that read as
+   ONE movement rather than a stack of little jumps:
+
+   1. **Nothing moves vertically.** The board gives the collapsed rail exactly
+      the same vertical geometry as the expanded one — every row, every group
+      block, the footer, all on identical y. So there is no height left to
+      animate, and the eye has one axis to follow instead of two. The group
+      label and the rule that replaces it share one 24px box and crossfade in
+      place; they do not trade heights.
+
+   2. **A width closes to the REAL width, never to a guessed one.** These used
+      to animate `max-width: 12rem → 0`. A 60px label then spends the first
+      130ms of a 200ms transition above its own width with nothing visible
+      happening, and vanishes in the last 70. The label snapped while the rail
+      glided, and that mismatch was the whole complaint. A grid track sized
+      `1fr → 0fr` interpolates the CONTENT's width, so every label leaves at
+      the rail's own speed. `0fr` only reaches zero if the item's automatic
+      minimum size is zero — which is what `overflow: hidden` on the child
+      buys, and why each of these takes exactly one child.
+
+   Only OPACITY stays asymmetric between the two directions:
+   • **Leaving fades immediately.** The column is already closing on the word.
+   • **Arriving waits ~90ms.** Text faded in early lands in a column too narrow
+     to hold it and reflows while you are reading it. */
+
+@layer utilities {
+  /* Anything that vacates HORIZONTALLY: nav labels, "Appearance", the
+     account's name and organisation, its chevron. Takes ONE child. */
+  .rail-x {
+    display: grid;
+    grid-template-columns: 1fr;
+    min-width: 0;
+    opacity: 1;
+    transition:
+      grid-template-columns var(--rail-duration) var(--ease-panel),
+      opacity 140ms ease-out 90ms;
+  }
+  .rail-x > * {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  [data-collapsible="icon"] .rail-x {
+    grid-template-columns: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-columns var(--rail-duration) var(--ease-panel),
+      opacity 110ms ease-out;
+  }
+
+  /* The group label, and the 16px rule that stands in for it once the rail is
+     narrow. They occupy the SAME 24px box on the SAME centreline, so this is a
+     crossfade and nothing else — no height, no padding, no margin. */
+  .rail-y {
+    opacity: 1;
+    transition: opacity 140ms ease-out 90ms;
+  }
+  [data-collapsible="icon"] .rail-y {
+    opacity: 0;
+    transition: opacity 110ms ease-out;
+  }
+  .rail-y-in {
+    opacity: 0;
+    transition: opacity 110ms ease-out;
+  }
+  [data-collapsible="icon"] .rail-y-in {
+    opacity: 1;
+    transition: opacity 140ms ease-out 90ms;
+  }
+
+  /* The lockup is ONE drawing: the cube sits at the left of the viewBox and the
+     wordmark runs off to its right. So collapsing it is a CLIP, not a swap —
+     the frame closes from the right and stops at the cube's edge, which means
+     the cube itself never moves a pixel. Cross-fading two SVGs instead made the
+     mark appear to slide in from the right.
+
+     Both ends are known widths here, so `max-width` costs nothing: 23.2px is
+     where the cube ends at this render size — the mark occupies 66.25 of the
+     lockup's 301-unit viewBox, and 105.5 × 66.25 / 301 = 23.2. */
+  .rail-logo {
+    max-width: 106px;
+    transition: max-width var(--rail-duration) var(--ease-panel);
+  }
+  [data-collapsible="icon"] .rail-logo {
+    max-width: 23.2px;
+  }
+
+  /* ── The peer sheet, on the rail's own clock ────────────────────────────
+     The node inspector is a SHEET beside the sheet (§15), and it arrives and
+     leaves the way the nav rail does: **the column it occupies animates its
+     own `width`**, over `--rail-duration` on `--ease-panel`, and the panel
+     inside keeps its 400 and is CLIPPED by the column rather than sliding
+     under its neighbour. Same property, same two numbers as `Sidebar`'s
+     `transition-[width]` — to the eye these are one gesture, the shell giving
+     a column away and taking it back, and two curves for that would read as
+     two mechanisms.
+
+     **`width`, not the `0fr → 1fr` trick `.rail-x` uses.** That one animates a
+     grid TRACK, and a track can only drive the box when something else decides
+     the box's width — inside the rail, the rail does. This slot is a flex item
+     in the app frame, so its automatic size comes from its content: the track
+     went to `0fr` and the panel still measured 400, and both directions
+     snapped. Measured: 0 → 408 in a single frame, in both directions.
+
+     The 8px gutter travels with the column, on the CHILD's margin — so a
+     closed slot is genuinely 0 wide and the main sheet does not stop 8px short
+     of the frame while nothing is open.
+
+     Driven by `data-state` on the child, not `:has(> *)`: the panel stays
+     mounted through its own exit so there is something to see on the way out.
+     An empty column closing on nothing is a pop, not a collapse.
+
+     **No `overflow: hidden`, and that is the whole trick.** Clipping the
+     column was the obvious way to hide the panel while the track was narrow,
+     and it ate the panel's own edge: an outline and a drop shadow are painted
+     OUTSIDE the box (§4), so a container hugging the card cut its hairline off
+     at the top and bottom and flattened the shadow on three sides.
+
+     It does not need to clip. The panel is 400 wide inside a column that
+     starts at 0, so it simply hangs off the column's right edge — which is the
+     frame's right edge — and sits off-screen. As the column widens, its left
+     edge travels left and the panel rides it in. The clipping is done by the
+     app frame's own `overflow-hidden` at the window edge, where there is
+     nothing to cut but empty paper. Same two numbers, same curve, whole card. */
+  .peer-sheet {
+    width: 0;
+    transition: width var(--rail-duration) var(--ease-panel);
+  }
+  .peer-sheet:has(> [data-state="open"]) {
+    width: calc(var(--peer-sheet-width) + var(--peer-sheet-gutter));
+  }
+  .peer-sheet > * {
+    flex: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rail-x, .rail-logo, .rail-y, .rail-y-in, .peer-sheet,
+    [data-collapsible="icon"] .rail-x,
+    [data-collapsible="icon"] .rail-logo,
+    [data-collapsible="icon"] .rail-y,
+    [data-collapsible="icon"] .rail-y-in {
+      transition: none;
+    }
   }
 }

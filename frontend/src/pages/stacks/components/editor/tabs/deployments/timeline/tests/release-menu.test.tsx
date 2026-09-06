@@ -17,21 +17,29 @@ beforeAll(() => {
 const rel = (over: Partial<StackRelease>) => ({ id: "r1", sequence: 5, state: "Released", ...over } as StackRelease);
 
 describe("ReleaseMenu", () => {
-  it("shows Cancel for Pending", async () => {
-    const onCancel = vi.fn();
-    render(<ReleaseMenu release={rel({ state: "Pending" })} onCancel={onCancel} />);
+  // Copy id went with main's removal of `onCopyId` from the whole deployments
+  // chain at the merge; rollback stayed in the menu, which is this branch's
+  // call — main had moved it to a button on the detail card.
+  it("shows Rollback for Released; hides Cancel", async () => {
+    const onRollback = vi.fn();
+    render(<ReleaseMenu release={rel({ state: "Released" })} onRollback={onRollback} onCancel={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: /release actions/i }));
-    await userEvent.click(screen.getByText("Cancel release"));
-    expect(onCancel).toHaveBeenCalledWith("r1");
+    expect(screen.getByText("Rollback to this")).toBeInTheDocument();
+    expect(screen.queryByText("Cancel release")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByText("Rollback to this"));
+    expect(onRollback).toHaveBeenCalledWith("r1");
   });
 
-  it("renders nothing for Released — rollback is a button on the detail card", () => {
-    render(<ReleaseMenu release={rel({ state: "Released" })} onCancel={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /release actions/i })).not.toBeInTheDocument();
+  it("shows Cancel for Pending", async () => {
+    render(<ReleaseMenu release={rel({ state: "Pending" })} onRollback={vi.fn()} onCancel={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: /release actions/i }));
+    expect(screen.getByText("Cancel release")).toBeInTheDocument();
+    expect(screen.queryByText("Rollback to this")).not.toBeInTheDocument();
   });
 
-  it("renders nothing once InProgress (the backend rejects cancelling a rollout)", () => {
-    render(<ReleaseMenu release={rel({ state: "InProgress" })} onCancel={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /release actions/i })).not.toBeInTheDocument();
+  it("hides Cancel once InProgress (the backend rejects cancelling a rollout)", async () => {
+    render(<ReleaseMenu release={rel({ state: "InProgress" })} onRollback={vi.fn()} onCancel={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: /release actions/i }));
+    expect(screen.queryByText("Cancel release")).not.toBeInTheDocument();
   });
 });

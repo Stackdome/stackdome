@@ -95,7 +95,7 @@ export function useGithubConnect(): GithubConnect {
     // Open synchronously inside the user gesture; navigate it via form POST after.
     const popup = window.open("", POPUP_NAME, POPUP_FEATURES);
     if (!popup) {
-      setError("Popup blocked — allow popups for this site and try again.");
+      setError("Popup blocked. Allow popups for this site and try again.");
       setState("error");
       return;
     }

@@ -115,7 +115,7 @@ describe("EnvVarsEditor", () => {
   it("keeps literal values editable as plain text", () => {
     render(<Harness initial={[{ name: "PORT", value: "8080" }]} onChange={vi.fn()} />);
 
-    expect(screen.getByRole("combobox", { name: "Value source" })).toHaveTextContent("Plain text");
+    expect(screen.getByRole("combobox", { name: "Value source" })).toHaveTextContent("Plain");
     expect(screen.getByLabelText(/^variable value$/i)).toHaveValue("8080");
   });
 });

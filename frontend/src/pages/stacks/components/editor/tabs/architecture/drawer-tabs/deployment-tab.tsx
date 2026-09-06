@@ -1,11 +1,7 @@
 import React from "react";
-import { TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { DirtyField } from "@/pages/stacks/components/editor/tabs/architecture/drawer-tabs/dirty-field";
-import {
-  LedgerRow,
-  LedgerSection,
-} from "@/pages/stacks/components/editor/tabs/architecture/drawer-tabs/ledger";
+import { FieldGrid, FieldShell, FormSection } from "@/components/branded";
 
 import type { FormStackResourceData } from "@/pages/stacks/schemas/form-schema";
 
@@ -55,91 +51,100 @@ function StackResourceDeploymentTabImpl({
 }: StackResourceDeploymentTabProps) {
 
   return (
-    <TabsContent value="deployment" className="pt-1">
-      <LedgerSection label="Pre-deployment step" meta="runs before the main container">
-        <LedgerRow
-          label="Init command"
-          htmlFor={`init-command-${index}`}
-          alignTop
-          hint="Type as in a terminal; quotes group arguments. Not run in a shell, so variables like $PORT are not replaced."
-        >
-          <DirtyField
-            draft={draft}
-            baseline={baseline}
-            path="init_spec.command"
-            compact
-            onReset={onDiscardField ? () => onDiscardField("init_spec.command") : undefined}
+    <>
+      {/* **The gloss moved behind the mark.** `runs before the main container`
+          never changed and never will — it is the section's own title said a
+          second way, and it was spending a permanent line of a 480px panel to
+          do it. `state` is for a fact that moves (`4 variables`, `none`). */}
+      <FormSection
+        label="Pre-deployment step"
+        help="Runs to completion before the main container starts — migrations, seeding, waiting on a dependency. The deploy stops if it fails."
+      >
+        <FieldGrid>
+          <FieldShell
+            label="Init command"
+            htmlFor={`init-command-${index}`}
+            help="Type as in a terminal; quotes group arguments. Not run in a shell, so variables like $PORT are not replaced."
           >
-            <Input
-              id={`init-command-${index}`}
-              value={draft.init_spec?.command ?? ""}
-              onChange={(e) => onPatchInitSpec({ command: e.target.value })}
-              placeholder="e.g., sh /scripts/init.sh"
-              className="h-9 font-mono text-[12.5px]"
-            />
-          </DirtyField>
-        </LedgerRow>
-        <LedgerRow label="Init arguments" htmlFor={`init-args-${index}`}>
-          <DirtyField
-            draft={draft}
-            baseline={baseline}
-            path="init_spec.args"
-            compact
-            onReset={onDiscardField ? () => onDiscardField("init_spec.args") : undefined}
-          >
-            <Input
-              id={`init-args-${index}`}
-              value={draft.init_spec?.args ?? ""}
-              onChange={(e) => onPatchInitSpec({ args: e.target.value })}
-              placeholder="e.g., arg1 arg2 arg3"
-              className="h-9 font-mono text-[12.5px]"
-            />
-          </DirtyField>
-        </LedgerRow>
-      </LedgerSection>
+            <DirtyField
+              draft={draft}
+              baseline={baseline}
+              path="init_spec.command"
+              compact
+              onReset={onDiscardField ? () => onDiscardField("init_spec.command") : undefined}
+            >
+              <Input
+                id={`init-command-${index}`}
+                value={draft.init_spec?.command ?? ""}
+                onChange={(e) => onPatchInitSpec({ command: e.target.value })}
+                placeholder="e.g., sh /scripts/init.sh"
 
-      <LedgerSection label="Main container step">
-        <LedgerRow
-          label="Command"
-          htmlFor={`exec-command-${index}`}
-          alignTop
-          hint="Overrides the container's default ENTRYPOINT. Type as in a terminal; quotes group arguments."
-        >
-          <DirtyField
-            draft={draft}
-            baseline={baseline}
-            path="execution_config.command"
-            compact
-            onReset={onDiscardField ? () => onDiscardField("execution_config.command") : undefined}
+              />
+            </DirtyField>
+          </FieldShell>
+          <FieldShell label="Init arguments" htmlFor={`init-args-${index}`}>
+            <DirtyField
+              draft={draft}
+              baseline={baseline}
+              path="init_spec.args"
+              compact
+              onReset={onDiscardField ? () => onDiscardField("init_spec.args") : undefined}
+            >
+              <Input
+                id={`init-args-${index}`}
+                value={draft.init_spec?.args ?? ""}
+                onChange={(e) => onPatchInitSpec({ args: e.target.value })}
+                placeholder="e.g., arg1 arg2 arg3"
+
+              />
+            </DirtyField>
+          </FieldShell>
+        </FieldGrid>
+      </FormSection>
+
+      <FormSection label="Main container step">
+        <FieldGrid>
+          <FieldShell
+            label="Command"
+            htmlFor={`exec-command-${index}`}
+            help="Overrides the container's default ENTRYPOINT. Type as in a terminal; quotes group arguments."
           >
-            <Input
-              id={`exec-command-${index}`}
-              value={draft.execution_config?.command ?? ""}
-              onChange={(e) => onPatchExecCommandArgs({ command: e.target.value })}
-              placeholder="e.g., node server.js"
-              className="h-9 font-mono text-[12.5px]"
-            />
-          </DirtyField>
-        </LedgerRow>
-        <LedgerRow label="Arguments" htmlFor={`exec-args-${index}`}>
-          <DirtyField
-            draft={draft}
-            baseline={baseline}
-            path="execution_config.args"
-            compact
-            onReset={onDiscardField ? () => onDiscardField("execution_config.args") : undefined}
-          >
-            <Input
-              id={`exec-args-${index}`}
-              value={draft.execution_config?.args ?? ""}
-              onChange={(e) => onPatchExecCommandArgs({ args: e.target.value })}
-              placeholder="e.g., --port=3000 --verbose"
-              className="h-9 font-mono text-[12.5px]"
-            />
-          </DirtyField>
-        </LedgerRow>
-      </LedgerSection>
-    </TabsContent>
+            <DirtyField
+              draft={draft}
+              baseline={baseline}
+              path="execution_config.command"
+              compact
+              onReset={onDiscardField ? () => onDiscardField("execution_config.command") : undefined}
+            >
+              <Input
+                id={`exec-command-${index}`}
+                value={draft.execution_config?.command ?? ""}
+                onChange={(e) => onPatchExecCommandArgs({ command: e.target.value })}
+                placeholder="e.g., node server.js"
+
+              />
+            </DirtyField>
+          </FieldShell>
+          <FieldShell label="Arguments" htmlFor={`exec-args-${index}`}>
+            <DirtyField
+              draft={draft}
+              baseline={baseline}
+              path="execution_config.args"
+              compact
+              onReset={onDiscardField ? () => onDiscardField("execution_config.args") : undefined}
+            >
+              <Input
+                id={`exec-args-${index}`}
+                value={draft.execution_config?.args ?? ""}
+                onChange={(e) => onPatchExecCommandArgs({ args: e.target.value })}
+                placeholder="e.g., --port=3000 --verbose"
+
+              />
+            </DirtyField>
+          </FieldShell>
+        </FieldGrid>
+      </FormSection>
+    </>
   );
 }
 

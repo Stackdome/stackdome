@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, cleanup } from "@testing-library/react";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/preview-configs", () => ({
@@ -28,6 +28,17 @@ const repo = {
   integrationId: "gi1",
 };
 
+// BlockedAction's Radix tooltip reads ResizeObserver on mount, which jsdom lacks.
+beforeAll(() => {
+  global.ResizeObserver =
+    global.ResizeObserver ||
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+});
+
 beforeEach(() => vi.clearAllMocks());
 afterEach(() => cleanup());
 
@@ -35,7 +46,7 @@ describe("ConfigurePhase", () => {
   it("prefills name from repo and creates the config", async () => {
     (createPreviewConfig as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "c1" });
     const onCreated = vi.fn();
-    render(<ConfigurePhase repo={repo} onCreated={onCreated} onBack={() => {}} />);
+    render(<ConfigurePhase repo={repo} onCreated={onCreated} />);
 
     expect((screen.getByLabelText(/name/i) as HTMLInputElement).value).toBe("webapp");
     expect((screen.getByLabelText(/stackfile path/i) as HTMLInputElement).value).toBe("stackfile.yaml");
@@ -56,7 +67,7 @@ describe("ConfigurePhase", () => {
 
   it("falls back to the default stackfile path when the field is cleared", async () => {
     (createPreviewConfig as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "c1" });
-    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} onBack={() => {}} />);
+    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} />);
 
     await userEvent.clear(screen.getByLabelText(/stackfile path/i));
     await userEvent.click(screen.getByRole("button", { name: /enable previews/i }));
@@ -70,35 +81,71 @@ describe("ConfigurePhase", () => {
     });
   });
 
-  it("marks name and base branch as required and blocks submit with an empty name", async () => {
+  it("marks name and base branch as required, and blocks the primary with an empty name", async () => {
     (createPreviewConfig as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "c1" });
-    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} onBack={() => {}} />);
+    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} />);
 
     const nameInput = screen.getByLabelText(/^name/i);
     await userEvent.clear(nameInput);
-    await userEvent.click(screen.getByRole("button", { name: /enable previews/i }));
 
-    expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
+    // The primary reports the gap rather than accepting a click and failing.
+    const primary = screen.getByRole("button", { name: /enable previews/i });
+    await waitFor(() => expect(primary).toBeDisabled());
+    await userEvent.click(primary);
     expect(createPreviewConfig).not.toHaveBeenCalled();
 
     const nameLabel = screen.getByText(/^name$/i).closest("label");
     expect(nameLabel?.querySelector('[aria-hidden]')).toHaveTextContent("*");
   });
 
-  it("clears the name error once the field is edited", async () => {
-    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} onBack={() => {}} />);
+  it("names the missing field in the verb of the act, and unblocks once it is filled", async () => {
+    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} />);
     const nameInput = screen.getByLabelText(/^name/i);
     await userEvent.clear(nameInput);
-    await userEvent.click(screen.getByRole("button", { name: /enable previews/i }));
-    expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
 
+    const primary = screen.getByRole("button", { name: /enable previews/i });
+    await waitFor(() => expect(primary).toBeDisabled());
+
+    // Reason lives on a focusable wrapper, so it is reachable without a pointer.
+    fireEvent.focus(primary.parentElement!);
+    expect(await screen.findAllByText("Enter a name")).not.toHaveLength(0);
+
+    // Re-query: unblocking drops the tooltip wrapper, so the old node is stale.
     await userEvent.type(nameInput, "webapp");
-    expect(screen.queryByText(/name is required/i)).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /enable previews/i })).toBeEnabled(),
+    );
+  });
+
+  it("says CHOOSE for a listed branch and ENTER when the branch is free text", async () => {
+    // This repo lists branches, so the branch control is a Select.
+    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} />);
+    await userEvent.clear(screen.getByLabelText(/^name/i));
+    const listedPrimary = screen.getByRole("button", { name: /enable previews/i });
+    await waitFor(() => expect(listedPrimary).toBeDisabled());
+    fireEvent.focus(listedPrimary.parentElement!);
+    // Branch is prefilled here, so only the name is outstanding.
+    expect(await screen.findAllByText("Enter a name")).not.toHaveLength(0);
+
+    cleanup();
+
+    // No integration to list against — the same field falls back to free text.
+    render(
+      <ConfigurePhase
+        repo={{ ...repo, integrationId: null, defaultBranch: "" }}
+        onCreated={vi.fn()}
+
+      />,
+    );
+    const freeTextPrimary = screen.getByRole("button", { name: /enable previews/i });
+    await waitFor(() => expect(freeTextPrimary).toBeDisabled());
+    fireEvent.focus(freeTextPrimary.parentElement!);
+    expect(await screen.findAllByText("Enter a base branch")).not.toHaveLength(0);
   });
 
   it("includes env vars in the payload, stripping empty-named rows", async () => {
     (createPreviewConfig as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "c1" });
-    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} onBack={() => {}} />);
+    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByRole("button", { name: /add variable/i }));
     await userEvent.click(screen.getByRole("button", { name: /add variable/i }));
@@ -120,8 +167,8 @@ describe("ConfigurePhase", () => {
     });
   });
 
-  it("shows a validation error and blocks submit on a duplicate variable name", async () => {
-    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} onBack={() => {}} />);
+  it("blocks the primary on a duplicate variable name", async () => {
+    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} />);
 
     await userEvent.click(screen.getByRole("button", { name: /add variable/i }));
     await userEvent.click(screen.getByRole("button", { name: /add variable/i }));
@@ -130,9 +177,21 @@ describe("ConfigurePhase", () => {
     await userEvent.type(names[0], "FOO");
     await userEvent.type(names[1], "FOO");
 
-    await userEvent.click(screen.getByRole("button", { name: /enable previews/i }));
+    const primary = screen.getByRole("button", { name: /enable previews/i });
+    await waitFor(() => expect(primary).toBeDisabled());
+    await userEvent.click(primary);
+    expect(createPreviewConfig).not.toHaveBeenCalled();
+  });
 
-    expect(await screen.findByText(/duplicate variable name/i)).toBeInTheDocument();
+  it("blocks the primary when a variable has a value but no name", async () => {
+    render(<ConfigurePhase repo={repo} onCreated={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /add variable/i }));
+    await userEvent.type(screen.getAllByLabelText(/^variable value$/i)[0], "bar");
+
+    // Submit would silently drop this row, so it is blocked instead of lost.
+    const primary = screen.getByRole("button", { name: /enable previews/i });
+    await waitFor(() => expect(primary).toBeDisabled());
     expect(createPreviewConfig).not.toHaveBeenCalled();
   });
 
@@ -140,7 +199,7 @@ describe("ConfigurePhase", () => {
     const err = new AxiosError("conflict");
     Object.defineProperty(err, "response", { value: { status: 409, data: { reason: "exists" } } });
     (createPreviewConfig as ReturnType<typeof vi.fn>).mockRejectedValue(err);
-    render(<ConfigurePhase repo={repo} onCreated={() => {}} onBack={() => {}} />);
+    render(<ConfigurePhase repo={repo} onCreated={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: /enable previews/i }));
     await waitFor(() => {
       expect(screen.getByText(/already exists/i)).toBeTruthy();

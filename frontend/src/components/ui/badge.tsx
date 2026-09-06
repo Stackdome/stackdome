@@ -5,18 +5,18 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
+  "inline-flex items-center justify-center rounded-full outline outline-1 px-2 py-0.5 text-meta font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-ring-edge aria-invalid:outline-danger transition-colors overflow-hidden",
   {
     variants: {
       variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+        default: "outline-transparent bg-foreground/5 text-fg-2 [a&]:hover:bg-foreground/10",
+        secondary: "outline-border-subtle bg-transparent text-fg-2 [a&]:hover:bg-foreground/5",
         destructive:
-          "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline:
-          "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+          "outline-transparent bg-danger-bg text-danger [a&]:hover:bg-danger-bg/70",
+        outline: "outline-border-subtle text-foreground bg-transparent [a&]:hover:bg-foreground/5",
+        success: "outline-transparent bg-success-bg text-success",
+        warning: "outline-transparent bg-warn-bg text-warn",
+        info: "outline-transparent bg-info-bg text-info",
       },
     },
     defaultVariants: {

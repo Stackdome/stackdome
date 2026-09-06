@@ -1,35 +1,23 @@
 import { GitBranch } from "lucide-react";
-import githubUrl from "@/assets/brand/github.svg";
-import githubLightUrl from "@/assets/brand/github-light.svg";
-import gitlabUrl from "@/assets/brand/gitlab.svg";
-import bitbucketUrl from "@/assets/brand/bitbucket.svg";
-import giteaUrl from "@/assets/brand/gitea.svg";
+import { BrandIcon } from "./brand-icons";
+import { hasBrandIcon } from "./brand-icon-registry";
 import type { ProviderId } from "@/lib/git-integrations";
 
-// `light` renders in light mode (chip is light), `dark` renders in dark mode
-// (chip is dark). GitHub ships separate marks for each theme; the rest are
-// colorful enough to reuse the same art for both.
-const BRAND: Record<Exclude<ProviderId, "other">, { light: string; dark: string }> = {
-  github: { light: githubUrl, dark: githubLightUrl },
-  gitlab: { light: gitlabUrl, dark: gitlabUrl },
-  bitbucket: { light: bitbucketUrl, dark: bitbucketUrl },
-  gitea: { light: giteaUrl, dark: giteaUrl },
-};
-
+/**
+ * A git host's mark, off the **central** brand-icon registry.
+ *
+ * It used to hand-roll its own four-entry `BRAND` map and its own light/dark
+ * `<img>` pair — as did the image-registries copy, from the same two GitHub
+ * SVGs, while `brand-icon-registry.ts` opened by calling itself *"one place to
+ * grow the icon set"*. Three maps, one of them claiming to be alone.
+ *
+ * `ProviderId` and the registry's slugs are the same words, so there is no
+ * translation table here either: the id **is** the slug, and `other` is the one
+ * id with no brand to draw.
+ */
 export function ProviderLogo({ providerId, className }: { providerId: ProviderId; className?: string }) {
-  if (providerId === "other") {
+  if (!hasBrandIcon(providerId)) {
     return <GitBranch className={className} aria-hidden />;
   }
-  const brand = BRAND[providerId];
-  return (
-    <>
-      <img src={brand.light} alt="" aria-hidden className={`object-contain dark:hidden ${className ?? ""}`} />
-      <img
-        src={brand.dark}
-        alt=""
-        aria-hidden
-        className={`hidden object-contain dark:block ${className ?? ""}`}
-      />
-    </>
-  );
+  return <BrandIcon slug={providerId} className={className} />;
 }

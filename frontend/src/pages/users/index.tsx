@@ -3,12 +3,14 @@ import { Search, Users, UserX } from "lucide-react";
 import { useUsers } from "./hooks/use-users";
 import { useProjectOptions } from "./hooks/use-project-options";
 import { InviteDialog } from "./components/invite-dialog";
-import type { UserRowModel } from "./hooks/use-users";
+import type { PendingRow as PendingRowModel, UserRowModel } from "./hooks/use-users";
 import { UserRow } from "./components/user-row";
 import { PendingRow } from "./components/pending-row";
-import { UserRowMenu } from "./components/user-row-menu";
-import { PendingRowMenu } from "./components/pending-row-menu";
+import { MemberDrawer } from "./components/member-drawer";
+import { useInvites } from "./hooks/use-invites";
 import { PageHeader, EmptyState } from "@/components/branded";
+import { useConfirm } from "@/components/branded/confirm";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -75,10 +77,8 @@ function filterRows(
   });
 }
 
-const COLUMN_HEAD_CLASS = "text-[11px] uppercase tracking-widest text-muted-foreground font-mono";
-
 function TabCount({ count }: { count: number }) {
-  return <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">{count}</span>;
+  return <span className="ml-1.5 font-mono text-label text-muted-foreground">{count}</span>;
 }
 
 export default function UsersPage() {
@@ -88,6 +88,12 @@ export default function UsersPage() {
   const [roleTab, setRoleTab] = useState<RoleTab>("all");
   const [project, setProject] = useState("all");
   const [inviteOpen, setInviteOpen] = useState(false);
+  /** Which row is open, not a boolean — the drawer is driven by the click, so
+   *  there is no second `open` flag to keep in step with it. */
+  const [openFor, setOpenFor] = useState<UserRowModel | null>(null);
+  const { revoke } = useInvites();
+  const confirm = useConfirm();
+  const { toast } = useToast();
 
   const allProjects = projectOptions.map((t) => t.name).sort();
   const filtered = filterRows(rows, search, roleTab, project);
@@ -101,19 +107,53 @@ export default function UsersPage() {
   // Default project name for chip star
   const defaultProjectName = projectOptions.find((t) => t.default_project)?.name;
 
+  /**
+   * §10 level 2 — an unaccepted invite is rebuildable and nothing references
+   * it, so the gate is an acknowledgement rather than the name retyped, and the
+   * trigger stays on the drawer's header band rather than in a danger zone.
+   */
+  async function requestRevoke(row: PendingRowModel) {
+    const ok = await confirm({
+      title: "Revoke this invite?",
+      description: `The link sent to ${row.email} stops working. Inviting them again sends a new one.`,
+      confirmLabel: "Revoke",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    try {
+      await revoke(row.id);
+      // The object the drawer is about is gone, so the drawer goes with it.
+      setOpenFor(null);
+      toast({
+        title: "Invite revoked",
+        description: `The invite for ${row.email} has been revoked.`,
+        variant: "success",
+      });
+      refetch();
+    } catch (e: unknown) {
+      toast({
+        title: "Failed to revoke invite",
+        description: e instanceof Error ? e.message : "The invite could not be revoked.",
+        variant: "destructive",
+      });
+    }
+  }
+
   function clearFilters() {
     setSearch("");
     setRoleTab("all");
     setProject("all");
   }
 
+  /* Four columns, not five. The trailing track held the row kebab — removing
+     the action means removing its track, its (blank) header cell and its
+     skeleton cell. */
   const tableHeader = (
     <TableRow className="hover:bg-transparent">
-      <TableHead className={COLUMN_HEAD_CLASS}>User</TableHead>
-      <TableHead className={COLUMN_HEAD_CLASS}>Org role</TableHead>
-      <TableHead className={COLUMN_HEAD_CLASS}>Projects</TableHead>
-      <TableHead className={COLUMN_HEAD_CLASS}>Last active</TableHead>
-      <TableHead />
+      <TableHead>User</TableHead>
+      <TableHead>Org role</TableHead>
+      <TableHead>Projects</TableHead>
+      <TableHead>Last active</TableHead>
     </TableRow>
   );
 
@@ -131,14 +171,14 @@ export default function UsersPage() {
 
       {/* States */}
       {loading ? (
-        <div className="rounded-md border border-border">
+        <div>
           {/* Toolbar skeleton */}
-          <div className="p-3 flex items-center gap-3 flex-wrap">
-            <Skeleton className="h-9 w-[280px]" />
-            <Skeleton className="h-9 w-[200px]" />
-            <Skeleton className="h-9 w-[180px]" />
+          <div className="pb-3 flex items-center gap-2 flex-wrap">
+            <Skeleton className="h-8 w-[280px]" />
+            <Skeleton className="h-8 w-[200px]" />
+            <Skeleton className="h-8 w-[180px]" />
           </div>
-          <div className="border-t border-border">
+          <div>
             <Table>
               <TableHeader>{tableHeader}</TableHeader>
               <TableBody>
@@ -156,7 +196,6 @@ export default function UsersPage() {
                     <TableCell className="py-3.5"><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell className="py-3.5"><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell className="py-3.5"><Skeleton className="h-3 w-16" /></TableCell>
-                    <TableCell className="py-3.5" />
                   </TableRow>
                 ))}
               </TableBody>
@@ -169,7 +208,7 @@ export default function UsersPage() {
           title="Couldn't load users"
           description={error}
           action={
-            <Button variant="outline" onClick={refetch}>
+            <Button variant="outline" shape="flat" onClick={refetch}>
               Retry
             </Button>
           }
@@ -186,9 +225,9 @@ export default function UsersPage() {
           }
         />
       ) : (
-        <div className="rounded-md border border-border">
-          {/* Toolbar */}
-          <div className="p-3 flex items-center gap-3 flex-wrap">
+        <div>
+          {/* Toolbar — grouped left, no box around it either. */}
+          <div className="pb-3 flex items-center gap-2 flex-wrap">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -196,7 +235,8 @@ export default function UsersPage() {
                 placeholder="Search by name or email"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 h-9 w-[280px]"
+                className="pl-8 w-[280px]"
+                size="sm"
               />
             </div>
 
@@ -217,7 +257,7 @@ export default function UsersPage() {
 
             {/* Project filter */}
             <Select value={project} onValueChange={setProject}>
-              <SelectTrigger className="h-9 w-[180px]">
+              <SelectTrigger size="sm" className="w-[180px]">
                 <SelectValue placeholder="All projects" />
               </SelectTrigger>
               <SelectContent>
@@ -229,13 +269,12 @@ export default function UsersPage() {
             </Select>
           </div>
 
-          {/* Divider + table */}
-          <div className="border-t border-border">
+          <div>
             {filtered.length === 0 ? (
               <div className="py-10 flex flex-col items-center gap-3">
                 <Users className="h-8 w-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">No users match these filters</p>
-                <Button variant="outline" size="sm" onClick={clearFilters}>
+                <p className="text-body text-muted-foreground">No users match these filters</p>
+                <Button variant="outline" size="sm" shape="flat" onClick={clearFilters}>
                   Clear filters
                 </Button>
               </div>
@@ -249,14 +288,14 @@ export default function UsersPage() {
                         key={row.id}
                         row={row}
                         defaultProjectName={defaultProjectName}
-                        actions={<PendingRowMenu row={row} onChanged={refetch} />}
+                        onOpen={setOpenFor}
                       />
                     ) : (
                       <UserRow
                         key={row.id}
                         row={row}
                         defaultProjectName={defaultProjectName}
-                        actions={<UserRowMenu row={row} onChanged={refetch} />}
+                        onOpen={setOpenFor}
                       />
                     ),
                   )}
@@ -266,6 +305,15 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      {/* The list stays on screen behind it — which is the whole reason one
+          object's detail is a drawer and not a page (§13). */}
+      <MemberDrawer
+        row={openFor}
+        onOpenChange={(open) => !open && setOpenFor(null)}
+        onChanged={refetch}
+        onRevoke={(row) => void requestRevoke(row)}
+      />
 
       <InviteDialog
         open={inviteOpen}

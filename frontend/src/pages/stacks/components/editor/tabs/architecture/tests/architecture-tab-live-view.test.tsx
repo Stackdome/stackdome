@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitForElementToBeRemoved } from "@testing-library/react";
+import { useState } from "react";
 import { ArchitectureTab } from "../architecture-tab";
 import { ConfirmProvider } from "@/components/branded/confirm";
 import { useStackEditSession } from "@/pages/stacks/hooks/use-stack-edit-session";
@@ -65,15 +66,31 @@ const BOTH_LIVE_VIEW = {
   linkedAddonIds: NO_ADDON_IDS,
 };
 
+/**
+ * The version chip moved to the sheet header, so the mode is a PROP now and the
+ * canvas obeys it rather than owning it. The harness plays the header: two
+ * plain buttons standing in for the chip's menu items, driving the same state
+ * the real one drives. What is under test is unchanged — the canvas following
+ * the mode, and the panel being carried across by name.
+ */
 function Harness(props: { liveView?: typeof LIVE_VIEW; draftResources?: { name: string }[] }) {
   const draftResources = props.draftResources ?? DRAFT_RESOURCES;
+  const [viewMode, setViewMode] = useState<"draft" | "live">("draft");
   const session = useStackEditSession();
   if (!session.isActive) {
     session.start({ resources: draftResources, volumes: NO_VOLUMES }, { openTab: "configuration" });
   }
   return (
     <ConfirmProvider>
+      {props.liveView && (
+        <div role="group" aria-label="Canvas view">
+          <button type="button" onClick={() => setViewMode("draft")}>Draft</button>
+          <button type="button" onClick={() => setViewMode("live")}>Live</button>
+        </div>
+      )}
       <ArchitectureTab
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
         session={session}
         baselineResources={draftResources}
         baselineVolumes={NO_VOLUMES}
@@ -124,14 +141,17 @@ describe("ArchitectureTab live view", () => {
     expect(nameInput).toBeDisabled();
   });
 
-  it("closes the drawer on switch when the resource has no counterpart in the target view", () => {
+  it("closes the drawer on switch when the resource has no counterpart in the target view", async () => {
     render(<Harness liveView={LIVE_VIEW} />);
     fireEvent.click(screen.getByRole("button", { name: "Live" }));
     fireEvent.click(screen.getByRole("button", { name: "api-live" }));
     expect(screen.getByTestId("resource-drawer")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Draft" }));
-    expect(screen.queryByTestId("resource-drawer")).not.toBeInTheDocument();
+    // The panel outlives the selection by its exit (`--rail-duration`), so the
+    // column has something to clip on the way out — it is closing, not gone.
+    expect(screen.getByTestId("resource-drawer")).toHaveAttribute("data-state", "closed");
+    await waitForElementToBeRemoved(() => screen.queryByTestId("resource-drawer"));
     expect(screen.getByRole("button", { name: "web-draft" })).toBeInTheDocument();
   });
 

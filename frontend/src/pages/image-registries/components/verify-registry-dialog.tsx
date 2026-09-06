@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader,
+  DialogSection, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FieldShell } from "@/components/branded";
+import { AlertBanner, FieldShell } from "@/components/branded";
 import { useToast } from "@/components/ui/use-toast";
 import { verifyRegistryCredential, type RegistryCredential } from "@/api/registry-credentials";
 import { getErrorMessage } from "@/api/client";
@@ -31,12 +32,14 @@ export function VerifyRegistryDialog({ credential, onOpenChange }: VerifyRegistr
   const [repository, setRepository] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [fieldError, setFieldError] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
 
   const credentialId = credential?.id;
   useEffect(() => {
     if (credentialId == null) return;
     setRepository("");
     setFieldError(undefined);
+    setError(null);
   }, [credentialId]);
 
   const submit = async () => {
@@ -46,13 +49,14 @@ export function VerifyRegistryDialog({ credential, onOpenChange }: VerifyRegistr
       return;
     }
     setFieldError(undefined);
+    setError(null);
     const orgId = getCurrentOrganizationId();
     if (!orgId || !credential?.id) {
-      toast({
-        title: "Couldn't verify registry access",
-        description: !orgId ? "No organization selected." : "Registry is no longer available.",
-        variant: "destructive",
-      });
+      setError(
+        !orgId
+          ? "No organization is selected. Pick one from the account menu and try again."
+          : "This registry is no longer available. Close this and reload the list.",
+      );
       return;
     }
     setVerifying(true);
@@ -61,7 +65,8 @@ export function VerifyRegistryDialog({ credential, onOpenChange }: VerifyRegistr
       toast({ title: "Registry access verified", variant: "success" });
       onOpenChange(false);
     } catch (e) {
-      toast({ title: "Couldn't verify registry access", description: getErrorMessage(e), variant: "destructive" });
+      // Kept in the dialog, beside the repository that was rejected.
+      setError(getErrorMessage(e));
     } finally {
       setVerifying(false);
     }
@@ -69,35 +74,39 @@ export function VerifyRegistryDialog({ credential, onOpenChange }: VerifyRegistr
 
   return (
     <Dialog open={credential != null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px]">
-        <DialogHeader>
-          <DialogTitle>Verify registry access</DialogTitle>
-          <DialogDescription>
-            Confirms the {credential?.host} credentials can access a repository.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <FieldShell
-            label="Repository"
-            htmlFor="verify-repository"
-            required
-            error={fieldError}
-            hint="Repository path on this registry, e.g. acme/app."
-          >
-            <Input
-              id="verify-repository"
-              placeholder="acme/app"
-              value={repository}
-              onChange={(e) => {
-                setRepository(e.target.value);
-                setFieldError(undefined);
-              }}
-              aria-invalid={!!fieldError}
-            />
-          </FieldShell>
-        </div>
+      <DialogContent size="ask">
+        <DialogBody>
+          <DialogHeader>
+            <DialogTitle>Verify registry access</DialogTitle>
+            <DialogDescription>
+              Confirms the {credential?.host} credentials can access a repository.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogSection>
+            <FieldShell
+              label="Repository"
+              htmlFor="verify-repository"
+              required
+              error={fieldError}
+              hint="Repository path on this registry, e.g. acme/app."
+            >
+              <Input
+                id="verify-repository"
+                placeholder="acme/app"
+                value={repository}
+                onChange={(e) => {
+                  setRepository(e.target.value);
+                  setFieldError(undefined);
+                  setError(null);
+                }}
+                aria-invalid={!!fieldError}
+              />
+            </FieldShell>
+            {error && <AlertBanner>{error}</AlertBanner>}
+          </DialogSection>
+        </DialogBody>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={verifying}>
+          <Button shape="flat" variant="ghost" onClick={() => onOpenChange(false)} disabled={verifying}>
             Cancel
           </Button>
           <Button onClick={() => void submit()} disabled={verifying}>

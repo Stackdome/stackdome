@@ -97,54 +97,111 @@ export function EnvRow({
   const isDirty = isModified || isAdded;
   return (
     <div
-      className={`relative rounded-md border py-2 pl-[13px] pr-2.5 transition-colors ${
+      /* **At rest the row is ON the sheet, not in a card.**
+         It carried `border-border bg-background` — a grey panel per variable,
+         on a white sheet, while Ports and Mounts render their members flush.
+         Eleven of them turned the section into a stack of boxes and the border
+         did the work the row's own alignment already does.
+
+         The border STAYS, transparent: a row that gains a 1px edge on the
+         keystroke that makes it dirty shifts every column 1px sideways. Only
+         the ink changes. */
+      /* **Full width, and the paint is what bleeds.** It carried
+         `pl-[13px] pr-2.5`, so every control sat inset from the section's own
+         content edge while Ports and Mounts reach it — a 480px panel cannot
+         spare 24px to frame a row. The negative margin pushes the BOX out past
+         the edge and the padding puts the controls back on it, so the tint and
+         the bar have room to sit outside the grid without moving it.
+
+         **The state edge is an OUTLINE, not a border** (§4). A border is part
+         of the box, so `-mx-1.5 px-1.5` put the controls back 1px inside the
+         section's edge instead of on it — measured, the row spanned 1053→1411
+         against a content edge of 1052→1412. An outline paints outside the box
+         and costs the grid nothing, and it also means a row cannot shift when
+         it goes dirty, which is what the transparent border was there for. */
+      className={`relative -mx-1.5 rounded-md px-1.5 py-1.5 transition-colors ${
         isOrphanAddon
-          ? "border-warn-border bg-warn-bg"
+          ? "bg-warn-bg outline-1 outline-warn-border"
           : isDirty
-            ? "border-brand-border bg-brand-bg"
-            : "border-border bg-background"
+            ? "bg-change-bg outline-1 outline-change-border"
+            : ""
       }`}
       data-testid={`env-row-${resourceIndex}-${index}`}
       onBlur={onBlur}
     >
-      {/* 2px accent bar signalling row state (dirty = brand, orphan = warn). */}
+      {/* 2px accent bar signalling row state. **`--change`, not brand**: this is
+          the same "differs from what is deployed" the dirty rails, the count
+          chip and the tab dots say, and it was the last mark in the editor
+          still saying it in orange. */}
       <span
         aria-hidden
         className={`absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-full ${
-          isOrphanAddon ? "bg-warn" : isDirty ? "bg-brand" : "bg-transparent"
+          isOrphanAddon ? "bg-warn" : isDirty ? "bg-change" : "bg-transparent"
         }`}
       />
       {/* items-start keeps every control top-aligned so a per-cell error (which
           grows that cell downward) never knocks the other columns out of line. */}
-      <div className="flex items-start gap-2">
+      {/* **6, the record gap — and the board's own grid** (`935:50009`):
+          `100 · 6 · fill · 6 · fill · 6 · 32`. Name and Value both FLEX because
+          neither has a bounded length; `From` is a closed set so it is fixed,
+          and the remove button is the icon rung. `basis-0` is what makes the
+          two fills EQUAL — from their own content they would split by how long
+          `production` happens to be against `NODE_ENV`. */}
+      <div className="flex items-start gap-1.5">
+        {/* **From leads the row**, because it decides what the other two cells
+            ARE — a plain value, a secret key, an addon field. It read third,
+            after the two cells it governs. A closed set, so it is fixed at 100
+            (the board's width for it) rather than sharing the flex. */}
+        <div className="w-[100px] flex-none">
+          <Select
+            value={row.from}
+            onValueChange={(v) => onChangeFrom(v as EnvFrom)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="stack">Plain text</SelectItem>
+              <SelectItem value="secret">Secret</SelectItem>
+              <SelectItem value="addon">Addon</SelectItem>
+              <SelectItem value="resource">Resource</SelectItem>
+              {/* Template rows come from imports (composite values); not hand-authorable yet. */}
+              {row.from === "resourceTemplate" && (
+                <SelectItem value="resourceTemplate" disabled>
+                  Template
+                </SelectItem>
+              )}
+              <SelectItem value="self">Self</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Key */}
-        <div className="w-[180px] flex-none">
+        <div className="min-w-0 flex-1 basis-0">
           <Input
             id={`env-name-${resourceIndex}-${index}`}
             value={row.name || ""}
             onChange={(e) => onChangeName(e.target.value)}
-            className={`h-8 w-full font-mono text-xs md:text-xs ${isOrphanAddon ? "opacity-60" : ""} ${
-              rowErrors?.duplicate || rowErrors?.name ? "border-danger" : ""
-            }`}
+            className={isOrphanAddon ? "opacity-60" : undefined}
+            aria-invalid={!!(rowErrors?.duplicate || rowErrors?.name)}
             placeholder="KEY"
             readOnly={isOrphanAddon}
           />
           {(rowErrors?.duplicate || rowErrors?.name) && (
-            <p className="text-xs text-danger mt-1">
+            <p className="text-meta text-danger mt-1">
               {rowErrors.duplicate || rowErrors.name}
             </p>
           )}
         </div>
 
         {/* Value */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-0">
           {row.from === "stack" && (
             <Input
               value={row.value || ""}
               onChange={(e) => onChangeValue(e.target.value)}
-              className={`h-8 w-full font-mono text-xs md:text-xs ${
-                rowErrors?.value ? "border-danger" : ""
-              }`}
+
+              aria-invalid={!!rowErrors?.value}
               placeholder="value"
             />
           )}
@@ -182,8 +239,11 @@ export function EnvRow({
           )}
           {row.from === "resourceTemplate" && (
             <div className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5">
-              <code className="truncate font-mono text-xs">{row.template}</code>
-              <span className="ml-auto flex-none text-[10px] italic text-muted-foreground">
+              {/* Not mono, and not `<code>` either: a reference expression is
+                  neither a URL nor a source listing. §6 leaves mono for one
+                  thing and this is not it. */}
+              <span className="truncate text-meta">{row.template}</span>
+              <span className="ml-auto flex-none text-label italic text-muted-foreground">
                 {row.resourceName} · resolved at deploy
               </span>
             </div>
@@ -196,42 +256,25 @@ export function EnvRow({
             />
           )}
           {rowErrors?.value && (
-            <p className="text-xs text-danger mt-1">{rowErrors.value}</p>
+            <p className="text-meta text-danger mt-1">{rowErrors.value}</p>
           )}
         </div>
 
-        {/* From select (Stack | Secret | Addon) */}
-        <div className="w-[106px] flex-none">
-          <Select
-            value={row.from}
-            onValueChange={(v) => onChangeFrom(v as EnvFrom)}
-          >
-            <SelectTrigger size="sm" className="w-full text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="stack">Plain text</SelectItem>
-              <SelectItem value="secret">Secret</SelectItem>
-              <SelectItem value="addon">Addon</SelectItem>
-              <SelectItem value="resource">Resource</SelectItem>
-              {/* Template rows come from imports (composite values); not hand-authorable yet. */}
-              {row.from === "resourceTemplate" && (
-                <SelectItem value="resourceTemplate" disabled>
-                  Template
-                </SelectItem>
-              )}
-              <SelectItem value="self">Self</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* Reset (modified existing row — restore baseline) or Remove (added/clean rows) */}
-        <div className="flex h-8 w-6 flex-none items-center justify-center">
+        {/* Packed straight after the last member at the icon-button rung, not
+            pushed to the far edge — the hole in the middle is what stopped a
+            row reading as one variable. */}
+        {/* **Every control in this row is 32** — the board's own rung
+            (`Select 100×32`, `Field 145×32`, `remove 32×32`). It ran three
+            heights: `size="sm"` selects at 28, `Input` at 32, and a `size-7`
+            override on the icon button putting it at 28. Three rungs in one
+            32px strip, and the eye reads the row as ragged without being able
+            to say why. `size="icon"` is already 32; the override was the bug. */}
+        <div className="flex flex-none items-start">
           {isModified && onReset ? (
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-brand hover:bg-brand-bg hover:text-brand-press"
               onClick={onReset}
               aria-label="Reset env var to original value"
               title="Reset to original value"
@@ -242,9 +285,9 @@ export function EnvRow({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 hover:bg-danger-bg hover:text-danger"
+              className="hover:bg-danger-bg hover:text-danger"
               onClick={onRemove}
-              aria-label="Remove env var"
+              aria-label={row.name ? `Remove ${row.name}` : "Remove env var"}
             >
               <X className="size-3.5" />
             </Button>
@@ -252,7 +295,7 @@ export function EnvRow({
         </div>
       </div>
       {isOrphanAddon && (
-        <p className="text-xs text-warn mt-1.5">
+        <p className="text-meta text-warn mt-1.5">
           Addon was deleted. This variable won't resolve. Remove to clean up.
         </p>
       )}
@@ -284,7 +327,7 @@ function SecretValueCell({
         onValueChange={(value) => onChange(value, "")}
         disabled={loading || genericSecrets.length === 0}
       >
-        <SelectTrigger size="sm" className="w-full text-xs">
+        <SelectTrigger className="w-full">
           <SelectValue
             placeholder={
               genericSecrets.length === 0
@@ -312,7 +355,7 @@ function SecretValueCell({
           onValueChange={(value) => onChange(secretId, value)}
           disabled={availableKeys.length === 0}
         >
-          <SelectTrigger size="sm" className="w-full text-xs">
+          <SelectTrigger className="w-full">
             <SelectValue
               placeholder={
                 availableKeys.length === 0
@@ -344,8 +387,8 @@ function OutputOptions({ outputs }: { outputs: string[] }) {
           {o.port ? <span className="text-muted-foreground"> · {o.port}</span> : null}
         </span>
         <span className="ml-2 flex items-center gap-2">
-          <span className="text-[10px] italic text-muted-foreground">resolved at deploy</span>
-          <span className="rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground">{o.key}</span>
+          <span className="text-label italic text-muted-foreground">resolved at deploy</span>
+          <span className="rounded bg-muted px-1 text-label text-muted-foreground">{o.key}</span>
         </span>
       </span>
     </SelectItem>
@@ -386,7 +429,7 @@ function ResourceOutputCell({
         onValueChange={(v) => onChange(v, "")}
         disabled={resourceOptions.length === 0}
       >
-        <SelectTrigger size="sm" className="w-full text-xs" data-testid="resource-picker-trigger">
+        <SelectTrigger className="w-full" data-testid="resource-picker-trigger">
           <SelectValue placeholder={resourceOptions.length === 0 ? "No other resources" : "select resource..."} />
         </SelectTrigger>
         <SelectContent>
@@ -397,7 +440,7 @@ function ResourceOutputCell({
       </Select>
       {resourceName && (
         <Select value={output || ""} onValueChange={(v) => onChange(resourceName, v)} disabled={outputs.length === 0}>
-          <SelectTrigger size="sm" className="w-full text-xs" data-testid="resource-output-trigger">
+          <SelectTrigger className="w-full" data-testid="resource-output-trigger">
             <SelectValue placeholder={outputs.length === 0 ? "No outputs" : "select output..."} />
           </SelectTrigger>
           <SelectContent>
@@ -420,7 +463,7 @@ function SelfOutputCell({
 }) {
   return (
     <Select value={selfOutput || ""} onValueChange={onChange} disabled={outputs.length === 0}>
-      <SelectTrigger size="sm" className="w-full text-xs" data-testid="self-output-trigger">
+      <SelectTrigger className="w-full" data-testid="self-output-trigger">
         <SelectValue placeholder={outputs.length === 0 ? "No outputs declared" : "select output..."} />
       </SelectTrigger>
       <SelectContent>
@@ -441,7 +484,7 @@ function AddonOrphanReadOnly({
 }) {
   const dbLabel = superuser ? "(superuser)" : database ?? "—";
   return (
-    <div className="text-xs italic py-1.5 text-warn">
+    <div className="text-meta italic py-1.5 text-warn">
       ⚙ &lt;missing addon&gt; · {dbLabel} · {credField ?? "—"}
     </div>
   );
@@ -467,7 +510,8 @@ function AddonCredFieldPicker({
       >
         <SelectTrigger
           size="sm"
-          className={`w-full text-xs ${error ? "border-danger" : ""}`}
+          className="w-full"
+          aria-invalid={!!error}
           data-testid="field-picker-trigger"
         >
           <SelectValue placeholder={disabled ? "Pick an addon first" : "Select field"} />
@@ -478,7 +522,7 @@ function AddonCredFieldPicker({
               <span className="flex items-center gap-2">
                 <span>{f}</span>
                 {CLUSTER_WIDE_FIELDS.has(f) && (
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     cluster
                   </span>
                 )}
@@ -487,7 +531,7 @@ function AddonCredFieldPicker({
           ))}
         </SelectContent>
       </Select>
-      {error && <p className="text-xs text-danger mt-1">{error}</p>}
+      {error && <p className="text-meta text-danger mt-1">{error}</p>}
     </div>
   );
 }

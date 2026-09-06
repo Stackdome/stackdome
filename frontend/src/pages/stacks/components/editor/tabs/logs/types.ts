@@ -38,6 +38,20 @@ export interface LogViewerProps {
   liveStatusResources?: ReleaseLiveStatus["resources"];
   /** Resource names pre-selected in the source filter on mount (e.g. arriving via a drawer's "View logs"). */
   initialSources?: string[];
+  /**
+   * **The same viewer at two rungs — a page, or a panel inside one.**
+   *
+   * `page` is the Logs tab: its own heading, a source picker, and a height
+   * measured off the window because nothing above it is a fixed size.
+   *
+   * `panel` is the resource drawer's Logs tab, in a 480 column. It drops the
+   * heading (the drawer's own title names the thing) and the source picker (the
+   * source is the resource you have open — a picker there would offer to filter
+   * away the only thing you asked for), and it takes its height from the grid
+   * row it sits in rather than measuring the window, because the drawer's
+   * header and the sheet above it already bound it.
+   */
+  variant?: 'page' | 'panel';
   className?: string;
 }
 

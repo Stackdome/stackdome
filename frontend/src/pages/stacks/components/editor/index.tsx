@@ -1,4 +1,5 @@
 import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
+import { VersionChip, type CanvasViewMode } from "@/pages/stacks/components/editor/version-chip";
 import { getErrorMessage } from "@/api/client";
 import { parseApiError, type ParsedFieldError } from "@/api/errors";
 import { COMPUTE_QUOTA_EXCEEDED_CODE, quotaMessage, type QuotaMessage } from "@/pages/stacks/lib/quota-error";
@@ -38,6 +39,8 @@ import { stackNameConflictError } from "@/pages/stacks/lib/stack-name-conflict";
 import { createStackFetchGate } from "@/pages/stacks/lib/canvas/stack-fetch-gate";
 import { draftToSnapshot } from "@/pages/stacks/lib/draft-sync/draft-snapshot";
 import { emptyDraftSeed, buildDraftFormData, type DraftSeed } from "@/pages/stacks/lib/canvas/draft-seed";
+import { suggestStackName } from "@/pages/stacks/lib/canvas/suggest-stack-name";
+import { STACK_DRAFT_PATH } from "@/pages/stacks/lib/routes";
 import { createRelease, cancelRelease, rollbackRelease } from "@/api/releases";
 import { useReleases } from "@/pages/stacks/components/editor/tabs/deployments/use-releases";
 import { useReleaseDetail, ReleaseDetailProvider } from "@/pages/stacks/components/editor/tabs/deployments/use-release-detail";
@@ -89,11 +92,9 @@ export default function CanvasEditorPage() {
   const [activeTab, setActiveTab] = useState<EditorTabId>(EDITOR_TABS.architecture);
   // Resource pre-selected in the Logs tab filter when arriving via a drawer's
   // "View logs". Cleared on direct tab navigation so the filter doesn't stick.
-  const [logsInitialSource, setLogsInitialSource] = useState<string | undefined>();
   const [draftDeploying, setDraftDeploying] = useState(false);
-  const [nameError, setNameError] = useState<string | undefined>();
 
-  const { setCustomLabel, setPathLoading } = useBreadcrumb();
+  const { setCustomLabel, setPathLoading, registerRename } = useBreadcrumb();
   const { setLineage } = usePreviewLineage();
   const { toast } = useToast();
   const { projects, projectNameById, defaultProjectName } = useResourceProjects();
@@ -105,7 +106,52 @@ export default function CanvasEditorPage() {
   const stackProjectId = fetchedStack?.project_id ?? currentStack?.project_id;
   const canWriteStack = canWrite(stackProjectId ?? "");
 
-  // Navigating straight from one stack to another keeps the previous fetch's
+  /**
+   * **A draft names itself, and the trail is where you rename it.**
+   *
+   * The header used to carry a dashed `name-your-stack` field beside the
+   * crumb — a second naming mechanism, on the one screen that already has the
+   * first. Every saved stack is renamed by clicking its last crumb
+   * (`RenameableTitle`, registered below); the draft had a form control doing
+   * the same job three pixels away, and it opened EMPTY, so the canvas asked
+   * for a name before there was anything on it to name.
+   *
+   * The suggestion is applied once, when the stacks list is known — the list
+   * is what makes it unique, and on the first render it may still be loading.
+   * `seed.name` wins where the create journey already asked (a template, a
+   * repo), because that name is a real answer and this one is a placeholder.
+   */
+  useEffect(() => {
+    if (!isNewStack || draftName) return;
+    setDraftName(suggestStackName(stacks));
+  }, [isNewStack, draftName, stacks]);
+
+  /** The crumb IS the title (§12a), so the draft's name has to be the crumb. */
+  useEffect(() => {
+    if (!isNewStack || !draftName) return;
+    setCustomLabel(STACK_DRAFT_PATH, draftName);
+  }, [isNewStack, draftName, setCustomLabel]);
+
+  /**
+   * **The draft renames through the same trail control as a saved stack** —
+   * it just has no server to tell. Nothing is persisted until Deploy, so the
+   * handler is a `setState` that refuses the two names the API would: an empty
+   * one, and one already in use.
+   */
+  useEffect(() => {
+    if (!isNewStack) return;
+    return registerRename(STACK_DRAFT_PATH, async (name: string) => {
+      const next = name.trim();
+      if (!next) throw new Error("Give the stack a name.");
+      if (stacks.some((st) => st.name === next)) {
+        throw new Error("A stack with this name already exists.");
+      }
+      setDraftName(next);
+      setCustomLabel(STACK_DRAFT_PATH, next);
+    });
+  }, [isNewStack, stacks, registerRename, setCustomLabel]);
+
+  // Kept from main: navigating straight from one stack to another keeps the
   // payload until the new one lands — every consumer of savedStack would read
   // the old stack, and a failed fetch would leave it there for good.
   useEffect(() => { setFetchedStack(null); }, [id]);
@@ -152,6 +198,7 @@ export default function CanvasEditorPage() {
   }, [currentStack, id, defaultProjectName, setCustomLabel, setPathLoading, isNewStack]);
 
   const savedStack = currentStack || fetchedStack;
+
 
   const draftStackView = useMemo(
     () =>
@@ -409,6 +456,24 @@ export default function CanvasEditorPage() {
     return true;
   }, [setStacks]);
 
+  /**
+   * **Renaming a saved stack is not in this branch, and the reason is the
+   * server.**
+   *
+   * `main` refuses a rename on the update path — "stack name cannot be updated"
+   * — because the cluster Stack CR is keyed by name and a rename would orphan
+   * it. Allowing it needs validator rules, a rename path in `stack_service` and
+   * the release worker following the new name, which is a backend change, and
+   * this is a design pass. Shipping the affordance without them would put a
+   * title on screen that refuses every edit.
+   *
+   * **The mechanism stays and is deliberately dormant.** `registerRename`,
+   * `RenameableTitle` and the header wiring are all here; nothing registers a
+   * handler for a stack, so §12a's "absent rather than present-and-refusing"
+   * holds — the crumb is a plain title. When the backend lands, the rename is
+   * this one effect.
+   */
+
   /** Push-style writer for a stack payload the caller just received from its
    *  own mutation response (initial load). Fetch-then-apply flows must use
    *  fetchFreshStack instead — an arrival-time ticket would let a stale GET
@@ -456,6 +521,10 @@ export default function CanvasEditorPage() {
   // Not cleared on edit: the quota verdict holds until the server re-checks it.
   const [quotaNotice, setQuotaNotice] = useState<QuotaMessage | null>(null);
   // Bumped to ask the canvas to open a resource drawer (banner "jump to error").
+  // Which version the canvas shows. It lives HERE because the control that
+  // switches it — the header's version chip — and the canvas that obeys it are
+  // siblings, not parent and child.
+  const [canvasViewMode, setCanvasViewMode] = useState<CanvasViewMode>("draft");
   const [openResourceSignal, setOpenResourceSignal] = useState<
     { index: number; tab: EditSessionTab; nonce: number } | null
   >(null);
@@ -653,7 +722,6 @@ export default function CanvasEditorPage() {
     const parsed = parseApiError(err);
     if (parsed.fieldErrors.length === 0) return false;
     const mapped = mapFieldErrors(parsed.fieldErrors, { dialect: "fat" });
-    if (mapped.stackName) setNameError(mapped.stackName);
     setServerFieldErrors((prev) => {
       const next = { ...prev };
       for (const [idxStr, fields] of Object.entries(mapped.resources)) {
@@ -738,7 +806,6 @@ export default function CanvasEditorPage() {
   const performDraftDeploy = async () => {
     if (!isNewStack) return;
     setDraftDeploying(true);
-    setNameError(undefined);
     // Clear stale validation state from a previous failed attempt.
     setDeployFieldErrors([]);
     setServerFieldErrors({});
@@ -748,7 +815,6 @@ export default function CanvasEditorPage() {
     // min-length-constrained in the schema (empty passes zod and only fails at
     // the API), so guard it here to surface the error inline on the title input.
     if (!draftName.trim()) {
-      setNameError("Required");
       setDraftDeploying(false);
       toast({
         title: "Name your stack",
@@ -772,12 +838,11 @@ export default function CanvasEditorPage() {
 
       const validation = FormStackSchema.safeParse(formStackData);
       if (!validation.success) {
-        const { nameError: newNameError, messages } = formatDraftValidationIssues(
+        const { messages } = formatDraftValidationIssues(
           validation.error.issues,
           resources,
           formStackData.spec.volumes as { name?: string }[] | undefined,
         );
-        setNameError(newNameError);
         toast({
           title: "Validation error",
           description: messages.length > 0 ? messages.join("; ") : "Please fix the highlighted errors before saving.",
@@ -812,7 +877,6 @@ export default function CanvasEditorPage() {
         existingStacks,
       });
       if (conflict) {
-        setNameError(conflict);
         toast({ title: "Name already taken", description: conflict, variant: "destructive" });
         setDraftDeploying(false);
         return;
@@ -896,11 +960,6 @@ export default function CanvasEditorPage() {
     await stackRevert.revert();
   }, [confirm, draftSync, stackRevert]);
 
-  const handleNameChange = useCallback((name: string) => {
-    setDraftName(name);
-    setNameError(undefined);
-  }, []);
-
   // Revert one resource/volume from the View-changes modal by name → session index.
   const discardResourceByName = useCallback(
     (name: string) => {
@@ -929,7 +988,7 @@ export default function CanvasEditorPage() {
   if (error) {
     return (
       <div className="p-8 text-center">
-        <h2 className="text-xl font-semibold mb-2">Error</h2>
+        <h2 className="text-head font-semibold mb-2">Error</h2>
         <p className="text-muted-foreground mb-4">{error}</p>
         <Button asChild>
           <Link to="/stacks">Return to Stacks</Link>
@@ -941,7 +1000,7 @@ export default function CanvasEditorPage() {
   if (!isNewStack && !savedStack) {
     return (
       <div className="p-8 text-center">
-        <h2 className="text-xl font-semibold mb-2">Stack not found</h2>
+        <h2 className="text-head font-semibold mb-2">Stack not found</h2>
         <p className="text-muted-foreground mb-4">The stack you're looking for doesn't exist or has been deleted.</p>
         <Button asChild>
           <Link to="/stacks">Return to Stacks</Link>
@@ -1001,7 +1060,6 @@ export default function CanvasEditorPage() {
       organizationId={effectiveStack.organisation_id || getCurrentOrganizationId() || ''}
       resources={effectiveStack.spec.stack_resources?.map(r => ({ name: r.name || '', id: r.id || '' })) || []}
       liveStatusResources={observabilityLiveResources}
-      initialSources={logsInitialSource ? [logsInitialSource] : undefined}
     />
   ) : (
     <div className="text-center text-muted-foreground py-12">Stack ID not available</div>
@@ -1027,26 +1085,17 @@ export default function CanvasEditorPage() {
   return (
     <ReleaseDetailProvider value={releaseDetail}>
       <CanvasEditorShell
-        stackName={isNewStack ? draftName : (effectiveStack?.name ?? "")}
         stackId={effectiveStack?.id}
         isNewStack={isNewStack}
-        nameEditable={isNewStack}
-        onNameChange={handleNameChange}
-        nameError={nameError}
         headerHealth={headerHealth}
         latestDeployFailed={showDeployFailedHint}
         lifecycle={effectiveStack?.lifecycle}
         subtitle={subtitleText}
         activeTab={activeTab}
-        onTabChange={(tab) => {
-          setLogsInitialSource(undefined);
-          setActiveTab(tab);
-        }}
+        onTabChange={setActiveTab}
         isActive={session.isActive}
-        dirtyResourceCount={session.dirty.dirtyResourceIdx.size}
         dirtyTotal={changeCount}
         isStaged={lifecycle.phase === "staged"}
-        onViewChanges={() => setViewChangesOpen(true)}
         syncStatus={isNewStack ? SYNC_STATUS.idle : draftSync.status}
         deployBusy={deployBusy}
         canWrite={canWriteStack}
@@ -1054,25 +1103,41 @@ export default function CanvasEditorPage() {
         onDraftDeploy={() => void performDraftDeploy()}
         draftDeploying={draftDeploying}
         onDeploy={onDeploy}
-        canDiscardDraft={
-          // Keyed on "changes exist", not phase === "staged": every keystroke
-          // flips the phase to "editing" while autosave is pending, which
-          // unmounted and remounted the pill's ⋯ menu mid-typing. changeCount
-          // derives from the in-memory draft, so it holds steady while typing.
-          changeCount > 0 && !!liveSnapshot && canWriteStack
-        }
-        onDiscardDraft={() => void requestRevert()}
         canDeleteStack={canWriteStack}
         onDelete={() => void performDelete()}
         publicEndpoints={publicEndpoints}
+        versionChip={
+          // **A draft has no second version, so it has no version chip.** The
+          // header read `Stacks / Draft` on the left and `Draft · no changes`
+          // on the right — the same word twice on one row, 900px apart. There
+          // is nothing to switch to, nothing saved server-side to review and
+          // nothing to discard back to; the chip could only ever restate the
+          // breadcrumb.
+          isNewStack ? undefined : (
+            <VersionChip
+              mode={liveView ? canvasViewMode : "draft"}
+              onModeChange={setCanvasViewMode}
+              changeCount={changeCount}
+              canGoLive={!!liveView}
+              onReviewChanges={() => setViewChangesOpen(true)}
+              canDiscard={changeCount > 0 && !!liveSnapshot && canWriteStack}
+            />
+          )
+        }
         notice={
           quotaNotice && (
             <div className="mt-3">
-              <AlertBanner variant="danger" onDismiss={() => setQuotaNotice(null)}>
-                <div className="flex flex-col gap-1">
-                  <span className="font-semibold">{quotaNotice.title}</span>
-                  <span className="max-w-[92ch] text-fg-muted">{quotaNotice.description}</span>
-                </div>
+              {/* Kept from main, ported to this branch's AlertBanner. It hand-rolled
+                  a headline over a detail inside `children`; the component has
+                  taken `title` for exactly that pair since the redesign, so the
+                  markup goes and the two facts stay. `onDismiss` (a corner ✕) is
+                  now the one affordance below the message. */}
+              <AlertBanner
+                tone="danger"
+                title={quotaNotice.title}
+                action={{ label: "Dismiss", onClick: () => setQuotaNotice(null) }}
+              >
+                {quotaNotice.description}
               </AlertBanner>
             </div>
           )
@@ -1100,10 +1165,6 @@ export default function CanvasEditorPage() {
               addonNameById={addonNameById}
               addonStateById={addonStateById}
               errors={mergedResourceErrors}
-              onViewLogs={(resourceName) => {
-                setLogsInitialSource(resourceName);
-                setActiveTab(EDITOR_TABS.logs);
-              }}
               topologyIds={!isNewStack && idsReady ? deployIds : null}
               topologyRefreshKey={topologyRefreshKey}
               onDeleteVolume={idsReady ? volumeDelete.deleteVolume : undefined}
@@ -1112,6 +1173,8 @@ export default function CanvasEditorPage() {
               liveStatusResources={statusLiveStatus?.resources}
               publicEndpoints={publicEndpoints}
               liveView={liveView}
+              viewMode={canvasViewMode}
+              onViewModeChange={setCanvasViewMode}
             />
           </>
         }

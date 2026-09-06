@@ -123,11 +123,15 @@ describe("ArchitectureTab volume delete", () => {
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 
-    // The local draft mutation (dropping the volume from the draft) has
-    // already applied — its node is gone from the canvas — even though
-    // onDeleteVolume's promise hasn't settled yet.
+    // The local draft mutation (dropping the volume from the draft) applies
+    // while onDeleteVolume's promise is still pending — the node is gone from
+    // the canvas before the server has answered.
     await waitFor(() => expect(onDeleteVolume).toHaveBeenCalledWith("data"));
-    expect(screen.queryByRole("button", { name: "data" })).not.toBeInTheDocument();
+    // `waitFor`, not a bare expect: the draft edit and the canvas re-layout are
+    // two state updates, so the node clears a render after the call is made.
+    // How many passes that takes is React's business, not this test's.
+    await waitFor(() => expect(screen.queryByRole("button", { name: "data" })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "web" })).toBeInTheDocument();
 
     await act(async () => {
       resolveDelete(true);

@@ -57,15 +57,19 @@ describe("TimelineRail", () => {
     expect(screen.getByText("Live")).toBeInTheDocument();
   });
 
-  it("renders only the live dot solid; every other dot is a hollow ring", () => {
+  // **Hollow means unsettled, not "not live".** Reserving the only solid dot
+  // for the live release left a rail of identical rings where the one thing
+  // worth finding — a failure — looked like every release above it.
+  it("renders a landed release solid and a failed one hollow", () => {
     const r = rels(3);
+    r[0] = { ...r[0], state: "Failed" } as (typeof r)[number];
     const liveStack = { converged_release: { id: "r2" }, spec: { stack_resources: [] } } as unknown as Stack;
     renderRail(<TimelineRail releases={r} activeRelease={r[0]} {...base} stack={liveStack} />);
     const dots = screen.getAllByTestId("rail-dot");
-    const solid = dots.filter((d) => !d.className.includes("border-2") && !d.className.includes("animate-spin"));
-    const ring = dots.filter((d) => d.className.includes("border-2"));
-    expect(solid).toHaveLength(1); // only the live release (#2) is filled
-    expect(ring.length).toBe(2); // #3 and #1 are hollow rings
+    const hollow = dots.filter((d) => d.className.includes("border-[1.5px]"));
+    const solid = dots.filter((d) => !d.className.includes("border-[1.5px]") && !d.className.includes("animate-spin"));
+    expect(hollow).toHaveLength(1); // the failed release
+    expect(solid).toHaveLength(2);  // both releases that landed
   });
 
   it("renders the newest FAILED release as a post-mortem (stored outcome), not the live body", () => {
@@ -121,8 +125,14 @@ describe("TimelineRail", () => {
         <TimelineRail releases={[r3, r2, r1]} activeRelease={r3} {...base} />
       </ReleaseDetailProvider>,
     );
-    // The new release's node is expanded (chevron rotated) — its live progress isn't hidden in a collapsed row.
-    expect(container.querySelector("#deploy-node-r3")?.querySelector(".rotate-180")).toBeTruthy();
+    // The new release's node is expanded — its live progress is NOT hidden in a
+    // collapsed row, which is the fact this test exists for. It used to assert
+    // the chevron carried `.rotate-180`; the disclosure moved to the head of the
+    // row and now rotates the other way (`-rotate-90` when CLOSED), so the old
+    // assertion was pinned to a decoration that changed underneath it. The body
+    // only renders when the node is open, so its presence is the same claim made
+    // against the thing the reader actually cares about.
+    expect(container.querySelector("#deploy-node-r3")?.querySelector('[data-testid="release-detail"]')).toBeTruthy();
   });
 
   it("keeps multiple release details open at once (not an accordion)", async () => {
@@ -132,6 +142,6 @@ describe("TimelineRail", () => {
     await userEvent.click(screen.getByText("#2"));
     // Both post-mortems stay mounted (plus the auto-expanded active node's live body) —
     // an accordion would have closed #3 on opening #2.
-    expect(await screen.findAllByRole("button", { name: "Outcomes" })).toHaveLength(3);
+    expect(await screen.findAllByRole("heading", { name: "Changes" })).toHaveLength(3);
   });
 });

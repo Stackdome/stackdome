@@ -25,6 +25,30 @@ const gcsSchema = z.object({
   serviceAccountCredentials: secretReferenceSchema,
 });
 
+/**
+ * **The one list of providers the form knows about.**
+ *
+ * It used to be three literal `TabsTrigger`s beside this enum — a second copy,
+ * and a second copy drifts. The secret `Type` select shipped exactly that way
+ * and offered three of the product's six kinds, so `Token`, `SSH key` and
+ * `Username / password` could not be created at all. Values come off
+ * `.options` now and words off `formatProvider`.
+ */
+export const objectStoreProviderSchema = z.enum(["s3", "azure", "gcs"]);
+export type ObjectStoreProvider = z.infer<typeof objectStoreProviderSchema>;
+
+/** Sentence case, because §6 says so and `Access Key ID` did not. */
+export function formatProvider(provider: ObjectStoreProvider): string {
+  switch (provider) {
+    case "s3":
+      return "S3 or S3-compatible";
+    case "azure":
+      return "Azure Blob Storage";
+    case "gcs":
+      return "Google Cloud Storage";
+  }
+}
+
 export const objectStoreFormSchema = z
   .object({
     name: z.string().min(1, { message: "Name is required" }),
@@ -32,7 +56,7 @@ export const objectStoreFormSchema = z
     retentionPolicy: z
       .string()
       .regex(retentionPolicyRegex, { message: "Use a value like 7d, 24h, 4w (no zeros)" }),
-    provider: z.enum(["s3", "azure", "gcs"]),
+    provider: objectStoreProviderSchema,
     s3: s3Schema.optional(),
     azure: azureSchema.optional(),
     gcs: gcsSchema.optional(),

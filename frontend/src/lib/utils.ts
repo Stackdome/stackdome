@@ -1,10 +1,73 @@
 import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { extendTailwindMerge } from "tailwind-merge"
 import type { components } from "@/api/types/openapi"
 import type { ZodIssue } from "zod";
 
+/**
+ * The product type scale is named by job (`text-body`, `text-meta`, …) rather
+ * than by size. tailwind-merge cannot know that: it classifies any unfamiliar
+ * `text-*` utility as a text COLOUR, so `cn("text-body", "text-fg-2")` used to
+ * drop the size entirely and the element fell back to the inherited 16px.
+ *
+ * Teaching it the font-size group fixes that at the root — without this, every
+ * component that merges a size and a colour through `cn` silently loses its
+ * size.
+ */
+/**
+ * **Every rung on §6's scale must be listed here.** A rung that is missing is
+ * not merely unmerged — it is classified as a text COLOUR and dropped by the
+ * next `text-*` class in the same string, silently, with the element falling
+ * back to the inherited size.
+ *
+ * `column` was added 23 Aug 2026 and cost a round trip to find: the utility
+ * emitted correctly (a probe measured 11.5px/16), but the header renders
+ * `cn(..., "text-column text-fg-muted")` and the colour won. **Adding a token
+ * to `index.css` is half the job; this list is the other half.**
+ */
+const TEXT_SCALE = ["label", "column", "meta", "body", "name", "title", "head"] as const
+
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      "font-size": [{ text: [...TEXT_SCALE] }],
+    },
+  },
+})
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+/**
+ * The interaction ladder for a **navigation** face — a sidebar row, a rail item
+ * (§4). Two rungs only: reachable, and here.
+ *
+ * **Branch on the state, never stack the variants.** `hover:` and
+ * `data-[active=true]:hover:` both match a selected row under the pointer and
+ * which one wins is not reliably predictable, which is how a hovered row came to
+ * be indistinguishable from the selected one. One call, one set of classes.
+ *
+ * **A selected row does not answer the pointer.** Selection is a statement about
+ * where you are, not an offer — lifting it under the cursor made the row twitch
+ * on the way past and put a fourth tint on a ladder that only needs to separate
+ * "here" from "reachable".
+ *
+ * **A nav row has no pressed rung either.** A button's press is feedback for an
+ * act that happens in place; a nav row's click *navigates*, so the 12% tint
+ * landed at the same moment the route swapped and the row re-rendered as
+ * selected — two fills fighting over one frame, which read as a flicker on
+ * every click. Ghost BUTTONS keep `--wash-pressed` (see `button.tsx`); rows
+ * that take you somewhere do not.
+ *
+ * Raw `var()` rather than `bg-wash-*`: the theme utility generates the selector
+ * but resolves to transparent for both rungs.
+ *
+ * Lifted out of `sidebar.tsx`, which had the only copy — the previews rail is
+ * the second face on this ladder and a second copy of the string is how the two
+ * would drift.
+ */
+export function washes(isActive: boolean): string {
+  return isActive ? "bg-[var(--wash-selected)]" : "hover:bg-[var(--wash-hover)]";
 }
 
 export function extractApiErrorMessage(

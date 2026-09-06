@@ -17,11 +17,11 @@ export type StatusVariant = "ready" | "pending" | "error" | "info" | "neutral";
  * than hardcoding words per component.
  */
 export const statusVariantLabel: Record<StatusVariant, string> = {
-  ready: "ready",
-  pending: "pending",
-  error: "failed",
-  info: "unknown",
-  neutral: "unknown",
+  ready: "Ready",
+  pending: "Pending",
+  error: "Failed",
+  info: "Unknown",
+  neutral: "Unknown",
 };
 
 /**
@@ -50,6 +50,7 @@ export function previewStatusVariant(phase?: string | null): StatusVariant {
 
 export type StatusDomain =
   | "stack"
+  | "stack_rollup"
   | "resource"
   | "release"
   | "health"
@@ -60,6 +61,7 @@ export type StatusDomain =
   | "storage"
   | "build"
   | "preview"
+  | "git_integration"
   | "generic";
 
 export function statusVariant(domain: StatusDomain, state?: string | null): StatusVariant {
@@ -80,6 +82,41 @@ export function statusVariant(domain: StatusDomain, state?: string | null): Stat
         case "degraded":
         case "error":
           return "error";
+        default:
+          return "info";
+      }
+
+    // The stacks list rolls lifecycle and release health into ONE word per
+    // stack, so the word it shows is not any single backend enum. That rollup
+    // is still a closed vocabulary, and it gets a domain of its own rather than
+    // being smuggled through `health` — which has no word for "never deployed"
+    // and would colour it blue-for-unknown.
+    //
+    // Produced by stackRollupState() in pages/stacks/components/list/status.ts.
+    case "stack_rollup":
+      switch (s) {
+        case "deleting":
+        case "deploying":
+          return "pending";
+        case "healthy":
+          return "ready";
+        // **Degraded is amber, not red** — settled on the Shape + Hierarchy
+        // board, frame 740:20191. It is the one word in this vocabulary that
+        // means *serving, but not fully*: the stack is answering requests and
+        // some replicas are not. Red is for `Unavailable` and `Failed`, which
+        // both mean nothing is being served — and flattening the three into one
+        // hue threw away the distinction that decides whether you page someone.
+        //
+        // The `health` domain below has always mapped it this way. Two maps for
+        // one word disagreed, and the stacks list and the editor header showed
+        // the same stack in two colours.
+        case "degraded":
+          return "pending";
+        case "unavailable":
+        case "failed":
+          return "error";
+        case "notdeployed":
+          return "neutral";
         default:
           return "info";
       }
@@ -173,6 +210,22 @@ export function statusVariant(domain: StatusDomain, state?: string | null): Stat
         case "hibernated":
         case "fenced":
           return "neutral";
+        default:
+          return "info";
+      }
+
+    // The three readings a git provider row can have. Derived in
+    // `lib/git-integrations.ts` rather than sent by the API: the wire carries
+    // `credentials_configured` and an install status, and the row turns the two
+    // into one word.
+    case "git_integration":
+      switch (s) {
+        case "connected":
+          return "ready";
+        case "needs_setup":
+          return "pending";
+        case "action_needed":
+          return "error";
         default:
           return "info";
       }

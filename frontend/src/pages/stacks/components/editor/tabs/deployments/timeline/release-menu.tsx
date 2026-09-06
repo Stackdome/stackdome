@@ -6,24 +6,30 @@ import { ReleaseState } from "../release-states";
 
 export interface ReleaseMenuProps {
   release: StackRelease;
+  /** Omitted when this release cannot be rolled back TO — the live one already
+   *  is what rolling back would produce. */
+  onRollback?: (id: string) => void;
   onCancel: (id: string) => void;
 }
 
-export function ReleaseMenu({ release, onCancel }: ReleaseMenuProps) {
-  // Only a Pending release can be cancelled — once InProgress the backend
-  // rejects it (the rollout is already applied to the cluster). Cancel is the
-  // menu's only item, so there is nothing to open otherwise.
-  if (release.state !== ReleaseState.Pending || !release.id) return null;
-
+export function ReleaseMenu({ release, onRollback, onCancel }: ReleaseMenuProps) {
+  const state = release.state ?? "";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Release actions" className="h-7 w-7" onClick={(e) => e.stopPropagation()}>
+        <Button shape="flat" variant="ghost" size="icon" aria-label="Release actions" onClick={(e) => e.stopPropagation()}>
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[180px]">
-        <DropdownMenuItem variant="destructive" onClick={() => onCancel(release.id!)}>Cancel release</DropdownMenuItem>
+        {state === ReleaseState.Released && release.id && onRollback && (
+          <DropdownMenuItem onClick={() => onRollback(release.id!)}>Rollback to this</DropdownMenuItem>
+        )}
+        {/* Only a Pending release can be cancelled — once InProgress the backend
+            rejects it (the rollout is already applied to the cluster). */}
+        {state === ReleaseState.Pending && release.id && (
+          <DropdownMenuItem variant="destructive" onClick={() => onCancel(release.id!)}>Cancel release</DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

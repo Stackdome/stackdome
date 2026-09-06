@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader,
+  DialogSection, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FieldShell } from "@/components/branded";
+import { AlertBanner, FieldShell } from "@/components/branded";
 import { useToast } from "@/components/ui/use-toast";
 import { verifyGitIntegration, type GitIntegration } from "@/api/git-integrations";
 import { getErrorMessage } from "@/api/client";
@@ -21,12 +22,14 @@ export function VerifyIntegrationDialog({ integration, onOpenChange }: VerifyInt
   const [repoUrl, setRepoUrl] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [fieldError, setFieldError] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
 
   const integrationId = integration?.id;
   useEffect(() => {
     if (integrationId == null) return;
     setRepoUrl("");
     setFieldError(undefined);
+    setError(null);
   }, [integrationId]);
 
   const submit = async () => {
@@ -36,13 +39,14 @@ export function VerifyIntegrationDialog({ integration, onOpenChange }: VerifyInt
       return;
     }
     setFieldError(undefined);
+    setError(null);
     const orgId = getCurrentOrganizationId();
     if (!orgId || !integration?.id) {
-      toast({
-        title: "Couldn't verify repository access",
-        description: !orgId ? "No organization selected." : "Integration is no longer available.",
-        variant: "destructive",
-      });
+      setError(
+        !orgId
+          ? "No organization is selected. Pick one from the account menu and try again."
+          : "This integration is no longer available. Close this and reload the list.",
+      );
       return;
     }
     setVerifying(true);
@@ -51,7 +55,9 @@ export function VerifyIntegrationDialog({ integration, onOpenChange }: VerifyInt
       toast({ title: "Repository access verified", variant: "success" });
       onOpenChange(false);
     } catch (e) {
-      toast({ title: "Couldn't verify repository access", description: getErrorMessage(e), variant: "destructive" });
+      // The failure stays here, next to the URL that caused it. A toast would
+      // fire after the dialog closed, taking the field the user must fix.
+      setError(getErrorMessage(e));
     } finally {
       setVerifying(false);
     }
@@ -59,29 +65,33 @@ export function VerifyIntegrationDialog({ integration, onOpenChange }: VerifyInt
 
   return (
     <Dialog open={integration != null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px]">
-        <DialogHeader>
-          <DialogTitle>Verify repository access</DialogTitle>
-          <DialogDescription>
-            Confirms the {integration?.host} integration can access a repository.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <FieldShell label="Repository URL" htmlFor="verify-repo-url" required error={fieldError}>
-            <Input
-              id="verify-repo-url"
-              placeholder="https://github.com/acme/webapp"
-              value={repoUrl}
-              onChange={(e) => {
-                setRepoUrl(e.target.value);
-                setFieldError(undefined);
-              }}
-              aria-invalid={!!fieldError}
-            />
-          </FieldShell>
-        </div>
+      <DialogContent size="ask">
+        <DialogBody>
+          <DialogHeader>
+            <DialogTitle>Verify repository access</DialogTitle>
+            <DialogDescription>
+              Confirms the {integration?.host} integration can access a repository.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogSection>
+            <FieldShell label="Repository URL" htmlFor="verify-repo-url" required error={fieldError}>
+              <Input
+                id="verify-repo-url"
+                placeholder="https://github.com/acme/webapp"
+                value={repoUrl}
+                onChange={(e) => {
+                  setRepoUrl(e.target.value);
+                  setFieldError(undefined);
+                  setError(null);
+                }}
+                aria-invalid={!!fieldError}
+              />
+            </FieldShell>
+            {error && <AlertBanner>{error}</AlertBanner>}
+          </DialogSection>
+        </DialogBody>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={verifying}>
+          <Button shape="flat" variant="ghost" onClick={() => onOpenChange(false)} disabled={verifying}>
             Cancel
           </Button>
           <Button onClick={() => void submit()} disabled={verifying}>

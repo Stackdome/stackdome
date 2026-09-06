@@ -11,7 +11,7 @@ import { ReleaseState } from "../release-states";
 import { releaseValidationBannerItems } from "../release-errors";
 import { useReleaseEvents } from "../use-release-events";
 import { SplitConsole, type ResourceRowVM, type LogContext } from "./split-console";
-import { ReleaseBodyTabs } from "./release-body-tabs";
+import { ReleaseBodySections } from "./release-body-sections";
 import { DeployFailedBanner } from "./deploy-failed-banner";
 
 export interface ReleasePostMortemProps {
@@ -43,8 +43,8 @@ export function ReleasePostMortem({ detail, release, stack, prevReleaseId, prevS
   const cur = detail.peek(release.id);
   const prev = detail.peek(prevReleaseId);
 
-  if (cur.loading && !cur.data) return <div className="px-0.5 py-3 text-[12.5px] text-fg-muted">Loading release detail…</div>;
-  if (cur.error) return <div className="px-0.5 py-3 text-[12.5px] text-danger">Could not load detail: {cur.error}</div>;
+  if (cur.loading && !cur.data) return <div className="px-0.5 py-3 text-meta text-fg-muted">Loading release detail…</div>;
+  if (cur.error) return <div className="px-0.5 py-3 text-meta text-danger">Could not load detail: {cur.error}</div>;
 
   const data = cur.data;
   const outcomes = data?.outcome?.resources ?? {};
@@ -86,9 +86,9 @@ export function ReleasePostMortem({ detail, release, stack, prevReleaseId, prevS
           onDismiss={() => setValidationDismissed(true)}
         />
       )}
-      <ReleaseBodyTabs diff={diffs} hasPrev={!!prevReleaseId} prevSeq={prevSeq} loading={!!prevReleaseId && !prev.data}>
+      <ReleaseBodySections diff={diffs} hasPrev={!!prevReleaseId} prevSeq={prevSeq} loading={!!prevReleaseId && !prev.data}>
         <SplitConsole rows={rows} events={events} streaming={false} logContext={logContext} />
-      </ReleaseBodyTabs>
+      </ReleaseBodySections>
     </div>
   );
 }

@@ -2,16 +2,43 @@ export { EyebrowLabel } from "./eyebrow-label";
 export { PageHeader } from "./page-header";
 export { Panel } from "./panel";
 export { StatusPill, variantFromState, type StatusVariant } from "./status-pill";
-export { EmptyState } from "./empty-state";
+export { StatusText } from "./status-text";
+export { StatusChip } from "./status-chip";
+export { DeploySparkline } from "./deploy-sparkline";
+export {
+  EmptyState,
+  SearchGlyph,
+  StackArchitectureGlyph,
+  NoConnectionGlyph,
+  NoProviderGlyph,
+  NoSecretsGlyph,
+} from "./empty-state";
 export { FieldError } from "./field-error";
-export { FieldShell } from "./field-shell";
+export { FieldShell, FieldGrid, HelpTip } from "./field-shell";
+export { FormSection } from "./form-section";
+export { RecordRow, RecordColumns, RecordList } from "./record-row";
 export { StackdomeMark, StackdomeWordmark } from "./stackdome-mark";
 export { StageBadge, type FailureStage } from "./stage-badge";
 export { FailureCard, type FailureCardProps } from "./failure-card";
-export { AlertBanner, type AlertBannerProps, type AlertBannerVariant } from "./alert-banner";
+export { AlertBanner, type AlertBannerProps } from "./alert-banner";
+// `AlertBannerVariant` is not re-exported: this branch replaced that union with
+// `AlertBannerTone` (danger | blocking | info). Nothing outside the component
+// imported the old type.
 export { CloudAlphaBanner } from "./cloud-alpha-banner";
+export { DangerZone, DangerZoneRow } from "./danger-zone";
+export { DetailList, DetailRow } from "./detail-rows";
+export { Disclosure } from "./disclosure";
 export { EventRow, type EventRowProps } from "./event-row";
 export { LogSnapshot, type LogSnapshotProps } from "./log-snapshot";
 export { StageTracker, type StageStatus, type Stages } from "./stage-tracker";
-export { LimitedAction } from "./limited-action";
+export { BlockedAction, reasonList } from "./blocked-action";
 export { ConfirmProvider, useConfirm, type ConfirmOptions, type ConfirmFn } from "./confirm";
+export {
+  PickerRow,
+  PickerList,
+  PickerRowTick,
+  PickerRowCount,
+  PickerRowAdd,
+  PickerRowRemove,
+} from "./picker-row";
+export { SearchField } from "./search-field";

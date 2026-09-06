@@ -5,16 +5,13 @@ import GithubCallbackPage from "@/pages/auth/github-callback"
 import StacksPage from "@/pages/stacks/components/list"
 import CanvasEditorPage from "@/pages/stacks/components/editor"
 import ClustersPage from "@/pages/clusters"
-import ClusterDetailPage from "@/pages/clusters/components/detail"
 import SecretsPage from "@/pages/secrets"
 import ApiTokensPage, { API_TOKENS_PATH } from "@/pages/api-tokens"
 import DomainsPage from "@/pages/domains"
 import AddonsPage from "@/pages/addons"
-import PostgresFormPage from "@/pages/addons/components/postgres-create-page"
 import PostgresDetailPage from "@/pages/addons/postgres-detail-page"
 import ObjectStoresPage from "@/pages/object-stores"
 import PreviewsPage from "@/pages/previews"
-import PreviewConfigDetailPage from "@/pages/previews/config-detail"
 import GitIntegrationsPage from "@/pages/git-integrations"
 import ImageRegistriesPage from "@/pages/image-registries"
 import NotFoundPage from "@/pages/not-found"
@@ -47,26 +44,36 @@ const router = createBrowserRouter(
   createRoutesFromElements(
     <>
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
-        <Route path="/" element={<StacksPage />} />
+        {/* "/" rendered StacksPage directly, which left the breadcrumb with no
+            segment to name the page. It is the same screen as /stacks, so send
+            it there — the trail then always has a title to show. */}
+        <Route path="/" element={<Navigate to="/stacks" replace />} />
         <Route path="/dashboard" element={<StacksPage />} />
         <Route path="/stacks" element={<StacksPage />} />
-        <Route path="/stacks/new" element={<CanvasEditorPage />} />
+        {/* `/stacks/new` is the New stack JOURNEY — the chooser. It renders the
+            Stacks list **with the drawer open**: the journey is a drawer now
+            (§13), and a drawer has no page of its own, but the URL stays
+            linkable and the page behind it stays readable, which is the whole
+            reason §13 picks a drawer over a dialog. The canvas on an unsaved
+            draft is `/stacks/draft` — a draft has no id until it is saved and
+            so cannot live at `/stacks/:id`. */}
+        <Route path="/stacks/new" element={<StacksPage />} />
+        <Route path="/stacks/draft" element={<CanvasEditorPage />} />
         <Route path="/stacks/create" element={<Navigate to="/stacks/new" replace />} />
         <Route path="/stacks/:id" element={<CanvasEditorPage />} />
         <Route path="/secrets" element={<SecretsPage />} />
         <Route path="/object-stores" element={<ObjectStoresPage />} />
-        <Route path="/addons" element={<AddonsPage />} />
-        <Route path="/addons/create/postgres" element={<PostgresFormPage />} />
-        <Route path="/addons/postgres/:id/edit" element={<PostgresFormPage />} />
-        <Route path="/addons/postgres/:id" element={<PostgresDetailPage />} />
+        <Route path="/addons" element={<AddonsPage />} />        <Route path="/addons/postgres/:id" element={<PostgresDetailPage />} />
         {/* Org-scoped, admin-only pages — members are redirected to "/" */}
         <Route element={<RequireAdmin />}>
           <Route path="/clusters" element={<ClustersPage />} />
-          <Route path="/clusters/:id" element={<ClusterDetailPage />} />
           <Route path="/domains" element={<DomainsPage />} />
         </Route>
+        {/* One screen, two addresses. `/previews/:configId` resolves to the
+            same page with that repository selected in the rail — the route is
+            absorbed, not deleted, because people have it bookmarked. */}
         <Route path="/previews" element={<PreviewsPage />} />
-        <Route path="/previews/:configId" element={<PreviewConfigDetailPage />} />
+        <Route path="/previews/:configId" element={<PreviewsPage />} />
         <Route path="/git-integrations" element={<GitIntegrationsPage />} />
         <Route path="/image-registries" element={<ImageRegistriesPage />} />
         <Route path={API_TOKENS_PATH} element={<ApiTokensPage />} />

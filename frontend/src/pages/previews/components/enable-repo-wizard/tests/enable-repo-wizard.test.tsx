@@ -67,7 +67,7 @@ describe("EnableRepoWizard", () => {
     renderWizard({ open: true });
     expect(await screen.findByText("stub-pick-repo")).toBeInTheDocument();
     expect(screen.getByTestId("hint")).toHaveTextContent(
-      "PR automation requires a connected provider. Public URLs support manually created previews.",
+      "Pull-request automation needs a connected provider — a public URL supports environments you create by hand.",
     );
   });
 

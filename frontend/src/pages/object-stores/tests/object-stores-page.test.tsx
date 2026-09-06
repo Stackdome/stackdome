@@ -38,8 +38,29 @@ vi.mock("@/hooks/use-current-user", () => ({
   useCurrentUser: () => ({ canWrite: () => true, canWriteAnyProject: true }),
 }));
 
-vi.mock("../components/object-store-form-dialog", () => ({
-  ObjectStoreFormDialog: () => null,
+/**
+ * The form itself is not what these tests are about — they exercise the page's
+ * delete flow: the confirm, the toasts, and the two ways the backend reports
+ * "still in use". But `Delete` now lives in the form's **danger zone**, so a
+ * stub that renders nothing removes the seam the tests act on.
+ *
+ * It renders the one control the page owns the behaviour of, and nothing else.
+ */
+vi.mock("../components/object-store-form-drawer", () => ({
+  ObjectStoreFormDrawer: ({
+    open,
+    editing,
+    onDelete,
+  }: {
+    open: boolean;
+    editing: { id?: string } | null;
+    onDelete?: (store: unknown) => void;
+  }) =>
+    open && editing && onDelete ? (
+      <button type="button" onClick={() => onDelete(editing)}>
+        Delete object store
+      </button>
+    ) : null,
 }));
 
 vi.mock("@/hooks/use-object-stores", () => ({
@@ -89,13 +110,31 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // Radix locks `pointer-events` on `body` while a drawer is open and restores
+  // it on unmount. `cleanup()` tears the tree down without that unmount running
+  // to completion, so the lock survives into the next test and every pointer
+  // event after it lands on nothing.
+  document.body.style.pointerEvents = "";
 });
+
+/**
+ * The row opens the form; the form's danger zone holds the delete. Every field
+ * on a store is a setting, so there is no read-first step in front of it — and
+ * an act with dependents does not sit on a list row (§10).
+ */
+async function openStoreDrawer(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("link", { name: /my-store object store/i }), {
+    pointerEventsCheck: 0,
+  });
+  return screen.findByRole("button", { name: /delete object store/i });
+}
 
 async function confirmDelete() {
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: /delete my-store/i }));
+  const trigger = await openStoreDrawer(user);
+  await user.click(trigger, { pointerEventsCheck: 0 });
   await screen.findByRole("alertdialog");
-  await user.click(screen.getByRole("button", { name: /^delete$/i }));
+  await user.click(screen.getByRole("button", { name: /^delete$/i }), { pointerEventsCheck: 0 });
 }
 
 describe("ObjectStoresPage delete", () => {
@@ -129,9 +168,10 @@ describe("ObjectStoresPage delete", () => {
       </ConfirmProvider>,
     );
 
-    await user.click(screen.getByRole("button", { name: /delete my-store/i }));
+    const trigger = await openStoreDrawer(user);
+    await user.click(trigger, { pointerEventsCheck: 0 });
     await screen.findByRole("alertdialog");
-    await user.click(screen.getByRole("button", { name: /cancel/i }));
+    await user.click(screen.getByRole("button", { name: /cancel/i }), { pointerEventsCheck: 0 });
 
     expect(mockedDelete).not.toHaveBeenCalled();
     expect(refetchMock).not.toHaveBeenCalled();

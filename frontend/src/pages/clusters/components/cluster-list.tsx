@@ -1,36 +1,65 @@
+import {
+  DataListName,
+  DataListRow,
+  DataListSkeleton,
+} from "@/components/branded/data-list";
 import type { Cluster } from "../types";
-import { Boxes, ChevronRight } from "lucide-react";
 
-interface ClusterListProps {
-  clusters: Cluster[];
-  onOpen: (cluster: Cluster) => void;
+/**
+ * **No column headers.** The product supports exactly one cluster today, and a
+ * header row over a single row labels nothing — it is chrome asserting a
+ * comparison the page cannot make. This is a list page by filing, not by
+ * behaviour, so it takes the row language and stops there.
+ *
+ * Everything else is the shared row: 64px, no rule, hover wash, inset focus
+ * ring. The moment multi-cluster ships, this page gets headers and joins the
+ * other six properly.
+ *
+ * **One track, because the row has no actions.** It had a trailing 32 holding a
+ * chevron, which said the row NAVIGATES; it opens the cluster's drawer over the
+ * list instead, and a right-pointing arrow on a row that goes nowhere is a
+ * promise the page does not keep. Removing an action means removing its track —
+ * a 32px column with nothing in it still pushes the name 20px off the edge.
+ */
+const CLUSTER_TRACKS = "grid-cols-[minmax(0,1fr)]";
+
+/** Two rows at the real 64px pitch, so nothing moves when the data lands. */
+export function ClusterListSkeleton() {
+  return (
+    <DataListSkeleton
+      columns={CLUSTER_TRACKS}
+      rows={2}
+      shape={[
+        [
+          { w: 168, h: 4 },
+          { w: 232, h: 3 },
+        ],
+      ]}
+    />
+  );
 }
 
-export function ClusterList({ clusters, onOpen }: ClusterListProps) {
-  if (!clusters.length) {
-    return <div className="text-muted-foreground p-4">No clusters found.</div>;
-  }
-
+export function ClusterList({
+  clusters,
+  onOpen,
+}: {
+  clusters: Cluster[];
+  /** The row's one act: open this cluster's details drawer. */
+  onOpen: (cluster: Cluster) => void;
+}) {
   return (
-    <div className="divide-y divide-border">
+    <div>
       {clusters.map((cluster) => (
-        <button
+        <DataListRow
           key={cluster.id}
-          type="button"
-          onClick={() => onOpen(cluster)}
-          className="flex w-full items-center gap-4 px-4 py-3 text-left hover:bg-muted/50"
+          columns={CLUSTER_TRACKS}
+          label={`${cluster.name} cluster`}
+          onActivate={() => onOpen(cluster)}
         >
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card">
-              <Boxes className="h-5 w-5 shrink-0 text-muted-foreground" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-medium text-foreground">{cluster.name}</p>
-              <p className="truncate font-mono text-[11.5px] text-fg-muted">{cluster.id}</p>
-            </div>
-          </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        </button>
+          {/* The 40px bordered tile that used to sit here was a card inside a
+              list, and its glyph drew no distinction: every row is a cluster. */}
+          <DataListName name={cluster.name ?? ""} secondary={cluster.id} />
+        </DataListRow>
       ))}
     </div>
   );

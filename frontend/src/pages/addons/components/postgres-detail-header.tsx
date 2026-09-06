@@ -37,11 +37,13 @@ function stateVariant(state?: string): StatusVariant {
 
 export function PostgresDetailHeader({
   addon,
-  onDelete,
+  onEdit,
   canWrite = true,
 }: {
   addon: PostgresAddon;
-  onDelete: () => void;
+  /** Opens the addon drawer in edit mode. Editing one object is a drawer (§13),
+   *  so this no longer navigates to a page of its own. */
+  onEdit: () => void;
   // Hide the Edit/Delete affordances for viewers without write access on the
   // addon's project. Defaults to true so callers that don't gate keep current UX.
   canWrite?: boolean;
@@ -72,7 +74,7 @@ export function PostgresDetailHeader({
     <div className="flex flex-col gap-3">
       <Link
         to="/addons"
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1 text-meta text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3 w-3" /> All addons
       </Link>
@@ -91,7 +93,7 @@ export function PostgresDetailHeader({
               <TooltipTrigger asChild>
                 <span className="cursor-help">{statusPill}</span>
               </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-sm text-xs">
+              <TooltipContent side="right" className="max-w-sm text-meta">
                 {statusMessage}
               </TooltipContent>
             </Tooltip>
@@ -104,20 +106,18 @@ export function PostgresDetailHeader({
             ? `Created ${new Date(addon.created_at).toLocaleDateString()}`
             : "Managed PostgreSQL cluster"
         }
+        /* **Delete is not here any more — it is in the danger zone at the
+            foot of the page.** An act whose cost lands on OTHER things gets
+            the block that says so; a red-outlined button on the header band
+            put the page's most destructive act in its most permanent chrome,
+            two pixels from `Edit`, with nothing between the click and the
+            confirm but muscle memory. §10, and §12a's "never in the sheet
+            header". */
         actions={
           canWrite ? (
-            <div className="flex gap-3">
-              <Link to={`/addons/postgres/${addon.id}/edit`}>
-                <Button variant="outline">Edit</Button>
-              </Link>
-              <Button
-                variant="outline"
-                className="text-danger hover:border-danger hover:bg-danger/10 hover:text-danger"
-                onClick={onDelete}
-              >
-                Delete
-              </Button>
-            </div>
+            <Button variant="outline" onClick={onEdit}>
+              Edit
+            </Button>
           ) : undefined
         }
       />

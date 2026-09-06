@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef } from "react";
 import type { components } from "@/api/types/openapi";
-import { statusVariant as toStatusVariant } from "@/components/branded/status-variant";
+import { statusVariant as toStatusVariant, type StatusVariant } from "@/components/branded/status-variant";
 import {
   dirtyTabsForResource,
   isResourceDirty,
@@ -34,12 +34,11 @@ export interface ResourceTabContext {
   addonNameById: Map<string, string>;
   onDiscardField?: (path: string) => void;
   onDiscardEnvRow?: (envIdx: number) => void;
-  /** When provided, the canvas drawer offers inline volume creation. */
-  onCreateVolume?: (input: { name: string; size: string; targetPath: string }) => void;
   /** When provided, mount rows show a navigate button that pushes the volume's drawer. */
   onOpenVolume?: (name: string) => void;
-  /** When true, the Configuration tab renders mounts as read-only rows. */
-  mountsReadOnly?: boolean;
+  /** Open the add-volume dialog with this resource preselected — the act the
+   *  Mounts empty state offers. */
+  onAddVolume?: () => void;
 }
 
 type ConfigurationProps = React.ComponentProps<typeof StackResourceConfigurationTab>;
@@ -49,8 +48,18 @@ type EnvironmentProps = React.ComponentProps<typeof StackResourceEnvironmentTab>
 export interface ResourceTabProps {
   dirtyTabs: ResourceDirtyTabs;
   isDirty: boolean;
-  /** Tailwind class for the status dot (`bg-success` etc.). */
-  statusDotColor: string;
+  /**
+   * The resource's health as a **variant**, not as a class string.
+   *
+   * It used to hand back `bg-success` / `bg-danger` / `bg-warn` /
+   * `bg-muted-foreground` — a second, hand-rolled copy of a mark the canvas
+   * card already owns in `node-card.ts`, and the two had drifted: the card's
+   * dot is 8px with a 3px halo and pulses while pending, this one was a flat
+   * 6px disc. Same fact, same screen, 480px apart, drawn two ways.
+   *
+   * The variant is the fact; `DOT_CLASS` is the drawing. One drawing.
+   */
+  statusVariant: StatusVariant;
   statusState: string | undefined;
   configurationProps: ConfigurationProps;
   deploymentProps: DeploymentProps;
@@ -118,14 +127,6 @@ export function useResourceTabProps(args: {
   }, []);
 
   const statusVariant = toStatusVariant("resource", liveStatus?.state);
-  const statusDotColor =
-    statusVariant === "ready"
-      ? "bg-success"
-      : statusVariant === "error"
-        ? "bg-danger"
-        : statusVariant === "pending"
-          ? "bg-warn"
-          : "bg-muted-foreground";
 
   const configurationDraft = useMemo(
     () => pickConfigurationDraft(resource),
@@ -182,7 +183,7 @@ export function useResourceTabProps(args: {
   return {
     dirtyTabs,
     isDirty,
-    statusDotColor,
+    statusVariant,
     statusState: liveStatus?.state,
     configurationProps: {
       index,
@@ -193,9 +194,8 @@ export function useResourceTabProps(args: {
       allResources: context.allResources,
       onDiscardField: context.onDiscardField,
       onPatchResource,
-      onCreateVolume: context.onCreateVolume,
       onOpenVolume: context.onOpenVolume,
-      mountsReadOnly: context.mountsReadOnly,
+      onAddVolume: context.onAddVolume,
     },
     deploymentProps: {
       index,

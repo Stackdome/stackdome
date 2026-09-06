@@ -55,11 +55,34 @@ describe("layoutGraph", () => {
     expect(layoutGraph({ nodes: [], edges: [] })).toEqual({ nodes: [], edges: [] });
   });
 
-  it("ranks consumers above providers by default (BT)", () => {
-    // Edge source=provider (web) → target=consumer. Under BT the TARGET
-    // ends up at a smaller y (higher on screen) than the source.
+  it("flows LEFT TO RIGHT by default — the consumer sits to the right of what feeds it", () => {
+    // Edge source=provider (web) → target=consumer. It ranked BT until Aug 2026,
+    // which asked the reader to follow a dependency chain UPWARDS against the
+    // direction everything else on the screen is read in.
     const out = layoutGraph(graph);
+    const xOf = (id: string) => out.nodes.find((n) => n.id === id)!.position.x;
+    expect(xOf("addon:a1")).toBeGreaterThan(xOf("resource:web"));
+  });
+
+  it("puts a chain on one line — a straight connector, not a bent one", () => {
+    // A connector attaches at face CENTRES, so it draws straight exactly when
+    // the two centres share a line. dagre does not owe anyone that; the
+    // straightening pass is what pulls each node onto its parents' line.
+    const chain = {
+      nodes: ["a", "b", "c"].map((id) => ({
+        id,
+        type: "resource" as const,
+        position: { x: 0, y: 0 },
+        data: { kind: "service", name: id, kindLabel: "Web", glyph: "web", summary: "", volumes: [] },
+      })),
+      edges: [
+        { id: "e1", source: "a", target: "b", type: "connection" as const, data: { kind: "env", sourceOfTruth: "connection" } },
+        { id: "e2", source: "b", target: "c", type: "connection" as const, data: { kind: "env", sourceOfTruth: "connection" } },
+      ],
+    } as CanvasGraph;
+    const out = layoutGraph(chain);
     const yOf = (id: string) => out.nodes.find((n) => n.id === id)!.position.y;
-    expect(yOf("addon:a1")).toBeLessThan(yOf("resource:web"));
+    expect(yOf("b")).toBeCloseTo(yOf("a"));
+    expect(yOf("c")).toBeCloseTo(yOf("a"));
   });
 });

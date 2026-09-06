@@ -1,37 +1,23 @@
 import { Package } from "lucide-react";
-import dockerUrl from "@/assets/brand/docker.svg";
-import dockerLightUrl from "@/assets/brand/docker-light.svg";
-import githubUrl from "@/assets/brand/github.svg";
-import githubLightUrl from "@/assets/brand/github-light.svg";
-import gitlabUrl from "@/assets/brand/gitlab.svg";
-import type { RegistryProviderId } from "../lib/providers";
+import { BrandIcon } from "@/components/branded/brand-icons";
+import { registryProvider, type RegistryProviderId } from "../lib/providers";
 
-// `light` renders in light mode (chip is light), `dark` renders in dark mode
-// (chip is dark). Docker and GitHub ship separate marks for each theme; GitLab
-// is colorful enough to reuse the same art for both.
-const BRAND: Record<Exclude<RegistryProviderId, "quay" | "other">, { light: string; dark: string }> = {
-  dockerhub: { light: dockerUrl, dark: dockerLightUrl },
-  ghcr: { light: githubUrl, dark: githubLightUrl },
-  gitlab: { light: gitlabUrl, dark: gitlabUrl },
-};
-
-/** Docker Hub, GHCR, and GitLab Registry use vendored brand marks (selfh.st);
- *  Quay has no icon in that set, so it and unknown registries fall back to a
- *  generic container glyph. */
+/**
+ * An image registry's mark, off the **central** brand-icon registry.
+ *
+ * It used to hand-roll a three-entry `BRAND` map and its own light/dark `<img>`
+ * pair, importing the same GitHub and GitLab SVGs the git `ProviderLogo` was
+ * importing beside it — while `brand-icon-registry.ts` opened by calling itself
+ * *"one place to grow the icon set"*. Three maps, one of them claiming to be
+ * alone; one now.
+ *
+ * The id→slug mapping lives on `REGISTRY_PROVIDERS` (`brandSlug`), not here:
+ * GHCR is drawn with GitHub's mark and Docker Hub with Docker's, and that fact
+ * belongs with the rest of what the registry knows. Quay and Other have no mark
+ * and fall back to the container glyph.
+ */
 export function ProviderLogo({ providerId, className }: { providerId: RegistryProviderId; className?: string }) {
-  if (providerId === "dockerhub" || providerId === "ghcr" || providerId === "gitlab") {
-    const brand = BRAND[providerId];
-    return (
-      <>
-        <img src={brand.light} alt="" aria-hidden className={`object-contain dark:hidden ${className ?? ""}`} />
-        <img
-          src={brand.dark}
-          alt=""
-          aria-hidden
-          className={`hidden object-contain dark:block ${className ?? ""}`}
-        />
-      </>
-    );
-  }
-  return <Package className={className} aria-hidden />;
+  const { brandSlug } = registryProvider(providerId);
+  if (!brandSlug) return <Package className={className} aria-hidden />;
+  return <BrandIcon slug={brandSlug} className={className} />;
 }

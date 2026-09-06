@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FieldShell } from "@/components/branded";
+import { FieldShell, AlertBanner } from "@/components/branded";
 import { Textarea } from "@/components/ui/textarea";
 import { syncPreviewEnv, type PreviewStack } from "@/api/preview-envs";
 import { getErrorMessage } from "@/api/client";
@@ -82,9 +82,9 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
 
   return (
     <Dialog open={env != null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px]">
+      <DialogContent size="ask">
         <DialogHeader>
-          <DialogTitle>Sync preview environment</DialogTitle>
+          <DialogTitle>Sync this preview</DialogTitle>
           <DialogDescription>
             Re-resolves {env?.branch} and redeploys PR #{env?.pr_number} at its
             latest commit.
@@ -92,7 +92,7 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
         </DialogHeader>
         <div className="space-y-4">
           <FieldShell
-            label="Pin to a specific commit (optional)"
+            label="Pin to a specific commit"
             htmlFor="sync-commit"
             hint="Leave empty to use the branch's latest commit."
             error={fieldErrors.commit}
@@ -105,15 +105,20 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
                 setCommit(e.target.value);
                 setFieldErrors((prev) => ({ ...prev, commit: undefined }));
               }}
-              className="font-mono text-xs"
+              className="font-mono text-meta"
               aria-invalid={!!fieldErrors.commit}
             />
           </FieldShell>
           {/*
-            "Force sync" uses a Switch rather than a Checkbox: @/components/ui/checkbox
-            does not exist in this codebase and no @radix-ui/react-checkbox dependency is
-            installed. Switch is the codebase's existing sanctioned primitive for a
-            single boolean toggle (see add-cluster-dialog.tsx).
+            "Force sync" uses a Switch rather than a Checkbox: Switch is the product's
+            primitive for a single boolean setting.
+
+            **This row is a hand-rolled `FieldShell inline`** — the `mt-0.5` nudge and
+            all, which is the exact shape `Add cluster` was converted off on
+            16 Aug 2026 (see `add-cluster-drawer.tsx`). It is deliberately left here:
+            this screen is `Repository settings`, one of the three edit-dialogs still
+            awaiting a surface call in `docs/tasks.md`, and it should move once rather
+            than twice.
           */}
           <div className="flex items-start gap-3">
             <Switch id="sync-force" checked={force} onCheckedChange={setForce} className="mt-0.5" />
@@ -133,18 +138,18 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
 
           {advanced && (
             <div className="space-y-4">
-              <FieldShell label="Stackfile content (optional)" htmlFor="sync-stackfile">
+              <FieldShell label="Stackfile content" htmlFor="sync-stackfile">
                 <Textarea
                   id="sync-stackfile"
                   rows={6}
                   placeholder="Paste a stackfile to use instead of the one in the repository"
                   value={stackfileContent}
                   onChange={(e) => setStackfileContent(e.target.value)}
-                  className="font-mono text-xs"
+                  className="font-mono text-meta"
                 />
               </FieldShell>
               <FieldShell
-                label="Image overrides (optional)"
+                label="Image overrides"
                 htmlFor="sync-overrides"
                 error={fieldErrors.overridesText}
               >
@@ -157,16 +162,16 @@ export function SyncEnvDialog({ env, onOpenChange, onSynced }: SyncEnvDialogProp
                     setOverridesText(e.target.value);
                     setFieldErrors((prev) => ({ ...prev, overridesText: undefined }));
                   }}
-                  className="font-mono text-xs"
+                  className="font-mono text-meta"
                 />
               </FieldShell>
             </div>
           )}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <AlertBanner>{error}</AlertBanner>}
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button shape="flat" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
           <Button onClick={() => void submit()} disabled={saving}>

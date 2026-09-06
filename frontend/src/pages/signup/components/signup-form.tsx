@@ -12,6 +12,8 @@ import { setAuthSession } from "@/lib/common";
 import { getErrorMessage } from "@/api/client";
 import { FieldLabel } from "@/pages/auth/components/auth-shell";
 import { GitHubSignInButton } from "@/components/auth/github-sign-in-button";
+import { AlertBanner } from "@/components/branded/alert-banner";
+import { FieldError } from "@/components/branded/field-error";
 import {
   TurnstileWidget,
   type TurnstileWidgetHandle,
@@ -109,11 +111,7 @@ export function SignupForm() {
       <GitHubSignInButton />
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        {serverError && (
-          <div className="rounded-2xl border border-danger-border bg-danger-bg px-4 py-2 text-sm text-danger">
-            {serverError}
-          </div>
-        )}
+        {serverError && <AlertBanner>{serverError}</AlertBanner>}
 
         {signupConfigError && (
           <div className="rounded-2xl border border-danger-border bg-danger-bg px-4 py-2 text-sm text-danger">
@@ -130,9 +128,10 @@ export function SignupForm() {
             placeholder="Your name"
             value={formData.name || ""}
             onChange={handleChange}
+            disabled={isLoading}
             aria-invalid={!!errors.name}
           />
-          {errors.name && <p className="text-xs text-danger">{errors.name}</p>}
+          <FieldError>{errors.name}</FieldError>
         </div>
 
         <div className="space-y-2">
@@ -144,11 +143,10 @@ export function SignupForm() {
             placeholder="Founder Labs"
             value={formData.organisationName || ""}
             onChange={handleChange}
+            disabled={isLoading}
             aria-invalid={!!errors.organisationName}
           />
-          {errors.organisationName && (
-            <p className="text-xs text-danger">{errors.organisationName}</p>
-          )}
+          <FieldError>{errors.organisationName}</FieldError>
         </div>
 
         <div className="space-y-2">
@@ -163,9 +161,10 @@ export function SignupForm() {
             placeholder="you@company.com"
             value={formData.email}
             onChange={handleChange}
+            disabled={isLoading}
             aria-invalid={!!errors.email}
           />
-          {errors.email && <p className="text-xs text-danger">{errors.email}</p>}
+          <FieldError>{errors.email}</FieldError>
         </div>
 
         <div className="space-y-2">
@@ -179,11 +178,10 @@ export function SignupForm() {
             placeholder="••••••••••••"
             value={formData.password}
             onChange={handleChange}
+            disabled={isLoading}
             aria-invalid={!!errors.password}
           />
-          {errors.password && (
-            <p className="text-xs text-danger">{errors.password}</p>
-          )}
+          <FieldError>{errors.password}</FieldError>
         </div>
 
         <div className="space-y-2">
@@ -195,11 +193,10 @@ export function SignupForm() {
             placeholder="••••••••••••"
             value={formData.confirmPassword}
             onChange={handleChange}
+            disabled={isLoading}
             aria-invalid={!!errors.confirmPassword}
           />
-          {errors.confirmPassword && (
-            <p className="text-xs text-danger">{errors.confirmPassword}</p>
-          )}
+          <FieldError>{errors.confirmPassword}</FieldError>
         </div>
 
         {turnstileEnabled && turnstile && (
@@ -215,9 +212,13 @@ export function SignupForm() {
           />
         )}
 
+        {/* Merge: main's Turnstile gate and its four disabled conditions kept
+            whole — dropping them would have taken bot protection off signup.
+            The variant is this branch's: the design pass made the submit on an
+            auth form a filled `default`, and main's `outline` predates it. */}
         <Button
           type="submit"
-          variant="outline"
+          variant="default"
           className="w-full"
           disabled={
             isLoading ||
